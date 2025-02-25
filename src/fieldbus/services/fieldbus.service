@@ -1,0 +1,20 @@
+[Unit]
+Description=Fieldbus Service
+After=launcher.service
+Requires=launcher.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/fieldbus
+User=youruser
+Group=youruser
+Restart=on-failure
+
+# Real-time + CPU affinity:
+LimitRTPRIO=99
+CPUSchedulingPolicy=rr
+CPUSchedulingPriority=90
+CPUAffinity=2 3
+
+[Install]
+WantedBy=multi-user.target

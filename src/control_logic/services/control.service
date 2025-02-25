@@ -1,0 +1,19 @@
+[Unit]
+Description=Control Service
+After=fieldbus.service
+Requires=fieldbus.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/control
+User=youruser
+Group=youruser
+Restart=on-failure
+
+LimitRTPRIO=99
+CPUSchedulingPolicy=rr
+CPUSchedulingPriority=85
+CPUAffinity=4 5
+
+[Install]
+WantedBy=multi-user.target

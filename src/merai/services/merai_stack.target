@@ -1,0 +1,21 @@
+[Unit]
+Description=Merai Stack
+
+# Existing Wants
+Wants=launcher.service
+Wants=fieldbus.service
+Wants=control.service
+Wants=logic.service
+# Add the logger
+Wants=logger.service
+
+# Existing After
+After=launcher.service
+After=fieldbus.service
+After=control.service
+After=logic.service
+# Add the logger
+After=logger.service
+
+[Install]
+WantedBy=multi-user.target

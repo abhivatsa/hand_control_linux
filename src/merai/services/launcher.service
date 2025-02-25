@@ -1,0 +1,14 @@
+[Unit]
+Description=Merai Launcher Service
+# Uncomment these if your launcher needs the network up first:
+# Wants=network-online.target
+# After=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/merai_launcher  # Adjust if your install prefix is different
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=merai_stack.target

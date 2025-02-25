@@ -1,0 +1,19 @@
+[Unit]
+Description=Logic Service
+After=control.service
+Requires=control.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/logic
+User=youruser
+Group=youruser
+Restart=on-failure
+
+LimitRTPRIO=99
+CPUSchedulingPolicy=rr
+CPUSchedulingPriority=80
+# No CPUAffinity line here
+
+[Install]
+WantedBy=multi-user.target
