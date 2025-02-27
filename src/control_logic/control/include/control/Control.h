@@ -16,10 +16,10 @@
 #include "control/DriveStateManager.h"
 #include "control/ControllerManager.h"
 
-// Robot-specific includes (6-axis)
-#include "robotics_lib/six_axis/SixAxisModel.h"
+// Robot-specific includes (hand control)
+#include "robotics_lib/hand_control/HandControlModel.h"
 
-namespace motion_control
+namespace hand_control
 {
     namespace control
     {
@@ -107,23 +107,19 @@ namespace motion_control
             std::atomic_bool stopRequested_{false};
 
             // SHM for ParameterServer
-            motion_control::merai::RAII_SharedMemory paramServerShm_;
-            const motion_control::merai::ParameterServer *paramServerPtr_ = nullptr;
+            hand_control::merai::RAII_SharedMemory paramServerShm_;
+            const hand_control::merai::ParameterServer *paramServerPtr_ = nullptr;
 
             // SHM for RTMemoryLayout
-            motion_control::merai::RAII_SharedMemory rtDataShm_;
-            motion_control::merai::RTMemoryLayout *rtLayout_ = nullptr;
+            hand_control::merai::RAII_SharedMemory rtDataShm_;
+            hand_control::merai::RTMemoryLayout *rtLayout_ = nullptr;
 
             // SHM for Logger
-            motion_control::merai::RAII_SharedMemory loggerShm_;
-            motion_control::merai::multi_ring_logger_memory *loggerMem_ = nullptr;
+            hand_control::merai::RAII_SharedMemory loggerShm_;
+            hand_control::merai::multi_ring_logger_memory *loggerMem_ = nullptr;
 
-            // ------------------------------------------------------------------------------
-            // 6-Axis Robot Model
-            // This object is loaded at initialization via loadFromParameterServer(*paramServerPtr_).
-            // ------------------------------------------------------------------------------
-            motion_control::robotics::six_axis::SixAxisModel robotModel_;
+            hand_control::robotics::hand_control::HandControlModel handControlModel_;
         };
 
     } // namespace control
-} // namespace motion_control
+} // namespace hand_control

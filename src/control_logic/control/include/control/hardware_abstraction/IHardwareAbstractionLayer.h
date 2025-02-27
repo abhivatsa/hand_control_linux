@@ -1,10 +1,10 @@
 #pragma once
 
 #include <cstddef>  // for size_t
-#include "merai/RTMemoryLayout.h"   // motion_control::merai::JointState, JointCommand, IoState, IoCommand
-#include "control/hardware_abstraction/DriveData.h"  // motion_control::control::DriveInput, DriveOutput
+#include "merai/RTMemoryLayout.h"   // hand_control::merai::JointState, JointCommand, IoState, IoCommand
+#include "control/hardware_abstraction/DriveData.h"  // hand_control::control::DriveInput, DriveOutput
 
-namespace motion_control
+namespace hand_control
 {
     namespace control
     {
@@ -39,13 +39,13 @@ namespace motion_control
              * @brief Accessor for the local array of joint states in SI units.
              * @return Pointer to array of JointState structures.
              */
-            virtual motion_control::merai::JointState* getJointStatesPtr() = 0;
+            virtual hand_control::merai::JointState* getJointStatesPtr() = 0;
 
             /**
              * @brief Accessor for the local array of joint commands in SI units.
              * @return Pointer to array of JointCommand structures.
              */
-            virtual motion_control::merai::JointCommand* getJointCommandsPtr() = 0;
+            virtual hand_control::merai::JointCommand* getJointCommandsPtr() = 0;
 
             /**
              * @brief Get the number of joints or actuators this hardware layer manages.
@@ -56,12 +56,12 @@ namespace motion_control
             // --------------------------------------------------
             // Optional: I/O data handling methods
             // --------------------------------------------------
-            virtual motion_control::merai::IoState* getIoStatesPtr()
+            virtual hand_control::merai::IoState* getIoStatesPtr()
             {
                 return nullptr;
             }
 
-            virtual motion_control::merai::IoCommand* getIoCommandsPtr()
+            virtual hand_control::merai::IoCommand* getIoCommandsPtr()
             {
                 return nullptr;
             }
@@ -74,12 +74,12 @@ namespace motion_control
             // --------------------------------------------------
             // Optional: Drive data for CiA 402 logic
             // --------------------------------------------------
-            virtual motion_control::control::DriveInput* getDriveInputsPtr()
+            virtual hand_control::control::DriveInput* getDriveInputsPtr()
             {
                 return nullptr;
             }
 
-            virtual motion_control::control::DriveOutput* getDriveOutputsPtr()
+            virtual hand_control::control::DriveOutput* getDriveOutputsPtr()
             {
                 return nullptr;
             }
@@ -90,4 +90,4 @@ namespace motion_control
             }
         };
     } // namespace control
-} // namespace motion_control
+} // namespace hand_control

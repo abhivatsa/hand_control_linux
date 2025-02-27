@@ -12,7 +12,7 @@
 #include "control/controllers/JointTrajectoryController.h"
 #include "control/controllers/TeleOpController.h"
 
-namespace motion_control
+namespace hand_control
 {
     namespace control
     {
@@ -27,7 +27,7 @@ namespace motion_control
         {
             // 1) Attach & map ParameterServer
             paramServerPtr_ =
-                reinterpret_cast<const motion_control::merai::ParameterServer *>(paramServerShm_.getPtr());
+                reinterpret_cast<const hand_control::merai::ParameterServer *>(paramServerShm_.getPtr());
             if (!paramServerPtr_)
             {
                 throw std::runtime_error("[Control] Failed to map ParameterServer memory.");
@@ -35,7 +35,7 @@ namespace motion_control
 
             // 2) Attach & map RTMemoryLayout
             rtLayout_ =
-                reinterpret_cast<motion_control::merai::RTMemoryLayout *>(rtDataShm_.getPtr());
+                reinterpret_cast<hand_control::merai::RTMemoryLayout *>(rtDataShm_.getPtr());
             if (!rtLayout_)
             {
                 throw std::runtime_error("[Control] Failed to map RTMemoryLayout memory.");
@@ -43,7 +43,7 @@ namespace motion_control
 
             // 3) Attach & map Logger memory
             loggerMem_ =
-                reinterpret_cast<motion_control::merai::multi_ring_logger_memory *>(loggerShm_.getPtr());
+                reinterpret_cast<hand_control::merai::multi_ring_logger_memory *>(loggerShm_.getPtr());
             if (!loggerMem_)
             {
                 throw std::runtime_error("[Control] Failed to map multi_ring_logger_memory.");
@@ -193,28 +193,28 @@ namespace motion_control
                         fdbkBackIdx, std::memory_order_release);
                 }
 
-                // (B) ControllerManager
-                {
-                    int cmdFrontIdx =
-                        rtLayout_->controllerUserCmdBuffer.frontIndex.load(std::memory_order_acquire);
-                    auto &ctrlCmdBuf = rtLayout_->controllerUserCmdBuffer.buffer[cmdFrontIdx];
+                // // (B) ControllerManager
+                // {
+                //     int cmdFrontIdx =
+                //         rtLayout_->controllerUserCmdBuffer.frontIndex.load(std::memory_order_acquire);
+                //     auto &ctrlCmdBuf = rtLayout_->controllerUserCmdBuffer.buffer[cmdFrontIdx];
 
-                    int ctrlFdbkBackIdx =
-                        1 - rtLayout_->controllerFeedbackBuffer.frontIndex.load(std::memory_order_acquire);
-                    auto &ctrlFdbkBuf = rtLayout_->controllerFeedbackBuffer.buffer[ctrlFdbkBackIdx];
+                //     int ctrlFdbkBackIdx =
+                //         1 - rtLayout_->controllerFeedbackBuffer.frontIndex.load(std::memory_order_acquire);
+                //     auto &ctrlFdbkBuf = rtLayout_->controllerFeedbackBuffer.buffer[ctrlFdbkBackIdx];
 
-                    manager_->update(
-                        hal_->getJointStatesPtr(),
-                        hal_->getJointCommandsPtr(),
-                        ctrlCmdBuf.commands.data(),
-                        ctrlFdbkBuf.feedback.data(),
-                        static_cast<int>(hal_->getJointCount()),
-                        0.001 // dt in seconds (1 ms)
-                    );
+                //     manager_->update(
+                //         hal_->getJointStatesPtr(),
+                //         hal_->getJointCommandsPtr(),
+                //         ctrlCmdBuf.commands.data(),
+                //         ctrlFdbkBuf.feedback.data(),
+                //         static_cast<int>(hal_->getJointCount()),
+                //         0.001 // dt in seconds (1 ms)
+                //     );
 
-                    rtLayout_->controllerFeedbackBuffer.frontIndex.store(
-                        ctrlFdbkBackIdx, std::memory_order_release);
-                }
+                //     rtLayout_->controllerFeedbackBuffer.frontIndex.store(
+                //         ctrlFdbkBackIdx, std::memory_order_release);
+                // }
 
                 // 3a) Copy updated commands from shared memory -> HAL
                 copyJointCommandsFromSharedMemory();
@@ -228,7 +228,7 @@ namespace motion_control
             }
 
             // Optionally disable drives upon exit
-            driveStateManager_->disableAllDrives();
+            // driveStateManager_->disableAllDrives();
         }
 
         // --------------------------------------------------------------------------------
@@ -273,6 +273,8 @@ namespace motion_control
                 backStates[i].position = halStates[i].position;
                 backStates[i].velocity = halStates[i].velocity;
                 backStates[i].torque = halStates[i].torque;
+
+                std::cout<<"joint pos: "<<i<<" : "<<halStates[i].position<<std::endl;
             }
 
             // Publish new data
@@ -316,18 +318,18 @@ namespace motion_control
         // --------------------------------------------------------------------------------
         void Control::checkSafetyFlags()
         {
-            auto &sf = rtLayout_->safetyFeedback;
-            if (sf.limitExceeded || sf.overTemp || sf.eStop)
-            {
-                std::cout << "[Control] Safety triggered: "
-                          << "limit=" << sf.limitExceeded
-                          << ", overTemp=" << sf.overTemp
-                          << ", eStop=" << sf.eStop
-                          << "\n";
+            // auto &sf = rtLayout_->safetyFeedback;
+            // if (sf.limitExceeded || sf.overTemp || sf.eStop)
+            // {
+            //     std::cout << "[Control] Safety triggered: "
+            //               << "limit=" << sf.limitExceeded
+            //               << ", overTemp=" << sf.overTemp
+            //               << ", eStop=" << sf.eStop
+            //               << "\n";
 
-                // Possibly disable drives or zero commands
-                // driveStateManager_->forceDisableAllDrives();
-            }
+            //     // Possibly disable drives or zero commands
+            //     // driveStateManager_->forceDisableAllDrives();
+            // }
         }
 
         // --------------------------------------------------------------------------------
@@ -379,4 +381,4 @@ namespace motion_control
         }
 
     } // namespace control
-} // namespace motion_control
+} // namespace hand_control

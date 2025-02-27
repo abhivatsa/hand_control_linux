@@ -7,7 +7,7 @@
 #include <cerrno>      // errno
 #include <cstring>     // strerror
 
-namespace motion_control
+namespace hand_control
 {
     namespace merai
     {
@@ -89,4 +89,4 @@ namespace motion_control
             // }
         }
     } // namespace merai
-} // namespace motion_control
+} // namespace hand_control

@@ -8,7 +8,7 @@
 #include "robotics_lib/six_axis/SixAxisKinematics.h"
 #include "robotics_lib/six_axis/SixAxisDynamics.h"
 
-namespace motion_control
+namespace hand_control
 {
     namespace control
     {
@@ -28,15 +28,15 @@ namespace motion_control
              * @brief Constructor that takes a reference to the six-axis model.
              *        We'll use it to initialize our kinematics object for RCM enforcement.
              */
-            TeleopController(const motion_control::robotics::six_axis::SixAxisModel &model);
+            TeleopController(const hand_control::robotics::six_axis::SixAxisModel &model);
 
             ~TeleopController() override = default;
 
             // Lifecycle methods from BaseController
             bool init(const std::string &controllerName) override;
             void start() override;
-            void update(const merai::JointState *states,
-                        merai::JointCommand *commands,
+            void update(const hand_control::merai::JointState *states,
+                        hand_control::merai::JointCommand *commands,
                         int numJoints,
                         double dt) override;
             void stop() override;
@@ -52,10 +52,10 @@ namespace motion_control
 
         private:
             // Reference to the same six-axis model used by other controllers
-            const motion_control::robotics::six_axis::SixAxisModel &model_;
+            const hand_control::robotics::six_axis::SixAxisModel &robotModel_;
 
             // We create a local kinematics object that references the same model
-            motion_control::robotics::six_axis::SixAxisKinematics kinematics_;
+            hand_control::robotics::six_axis::SixAxisKinematics robotKinematics_;
 
             // Keep track of the end-effector "desired pose" in Cartesian space:
             //   [0] = x, [1] = y, [2] = z, [3] = roll, [4] = pitch, [5] = yaw
@@ -74,4 +74,4 @@ namespace motion_control
         };
 
     } // namespace control
-} // namespace motion_control
+} // namespace hand_control

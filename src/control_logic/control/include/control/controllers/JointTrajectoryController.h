@@ -4,7 +4,7 @@
 #include <cmath>
 #include "merai/RTMemoryLayout.h"
 
-namespace motion_control
+namespace hand_control
 {
     namespace control
     {
@@ -56,4 +56,4 @@ namespace motion_control
         };
 
     } // namespace control
-} // namespace motion_control
+} // namespace hand_control

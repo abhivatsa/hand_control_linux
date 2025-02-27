@@ -5,23 +5,23 @@
 #include <ecrt.h>  // for ec_slave_config_t, ec_domain_t
 
 #include "fieldbus/drives/BaseDrive.h"
-#include "merai/ParameterServer.h"   // defines motion_control::merai::DriveConfig
-#include "merai/RTMemoryLayout.h"    // defines motion_control::merai::RTMemoryLayout, ServoRxPdo, ServoTxPdo
-#include "merai/SharedLogger.h"      // defines motion_control::merai::multi_ring_logger_memory
+#include "merai/ParameterServer.h"   // defines hand_control::merai::DriveConfig
+#include "merai/RTMemoryLayout.h"    // defines hand_control::merai::RTMemoryLayout, ServoRxPdo, ServoTxPdo
+#include "merai/SharedLogger.h"      // defines hand_control::merai::multi_ring_logger_memory
 
-namespace motion_control
+namespace hand_control
 {
     namespace fieldbus
     {
         class ServoDrive : public BaseDrive
         {
         public:
-            ServoDrive(const motion_control::merai::DriveConfig& driveCfg,
+            ServoDrive(const hand_control::merai::DriveConfig& driveCfg,
                        ec_slave_config_t* sc,
                        ec_domain_t* domain,
-                       motion_control::merai::RTMemoryLayout* rtLayout,
+                       hand_control::merai::RTMemoryLayout* rtLayout,
                        int driveIndex,
-                       motion_control::merai::multi_ring_logger_memory* loggerMem);
+                       hand_control::merai::multi_ring_logger_memory* loggerMem);
 
             virtual ~ServoDrive() = default;
 
@@ -30,20 +30,20 @@ namespace motion_control
             bool readInputs(uint8_t* domainPd) override;
             bool writeOutputs(uint8_t* domainPd) override;
             void handleState(const DriveUserSignals& signals) override;
-
+            
         private:
             ec_domain_t* domain_ = nullptr;
 
-            motion_control::merai::DriveConfig driveCfg_;
-            motion_control::merai::RTMemoryLayout* rtLayout_ = nullptr;
+            hand_control::merai::DriveConfig driveCfg_;
+            hand_control::merai::RTMemoryLayout* rtLayout_ = nullptr;
             int driveIndex_ = -1;
 
             // Logging pointer
-            motion_control::merai::multi_ring_logger_memory* loggerMem_ = nullptr;
+            hand_control::merai::multi_ring_logger_memory* loggerMem_ = nullptr;
 
             // Data structures for servo I/O
-            motion_control::merai::ServoTxPdo servoTx_;
-            motion_control::merai::ServoRxPdo servoRx_;
+            hand_control::merai::ServoTxPdo servoTx_;
+            hand_control::merai::ServoRxPdo servoRx_;
 
             struct ServoOffsets
             {
@@ -67,4 +67,4 @@ namespace motion_control
             bool registerPdoEntries();
         };
     } // namespace fieldbus
-} // namespace motion_control
+} // namespace hand_control

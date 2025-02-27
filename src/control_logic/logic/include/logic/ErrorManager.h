@@ -3,7 +3,7 @@
 #include "ErrorCodes.h"
 #include <cstring>  // for std::strncpy if you need it in .cpp
 
-namespace motion_control
+namespace hand_control
 {
     namespace logic
     {
@@ -70,4 +70,4 @@ namespace motion_control
             int findErrorSlot(ErrorCode code) const;
         };
     } // namespace logic
-} // namespace motion_control
+} // namespace hand_control

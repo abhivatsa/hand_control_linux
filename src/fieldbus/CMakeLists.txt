@@ -1,84 +1,124 @@
 cmake_minimum_required(VERSION 3.10)
-project(motion_control_fieldbus VERSION 1.0.0)
+project(hand_control_fieldbus VERSION 1.0.0)
 
-# 1) Find EtherCAT (assuming you have FindEtherCAT.cmake or similar).
-#    If you have a different find script or are linking manually, adapt accordingly.
-find_package(EtherCAT REQUIRED)
+# ----------------------------------------------------------------------------
+# 1) Find EtherCAT / EtherLab
+#    Make sure your find_package call and the actual CMake script match
+# ----------------------------------------------------------------------------
+find_package(EtherLab REQUIRED) 
+# If your script is "FindEtherCAT.cmake", do: find_package(EtherCAT REQUIRED)
+# The target might be something like "EtherLab::ethercat" or "EtherCAT::EtherCAT"
+# depending on how that find script is written.
 
-# Example: If merai_foundation is also a package/library:
-# find_package(merai_foundation REQUIRED)
-
-# 2) Build a static library for the fieldbus code
-add_library(motion_control_fieldbus_lib STATIC
+# ----------------------------------------------------------------------------
+# 2) Create a STATIC library for the fieldbus code
+# ----------------------------------------------------------------------------
+add_library(hand_control_fieldbus_lib STATIC
     src/EthercatMaster.cpp
     src/drives/IoDrive.cpp
     src/drives/ServoDrive.cpp
-    # Add more .cpp as needed
+    # Add more .cpp files as needed
 )
 
-# Ensure at least C++17 features
-target_compile_features(motion_control_fieldbus_lib PUBLIC cxx_std_17)
+target_compile_features(hand_control_fieldbus_lib PUBLIC cxx_std_17)
 
-target_include_directories(motion_control_fieldbus_lib
+# If you absolutely need ../../external_libraries to build, mark it PRIVATE
+target_include_directories(hand_control_fieldbus_lib
     PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR}/../../external_libraries
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-        $<INSTALL_INTERFACE:include>
+        $<INSTALL_INTERFACE:include/hand_control_fieldbus>
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/../../external_libraries
 )
 
-# Link your external libraries (merai_foundation, EtherLab::ethercat, pthread, etc.)
-target_link_libraries(motion_control_fieldbus_lib
+# Link your external library (and others if needed)
+target_link_libraries(hand_control_fieldbus_lib
     PRIVATE
-        merai_foundation
         EtherLab::ethercat
 )
+# If you also need to link something like "merai_foundation", do:
+# target_link_libraries(hand_control_fieldbus_lib
+#     PRIVATE
+#         EtherLab::ethercat
+#         hand_control_merai::merai_foundation
+# )
 
-# 3) Create the 'motion_control_fieldbus' executable (the main entry point)
-add_executable(motion_control_fieldbus src/main.cpp)
-target_link_libraries(motion_control_fieldbus PRIVATE
-    motion_control_fieldbus_lib
+# Export name => hand_control_fieldbus::hand_control_fieldbus_lib
+set_target_properties(hand_control_fieldbus_lib PROPERTIES
+    EXPORT_NAME hand_control_fieldbus_lib
+)
+
+# ----------------------------------------------------------------------------
+# 3) Create the 'hand_control_fieldbus_exe' (optional main.cpp)
+# ----------------------------------------------------------------------------
+add_executable(hand_control_fieldbus_exe src/main.cpp)
+target_link_libraries(hand_control_fieldbus_exe PRIVATE
+    hand_control_fieldbus_lib
     EtherLab::ethercat
 )
 
-# 4) Install the 'motion_control_fieldbus' binary
-install(TARGETS motion_control_fieldbus
-    RUNTIME DESTINATION bin
-)
-
-# 5) Install the static library
-install(TARGETS motion_control_fieldbus_lib
+# ----------------------------------------------------------------------------
+# 4) Install the library & executable
+# ----------------------------------------------------------------------------
+install(TARGETS hand_control_fieldbus_lib hand_control_fieldbus_exe
     EXPORT FieldbusTargets
     ARCHIVE DESTINATION lib
     LIBRARY DESTINATION lib
     RUNTIME DESTINATION bin
 )
 
-# 6) Install the fieldbus.service file to /lib/systemd/system
+# ----------------------------------------------------------------------------
+# 5) Install the systemd service (optional)
+# ----------------------------------------------------------------------------
 install(
     FILES
         ${CMAKE_CURRENT_SOURCE_DIR}/services/fieldbus.service
     DESTINATION lib/systemd/system
 )
 
-# 7) CPack configuration for creating a .deb package
+# ----------------------------------------------------------------------------
+# 6) Install headers to a distinct path to avoid collisions
+# ----------------------------------------------------------------------------
+install(
+    DIRECTORY include/
+    DESTINATION include/hand_control_fieldbus
+)
+
+# ----------------------------------------------------------------------------
+# 7) Export the package config (hand_control_fieldbusConfig.cmake)
+#    So that other projects can do:
+#       find_package(hand_control_fieldbus REQUIRED)
+#       target_link_libraries(... hand_control_fieldbus::hand_control_fieldbus_lib ...)
+# ----------------------------------------------------------------------------
+install(EXPORT FieldbusTargets
+    FILE hand_control_fieldbusConfig.cmake
+    NAMESPACE hand_control_fieldbus::
+    DESTINATION lib/cmake/hand_control_fieldbus
+)
+
+# ----------------------------------------------------------------------------
+# 8) CPack configuration for creating a .deb package
+# ----------------------------------------------------------------------------
 set(CPACK_GENERATOR "DEB")
-set(CPACK_PACKAGE_NAME "fieldbus")
+set(CPACK_PACKAGE_NAME "hand-control-fieldbus")
 set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
 set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Abhishek Vatsa <abhi.vatsa16@gmail.com>")
 set(CPACK_PACKAGE_CONTACT "Abhishek Vatsa <abhi.vatsa16@gmail.com>")
 set(CPACK_DEBIAN_PACKAGE_SECTION "devel")
 set(CPACK_DEBIAN_PACKAGE_PRIORITY "optional")
 set(CPACK_DEBIAN_ARCHITECTURE "${CMAKE_SYSTEM_PROCESSOR}")
-set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Fieldbus library for real-time motion control")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Fieldbus library for real-time hand control")
 set(CPACK_DEBIAN_PACKAGE_DESCRIPTION
     "This package provides the Fieldbus library (EthercatMaster, IoDrive, ServoDrive, etc.)\n"
-    "for real-time motion control applications."
+    "for real-time hand control applications."
 )
-# Example dependency on 'merai' package
-set(CPACK_DEBIAN_PACKAGE_DEPENDS "merai (>= 1.0.0)")
-set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA "${CMAKE_CURRENT_SOURCE_DIR}/scripts/postinst")
 
-# Install prefix for packaging (using /usr instead of /usr/local by default)
+# If your libs depend on other packages:
+# set(CPACK_DEBIAN_PACKAGE_DEPENDS "some_other_package (>= 1.0.0)")
+
 set(CPACK_PACKAGING_INSTALL_PREFIX "/usr")
+
+# If you have a post-install script
+set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA "${CMAKE_CURRENT_SOURCE_DIR}/scripts/postinst")
 
 include(CPack)

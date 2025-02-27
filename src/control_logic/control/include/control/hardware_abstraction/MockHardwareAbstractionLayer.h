@@ -2,24 +2,24 @@
 
 #include <array>
 
-#include "merai/RTMemoryLayout.h"      // motion_control::merai::RTMemoryLayout, JointState, etc.
-#include "merai/ParameterServer.h"     // motion_control::merai::ParameterServer
-#include "merai/SharedLogger.h"        // motion_control::merai::multi_ring_logger_memory
+#include "merai/RTMemoryLayout.h"      // hand_control::merai::RTMemoryLayout, JointState, etc.
+#include "merai/ParameterServer.h"     // hand_control::merai::ParameterServer
+#include "merai/SharedLogger.h"        // hand_control::merai::multi_ring_logger_memory
 
-#include "control/hardware_abstraction/IHardwareAbstractionLayer.h"  // motion_control::control::IHardwareAbstractionLayer
-#include "control/hardware_abstraction/DriveData.h"                  // motion_control::control::DriveInput, DriveOutput
+#include "control/hardware_abstraction/IHardwareAbstractionLayer.h"  // hand_control::control::IHardwareAbstractionLayer
+#include "control/hardware_abstraction/DriveData.h"                  // hand_control::control::DriveInput, DriveOutput
 
-namespace motion_control
+namespace hand_control
 {
     namespace control
     {
-        class MockHardwareAbstractionLayer : public motion_control::control::IHardwareAbstractionLayer
+        class MockHardwareAbstractionLayer : public hand_control::control::IHardwareAbstractionLayer
         {
         public:
             MockHardwareAbstractionLayer(
-                motion_control::merai::RTMemoryLayout* rtLayout,
-                const motion_control::merai::ParameterServer* paramServerPtr,
-                motion_control::merai::multi_ring_logger_memory* loggerMem
+                hand_control::merai::RTMemoryLayout* rtLayout,
+                const hand_control::merai::ParameterServer* paramServerPtr,
+                hand_control::merai::multi_ring_logger_memory* loggerMem
             );
 
             ~MockHardwareAbstractionLayer() override = default;
@@ -29,12 +29,12 @@ namespace motion_control
             bool write() override;
 
             // Joint Data
-            motion_control::merai::JointState*   getJointStatesPtr()   override
+            hand_control::merai::JointState*   getJointStatesPtr()   override
             {
                 return localJointStates_.data();
             }
 
-            motion_control::merai::JointCommand* getJointCommandsPtr() override
+            hand_control::merai::JointCommand* getJointCommandsPtr() override
             {
                 return localJointCommands_.data();
             }
@@ -45,12 +45,12 @@ namespace motion_control
             }
 
             // I/O
-            motion_control::merai::IoState* getIoStatesPtr() override
+            hand_control::merai::IoState* getIoStatesPtr() override
             {
                 return localIoStates_.data();
             }
 
-            motion_control::merai::IoCommand* getIoCommandsPtr() override
+            hand_control::merai::IoCommand* getIoCommandsPtr() override
             {
                 return localIoCommands_.data();
             }
@@ -61,12 +61,12 @@ namespace motion_control
             }
 
             // Drive Data
-            motion_control::control::DriveInput* getDriveInputsPtr() override
+            hand_control::control::DriveInput* getDriveInputsPtr() override
             {
                 return localDriveInputs_.data();
             }
 
-            motion_control::control::DriveOutput* getDriveOutputsPtr() override
+            hand_control::control::DriveOutput* getDriveOutputsPtr() override
             {
                 return localDriveOutputs_.data();
             }
@@ -77,28 +77,28 @@ namespace motion_control
             }
 
         private:
-            motion_control::merai::RTMemoryLayout*            rtLayout_       = nullptr;
-            const motion_control::merai::ParameterServer*     paramServerPtr_ = nullptr;
-            motion_control::merai::multi_ring_logger_memory*  loggerMem_      = nullptr;
+            hand_control::merai::RTMemoryLayout*            rtLayout_       = nullptr;
+            const hand_control::merai::ParameterServer*     paramServerPtr_ = nullptr;
+            hand_control::merai::multi_ring_logger_memory*  loggerMem_      = nullptr;
 
             int driveCount_ = 0;
             int ioCount_    = 0;
 
             // Raw drive data for DSM + simulation
-            std::array<motion_control::control::DriveInput,  motion_control::merai::MAX_SERVO_DRIVES> localDriveInputs_{};
-            std::array<motion_control::control::DriveOutput, motion_control::merai::MAX_SERVO_DRIVES> localDriveOutputs_{};
+            std::array<hand_control::control::DriveInput,  hand_control::merai::MAX_SERVO_DRIVES> localDriveInputs_{};
+            std::array<hand_control::control::DriveOutput, hand_control::merai::MAX_SERVO_DRIVES> localDriveOutputs_{};
 
             // Joint data in SI
-            std::array<motion_control::merai::JointState,   motion_control::merai::MAX_SERVO_DRIVES> localJointStates_{};
-            std::array<motion_control::merai::JointCommand, motion_control::merai::MAX_SERVO_DRIVES> localJointCommands_{};
+            std::array<hand_control::merai::JointState,   hand_control::merai::MAX_SERVO_DRIVES> localJointStates_{};
+            std::array<hand_control::merai::JointCommand, hand_control::merai::MAX_SERVO_DRIVES> localJointCommands_{};
 
             // I/O data
-            std::array<motion_control::merai::IoState,   motion_control::merai::MAX_IO_DRIVES> localIoStates_{};
-            std::array<motion_control::merai::IoCommand, motion_control::merai::MAX_IO_DRIVES> localIoCommands_{};
+            std::array<hand_control::merai::IoState,   hand_control::merai::MAX_IO_DRIVES> localIoStates_{};
+            std::array<hand_control::merai::IoCommand, hand_control::merai::MAX_IO_DRIVES> localIoCommands_{};
 
         private:
             // Optionally, a helper to simulate transitions
             void simulateDriveStateTransitions();
         };
     } // namespace control
-} // namespace motion_control
+} // namespace hand_control

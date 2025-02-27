@@ -1,17 +1,17 @@
 #pragma once
 
 #include "ErrorManager.h"
-// If JointState is defined in motion_control::merai (or somewhere else), include it:
+// If JointState is defined in hand_control::merai (or somewhere else), include it:
 // #include "merai/RTMemoryLayout.h"  // or your actual header
 
-namespace motion_control
+namespace hand_control
 {
     namespace logic
     {
         class SafetyManager
         {
         public:
-            explicit SafetyManager(motion_control::logic::ErrorManager& errMgr);
+            explicit SafetyManager(hand_control::logic::ErrorManager& errMgr);
 
             void setPositionLimits(double minPos, double maxPos);
             void setVelocityLimit(double maxVel);
@@ -22,14 +22,14 @@ namespace motion_control
              * @param jointStates Pointer to array of JointState objects
              * @param jointCount  Number of joints
              *
-             * If JointState is in motion_control::merai, we fully qualify it here:
-             *    void checkAllLimits(const motion_control::merai::JointState* jointStates, int jointCount);
+             * If JointState is in hand_control::merai, we fully qualify it here:
+             *    void checkAllLimits(const hand_control::merai::JointState* jointStates, int jointCount);
              */
-            void checkAllLimits(const /* motion_control::merai:: */ JointState* jointStates,
+            void checkAllLimits(const /* hand_control::merai:: */ JointState* jointStates,
                                 int jointCount);
 
         private:
-            motion_control::logic::ErrorManager& errorManager_;
+            hand_control::logic::ErrorManager& errorManager_;
 
             double minPosition_;
             double maxPosition_;
@@ -37,4 +37,4 @@ namespace motion_control
             double maxTemperature_;
         };
     } // namespace logic
-} // namespace motion_control
+} // namespace hand_control

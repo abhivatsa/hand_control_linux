@@ -2,14 +2,14 @@
 #include <cmath>
 
 #include "control/bridge_controllers/TorqueToPositionBridgingController.h"
-// If JointState / JointCommand are in motion_control::merai, also include:
+// If JointState / JointCommand are in hand_control::merai, also include:
 #include "merai/RTMemoryLayout.h"
 
-namespace motion_control
+namespace hand_control
 {
     namespace control
     {
-        bool TorqueToPositionBridgingController::init(const std::string& controllerName)
+        bool TorqueToPositionBridgingController::init(const std::string &controllerName)
         {
             name_ = controllerName;
             state_ = ControllerState::INIT;
@@ -24,16 +24,16 @@ namespace motion_control
             std::cout << "[TorqueToPositionBridging] start()\n";
         }
 
-        // If JointState / JointCommand are in motion_control::merai, we fully qualify them:
+        // If JointState / JointCommand are in hand_control::merai, we fully qualify them:
         //   void TorqueToPositionBridgingController::update(
-        //       const motion_control::merai::JointState* states,
-        //       motion_control::merai::JointCommand* commands,
+        //       const hand_control::merai::JointState* states,
+        //       hand_control::merai::JointCommand* commands,
         //       double dt)
 
-        void TorqueToPositionBridgingController::update(
-            const motion_control::merai::JointState* states,
-            motion_control::merai::JointCommand*     commands,
-            double                                   dt)
+        void TorqueToPositionBridgingController::update(const hand_control::merai::JointState *states,
+                                                        hand_control::merai::JointCommand *commands,
+                                                        int numJoints,
+                                                        double dt)
         {
             if (state_ != ControllerState::RUNNING)
             {
@@ -49,11 +49,11 @@ namespace motion_control
 
             for (int i = 0; i < jointCount_; ++i)
             {
-                double oldEffort = states[i].effort; // assume current torque
+                double oldEffort = states[i].torque; // assume current torque
                 double newTorque = (1.0 - alpha) * oldEffort;
-                commands[i].effort_command   = newTorque;
-                commands[i].position_command = states[i].position;
-                commands[i].velocity_command = 0.0;
+                commands[i].torque = newTorque;
+                commands[i].position = states[i].position;
+                commands[i].velocity = 0.0;
             }
 
             // Possibly reconfigure drive to position mode once alpha > 0.5, etc.
@@ -76,4 +76,4 @@ namespace motion_control
             std::cout << "[TorqueToPositionBridging] teardown()\n";
         }
     } // namespace control
-} // namespace motion_control
+} // namespace hand_control

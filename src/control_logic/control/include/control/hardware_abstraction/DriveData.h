@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-namespace motion_control
+namespace hand_control
 {
     namespace control
     {
@@ -32,4 +32,4 @@ namespace motion_control
             uint8_t  modeOfOperation   = 0; // optional
         };
     } // namespace control
-} // namespace motion_control
+} // namespace hand_control

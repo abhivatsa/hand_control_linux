@@ -1,11 +1,13 @@
 cmake_minimum_required(VERSION 3.10)
-project(control_module)
+project(hand_control_control VERSION 1.0.0)
 
-#
-# 1) Create a STATIC library from the control sources
-#    We'll call it "control_lib"
-#
-add_library(control_lib STATIC
+# 1) Find the installed core package.
+#    This requires that hand_control_coreConfig.cmake is on CMake’s search path,
+#    typically installed to /usr/lib/cmake/hand_control_core or similar.
+find_package(hand_control_core REQUIRED)
+
+# 2) Build the control library
+add_library(hand_control_control_lib STATIC
     src/Control.cpp
     src/ControllerManager.cpp
     src/DriveStateManager.cpp
@@ -24,82 +26,60 @@ add_library(control_lib STATIC
     src/hardware_abstraction/RealHardwareAbstractionLayer.cpp
 )
 
-#
-# 2) Enforce a specific C++ standard if needed
-#
-target_compile_features(control_lib PUBLIC cxx_std_17)
+# 3) Require C++17
+target_compile_features(hand_control_control_lib PUBLIC cxx_std_17)
 
-#
-# 3) Include directories
-#    - external_libraries for json.hpp or other 3rd-party single-header libs
-#    - 'include' directory inside this module
-#
-target_include_directories(control_lib
+# 4) If you have local headers in this "control" project, expose them:
+target_include_directories(hand_control_control_lib
     PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR}/../../external_libraries
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include>
 )
 
-#
-# 4) Link with other libraries if needed
-#    e.g. merai_foundation, fieldbus_lib, pthread, etc.
-#
-target_link_libraries(control_lib
-    PRIVATE
-        # merai_foundation
-        # fieldbus_lib
-        # pthread
-        # ...
+# 5) Link to the core libraries that were found via find_package.
+#    Since your core library exports "hand_control::math_lib" and
+#    "hand_control::robotics_lib_6axis", we link to whichever is needed.
+target_link_libraries(hand_control_control_lib
+    PUBLIC
+        hand_control::robotics_lib_6axis
+        hand_control::math_lib   # Uncomment if your code directly uses math_lib calls
+        merai_foundation
 )
 
-#
-# 5) Create an executable named "control" (matching your systemd service ExecStart?)
-#
-add_executable(control src/main.cpp)
-target_link_libraries(control PRIVATE control_lib)
+# 6) Create an executable (optional) from main.cpp
+add_executable(hand_control_control src/main.cpp)
+target_link_libraries(hand_control_control PRIVATE hand_control_control_lib)
 
-#
-# 6) Install the control LIBRARY
-#
-install(TARGETS control_lib
+# 7) Install the library
+install(TARGETS hand_control_control_lib
     EXPORT ControlTargets
     ARCHIVE DESTINATION lib
     LIBRARY DESTINATION lib
     RUNTIME DESTINATION bin
 )
 
-#
-# 7) Install the "control" EXECUTABLE
-#
-install(TARGETS control
+# 8) Install the executable
+install(TARGETS hand_control_control
     RUNTIME DESTINATION bin
 )
 
-#
-# 8) Export the library configuration (so external projects can do find_package on it)
-#
+# 9) Export the library config so other projects can find this "control" library
 install(EXPORT ControlTargets
-    FILE ControlConfig.cmake
-    NAMESPACE MyNamespace::
+    FILE hand_control_controlConfig.cmake
+    NAMESPACE hand_control::
     DESTINATION lib/cmake/control
 )
 
-#
-# 9) (Optional) Install the control.service file if you have one
-#    This places control.service into /lib/systemd/system/
-#
+# 10) (Optional) Install your systemd service file
 install(
     FILES ${CMAKE_CURRENT_SOURCE_DIR}/services/control.service
     DESTINATION lib/systemd/system
 )
 
-#
-# 10) Configure CPack for generating a .deb package
-#
+# 11) CPack config for .deb
 set(CPACK_GENERATOR "DEB")
 set(CPACK_PACKAGE_NAME "control")
-set(CPACK_PACKAGE_VERSION "1.0.0")
+set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
 set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Abhishek Vatsa <abhi.vatsa16@gmail.com>")
 set(CPACK_PACKAGE_CONTACT "Abhishek Vatsa <abhi.vatsa16@gmail.com>")
 set(CPACK_DEBIAN_PACKAGE_SECTION "devel")
@@ -111,17 +91,14 @@ set(CPACK_DEBIAN_PACKAGE_DESCRIPTION
     "strategies (e.g. teleop, trajectory, etc.)."
 )
 
-# If you need dependencies (e.g., merai >=1.0.0, etc.):
-# set(CPACK_DEBIAN_PACKAGE_DEPENDS "merai (>= 1.0.0)")
+# If you have dependencies on the 'core' package, you can list them:
+# set(CPACK_DEBIAN_PACKAGE_DEPENDS "core (>= 1.0.0)")
 
-#
-# 11) (Optional) Provide a postinst script to trigger systemd daemon-reload or other tasks
-#
 set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA
-   "${CMAKE_CURRENT_SOURCE_DIR}/scripts/postinst"
+    "${CMAKE_CURRENT_SOURCE_DIR}/scripts/postinst"
 )
 
-#
-# Finally, include CPack to enable packaging
-#
+# (Optionally) use /usr as the default install prefix in .deb packages
+set(CPACK_PACKAGING_INSTALL_PREFIX "/usr")
+
 include(CPack)

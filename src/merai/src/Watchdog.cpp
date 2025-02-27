@@ -4,7 +4,7 @@
 #include <thread>
 #include <chrono>
 
-namespace motion_control
+namespace hand_control
 {
     namespace merai
     {
@@ -71,4 +71,4 @@ namespace motion_control
             }
         }
     } // namespace merai
-} // namespace motion_control
+} // namespace hand_control

@@ -1,13 +1,13 @@
 #include "control/controllers/GravityCompController.h"
 #include <iostream>
 
-namespace motion_control
+namespace hand_control
 {
     namespace control
     {
 
         GravityCompController::GravityCompController(
-            const motion_control::robotics::six_axis::SixAxisModel &model)
+            const hand_control::robotics::six_axis::SixAxisModel &model)
             : model_(model), dynamics_(model) // Construct the SixAxisDynamics with the same model
         {
             // No dynamic allocations here
@@ -30,8 +30,8 @@ namespace motion_control
             }
         }
 
-        void GravityCompController::update(const motion_control::merai::JointState *states,
-                                           motion_control::merai::JointCommand *commands,
+        void GravityCompController::update(const hand_control::merai::JointState *states,
+                                           hand_control::merai::JointCommand *commands,
                                            int numJoints,
                                            double /*dt*/)
         {
@@ -42,9 +42,9 @@ namespace motion_control
 
             // 1) Convert from arrays to math::Vector<6>
             //    (Assuming numJoints == 6; if variable, handle accordingly.)
-            motion_control::math::Vector<6> jointAngles;
-            motion_control::math::Vector<6> jointVel;
-            motion_control::math::Vector<6> jointAcc;
+            hand_control::math::Vector<6> jointAngles;
+            hand_control::math::Vector<6> jointVel;
+            hand_control::math::Vector<6> jointAcc;
             jointAngles.setZero();
             jointVel.setZero();
             jointAcc.setZero(); // For pure gravity comp, we can set acceleration = 0
@@ -56,7 +56,7 @@ namespace motion_control
             }
 
             // 2) Call computeInverseDynamics
-            motion_control::math::Vector<6> outTorques;
+            hand_control::math::Vector<6> outTorques;
             outTorques.setZero();
 
             // For pure gravity comp, we might set velocities to 0 if we only want gravity torque
@@ -98,4 +98,4 @@ namespace motion_control
         }
 
     } // namespace control
-} // namespace motion_control
+} // namespace hand_control

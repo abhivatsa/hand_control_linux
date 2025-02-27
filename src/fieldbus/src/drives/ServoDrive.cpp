@@ -3,16 +3,16 @@
 
 #include "fieldbus/drives/ServoDrive.h"
 
-namespace motion_control
+namespace hand_control
 {
     namespace fieldbus
     {
-        ServoDrive::ServoDrive(const motion_control::merai::DriveConfig& driveCfg,
+        ServoDrive::ServoDrive(const hand_control::merai::DriveConfig& driveCfg,
                                ec_slave_config_t* sc,
                                ec_domain_t* domain,
-                               motion_control::merai::RTMemoryLayout* rtLayout,
+                               hand_control::merai::RTMemoryLayout* rtLayout,
                                int driveIndex,
-                               motion_control::merai::multi_ring_logger_memory* loggerMem)
+                               hand_control::merai::multi_ring_logger_memory* loggerMem)
             : BaseDrive(driveCfg.alias,
                         driveCfg.position,
                         driveCfg.vendor_id,
@@ -27,7 +27,7 @@ namespace motion_control
         {
             if (loggerMem_)
             {
-                motion_control::merai::log_debug(
+                hand_control::merai::log_debug(
                     loggerMem_,
                     "ServoDrive",
                     100,
@@ -40,7 +40,7 @@ namespace motion_control
         {
             if (loggerMem_)
             {
-                motion_control::merai::log_info(
+                hand_control::merai::log_info(
                     loggerMem_,
                     "ServoDrive",
                     110,
@@ -60,7 +60,7 @@ namespace motion_control
 
             if (loggerMem_)
             {
-                motion_control::merai::log_info(
+                hand_control::merai::log_info(
                     loggerMem_,
                     "ServoDrive",
                     111,
@@ -76,7 +76,7 @@ namespace motion_control
                 std::cerr << "[ServoDrive] No sync managers found in DriveConfig.\n";
                 if (loggerMem_)
                 {
-                    motion_control::merai::log_error(
+                    hand_control::merai::log_error(
                         loggerMem_,
                         "ServoDrive",
                         120,
@@ -90,7 +90,7 @@ namespace motion_control
             {
                 const auto& sm = driveCfg_.syncManagers[smIndex];
                 int smId       = sm.id;
-                ec_direction_t direction  = (sm.type == "rxpdo") ? EC_DIR_OUTPUT : EC_DIR_INPUT;
+                ec_direction_t direction  = (std::strcmp(sm.type.c_str(), "rxpdo") == 0) ? EC_DIR_OUTPUT : EC_DIR_INPUT;
                 ec_watchdog_mode_t wdMode = sm.watchdog_enabled ? EC_WD_ENABLE : EC_WD_DISABLE;
 
                 if (ecrt_slave_config_sync_manager(slaveConfig_, smId, direction, wdMode))
@@ -98,7 +98,7 @@ namespace motion_control
                     std::cerr << "ServoDrive: Failed to configure SM " << smId << "\n";
                     if (loggerMem_)
                     {
-                        motion_control::merai::log_error(
+                        hand_control::merai::log_error(
                             loggerMem_,
                             "ServoDrive",
                             121,
@@ -114,7 +114,7 @@ namespace motion_control
                 // Add each PDO assignment
                 for (int assignIdx = 0; assignIdx < sm.assignmentCount; ++assignIdx)
                 {
-                    uint16_t assignmentAddr = hexStringToUint(sm.pdo_assignments[assignIdx]);
+                    uint16_t assignmentAddr = hexStringToUint(sm.pdo_assignments[assignIdx].c_str());
                     if (ecrt_slave_config_pdo_assign_add(slaveConfig_, smId, assignmentAddr))
                     {
                         std::cerr << "ServoDrive: Failed to add PDO assignment 0x"
@@ -122,7 +122,7 @@ namespace motion_control
                                   << " to SM " << smId << std::dec << "\n";
                         if (loggerMem_)
                         {
-                            motion_control::merai::log_error(
+                            hand_control::merai::log_error(
                                 loggerMem_,
                                 "ServoDrive",
                                 122,
@@ -138,12 +138,12 @@ namespace motion_control
                 for (int mgIndex = 0; mgIndex < sm.mappingGroupCount; ++mgIndex)
                 {
                     const auto& mg = sm.mappingGroups[mgIndex];
-                    uint16_t pdoAddress = hexStringToUint(mg.assignmentKey);
+                    uint16_t pdoAddress = hexStringToUint(mg.assignmentKey.c_str());
 
                     for (int eIndex = 0; eIndex < mg.entryCount; ++eIndex)
                     {
                         const auto& pme = mg.entries[eIndex];
-                        uint16_t index  = hexStringToUint(pme.object_index);
+                        uint16_t index  = hexStringToUint(pme.object_index.c_str());
                         uint8_t subIdx  = static_cast<uint8_t>(pme.subindex);
                         uint8_t bitLen  = static_cast<uint8_t>(pme.bit_length);
 
@@ -162,7 +162,7 @@ namespace motion_control
 
                             if (loggerMem_)
                             {
-                                motion_control::merai::log_error(
+                                hand_control::merai::log_error(
                                     loggerMem_,
                                     "ServoDrive",
                                     123,
@@ -180,7 +180,7 @@ namespace motion_control
                 std::cerr << "ServoDrive: Failed to register PDO entries.\n";
                 if (loggerMem_)
                 {
-                    motion_control::merai::log_error(
+                    hand_control::merai::log_error(
                         loggerMem_,
                         "ServoDrive",
                         124,
@@ -192,7 +192,7 @@ namespace motion_control
 
             if (loggerMem_)
             {
-                motion_control::merai::log_info(
+                hand_control::merai::log_info(
                     loggerMem_,
                     "ServoDrive",
                     125,
@@ -201,6 +201,81 @@ namespace motion_control
             }
             return true;
         }
+
+        bool ServoDrive::registerPdoEntries()
+        {
+        constexpr int MAX_ENTRIES = 10;
+        ec_pdo_entry_reg_t domainRegs[MAX_ENTRIES + 1] = {};
+        int idx = 0;
+
+        uint16_t alias = driveCfg_.alias;
+        uint16_t position = driveCfg_.position;
+        uint32_t vendorId = driveCfg_.vendor_id;
+        uint32_t productCode = driveCfg_.product_code;
+
+        // Re-visit the same pdo mappings to register offsets
+        for (int smIndex = 0; smIndex < driveCfg_.syncManagerCount; smIndex++)
+        {
+            const auto &sm = driveCfg_.syncManagers[smIndex];
+            for (int mgIndex = 0; mgIndex < sm.mappingGroupCount; mgIndex++)
+            {
+                const auto &mg = sm.mappingGroups[mgIndex];
+                uint16_t pdoAddress = hexStringToUint(mg.assignmentKey.c_str());
+
+                for (int eIndex = 0; eIndex < mg.entryCount; eIndex++)
+                {
+                    // 1) Ensure we don't exceed our fixed capacity
+                    if (idx >= MAX_ENTRIES)
+                    {
+                        std::cerr << "ServoDrive: Too many PDO entries. Increase MAX_ENTRIES.\n";
+                        return false;
+                    }
+
+                    const auto &pme = mg.entries[eIndex];
+                    uint16_t objIndex = hexStringToUint(pme.object_index.c_str());
+                    uint8_t subIndex = static_cast<uint8_t>(pme.subindex);
+
+                    // getOffsetPointerByIndex(...) decides
+                    // which servoOffsets_ field to store for that objIndex
+                    void *offsetPtr = getOffsetPointerByIndex(objIndex);
+                    if (!offsetPtr)
+                    {
+                        std::cerr << "ServoDrive: Unknown or unsupported object_index=0x"
+                                  << std::hex << objIndex << std::dec << "\n";
+                        return false;
+                    }
+
+                    // 2) Populate one ec_pdo_entry_reg_t
+                    ec_pdo_entry_reg_t &reg = domainRegs[idx++];
+                    reg.alias = alias;
+                    reg.position = position;
+                    reg.vendor_id = vendorId;
+                    reg.product_code = productCode;
+                    reg.index = objIndex;
+                    reg.subindex = subIndex;
+                    reg.offset = static_cast<unsigned int *>(offsetPtr);
+                    reg.bit_position = 0; // 0 if byte-aligned
+                }
+            }
+        }
+
+        // Terminate the registration list
+        domainRegs[idx] = ec_pdo_entry_reg_t{};
+
+        if (ecrt_domain_reg_pdo_entry_list(domain_, domainRegs))
+        {
+            std::cerr << "ServoDrive: PDO entry registration failed.\n";
+            if (loggerMem_)
+            {
+                log_error(loggerMem_, "ServoDrive", 118, "PDO entry registration failed");
+            }
+            return false;
+        }
+
+        return true;
+    }
+
+
 
         bool ServoDrive::readInputs(uint8_t* domainPd)
         {
@@ -281,4 +356,4 @@ namespace motion_control
             }
         }
     } // namespace fieldbus
-} // namespace motion_control
+} // namespace hand_control

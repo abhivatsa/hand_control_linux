@@ -1,7 +1,7 @@
 #include <cstdio>
 #include "logic/SystemOrchestrator.h"
 
-namespace motion_control
+namespace hand_control
 {
     namespace logic
     {
@@ -114,4 +114,4 @@ namespace motion_control
             }
         }
     } // namespace logic
-} // namespace motion_control
+} // namespace hand_control

@@ -2,14 +2,14 @@
 #include <iostream> // debug prints
 #include <cmath>    // if needed for math ops
 
-namespace motion_control
+namespace hand_control
 {
     namespace control
     {
 
-        TeleopController::TeleopController(const motion_control::robotics::six_axis::SixAxisModel &model)
-            : model_(model),
-              kinematics_(model) // Construct kinematics with the same model
+        TeleopController::TeleopController(const hand_control::robotics::six_axis::SixAxisModel &model)
+            : robotModel_(model),
+            robotKinematics_(model) // Construct kinematics with the same model
         {
             // Initialize everything to 0
             for (int i = 0; i < 6; i++)
@@ -37,11 +37,14 @@ namespace motion_control
             std::cout << "[TeleopController] start." << std::endl;
         }
 
-        void TeleopController::update(const merai::JointState *states,
-                                      merai::JointCommand *commands,
+        void TeleopController::update(const hand_control::merai::JointState *states,
+                                      hand_control::merai::JointCommand *commands,
                                       int numJoints,
                                       double dt)
         {
+            // Thumb detection has to be written here, and it should be last jkoint states stored, a fixed value. Not every cyclce we 
+            // should be using the current joint states
+
             if (state_ != ControllerState::RUNNING)
             {
                 // If not RUNNING, just hold position
@@ -54,10 +57,10 @@ namespace motion_control
 
             // 1) Convert from arrays to math::Vector<6>
             //    (Assuming numJoints == 6; if variable, handle accordingly.)
-            motion_control::math::Vector<6> currentRobotJointAngles;
-            motion_control::math::Vector<4> currentInstrumentJointAngles;
-            motion_control::math::Matrix<4, 4> currentRobotPose_;
-            motion_control::math::Matrix<4, 4> currentInstrumentPose_;
+            hand_control::math::Vector<6> currentRobotJointAngles;
+            hand_control::math::Vector<4> currentInstrumentJointAngles;
+            hand_control::math::Matrix<4, 4> currentRobotPose_;
+            hand_control::math::Matrix<4, 4> currentInstrumentPose_;
 
             currentRobotJointAngles.setZero();
             currentInstrumentJointAngles.setZero();
@@ -77,26 +80,25 @@ namespace motion_control
                 }
             }
 
-            kinematics_.forwardKinematics(currentRobotJointAngles, currentRobotPose_);
+            robotKinematics_.forwardKinematics(currentRobotJointAngles, currentRobotPose_);
 
             // Extract translation and rotation from current pose , and add hand Control incremental position change to it.
 
             // compute inverse kinematics of instrument tip and calculate desired pose for robottcp
-            motion_control::math::Vector<6> desiredRobotJointAngles;
-            motion_control::math::Vector<4> desiredInstrumentJointAngles;
-            motion_control::math::Matrix<4, 4> desiredRobotPose_;
-            motion_control::math::Matrix<4, 4> desiredInstrumentPose_;
-            
+            hand_control::math::Vector<6> desiredRobotJointAngles;
+            hand_control::math::Vector<4> desiredInstrumentJointAngles;
+            hand_control::math::Matrix<4, 4> desiredRobotPose_;
+            hand_control::math::Matrix<4, 4> desiredInstrumentPose_;
+
             desiredRobotJointAngles = currentRobotJointAngles;
             desiredInstrumentJointAngles = currentInstrumentJointAngles;
             desiredRobotPose_ = currentRobotPose_;
             desiredInstrumentPose_ = currentInstrumentPose_;
 
             // write rcm logic
-            
 
             // write logic here to update the desired robotpose to update inverse kinematics of robot
-            kinematics_.computeInverseKinematics(currentRobotJointAngles, desiredRobotPose_, desiredRobotJointAngles);
+            robotKinematics_.computeInverseKinematics(currentRobotJointAngles, desiredRobotPose_, desiredRobotJointAngles);
 
             for (int i = 0; i < numJoints; ++i)
             {
@@ -109,7 +111,6 @@ namespace motion_control
                     commands[i].position = currentInstrumentJointAngles[i - 6]; // e.g. in radians
                 }
             }
-
         }
 
         void TeleopController::stop()
@@ -146,4 +147,4 @@ namespace motion_control
         }
 
     } // namespace control
-} // namespace motion_control
+} // namespace hand_control

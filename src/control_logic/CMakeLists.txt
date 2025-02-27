@@ -1,18 +1,12 @@
 cmake_minimum_required(VERSION 3.10)
+project(ControlLogic)
 
-project(RealTimeProject VERSION 1.0 LANGUAGES CXX)
-
-# 1) Global project settings
+# Set the C++ standard (modify to whichever version you prefer)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-option(BUILD_TESTS "Build the test executables" ON)
+# Add the control module
+add_subdirectory(control)
 
-# 2) Subdirectories for your various modules
-#    Each module has its own CPack config and .service install
-add_subdirectory(src/common)
-add_subdirectory(src/launcher)
-add_subdirectory(src/fieldbus)
-# add_subdirectory(src/logic)
-# add_subdirectory(src/control)
+# Add the logic module
+# add_subdirectory(logic)

@@ -7,14 +7,13 @@
 #include <string>
 #include <ecrt.h>
 
-#include "fieldbus/drives/BaseDrive.h"        // BaseDrive is in motion_control::fieldbus
-#include "merai/Enums.h"                      // If needed for motion_control::merai constants
-#include "merai/RTMemoryLayout.h"             // motion_control::merai::RTMemoryLayout, MAX_DRIVES
-#include "merai/ParameterServer.h"            // motion_control::merai::ParameterServer
-#include "merai/RAII_SharedMemory.h"          // motion_control::merai::RAII_SharedMemory
-#include "merai/SharedLogger.h"               // motion_control::merai::multi_ring_logger_memory
+#include "fieldbus/drives/BaseDrive.h"        // BaseDrive is in hand_control::fieldbus
+#include "merai/RTMemoryLayout.h"             // hand_control::merai::RTMemoryLayout, MAX_DRIVES
+#include "merai/ParameterServer.h"            // hand_control::merai::ParameterServer
+#include "merai/RAII_SharedMemory.h"          // hand_control::merai::RAII_SharedMemory
+#include "merai/SharedLogger.h"               // hand_control::merai::multi_ring_logger_memory
 
-namespace motion_control
+namespace hand_control
 {
     namespace fieldbus
     {
@@ -84,20 +83,20 @@ namespace motion_control
 
             long loopPeriodNs = 1000000L;  // default 1 ms
 
-            // Array of drives (up to motion_control::merai::MAX_DRIVES)
-            std::array<std::unique_ptr<BaseDrive>, motion_control::merai::MAX_DRIVES> drives_;
+            // Array of drives (up to hand_control::merai::MAX_DRIVES)
+            std::array<std::unique_ptr<BaseDrive>, hand_control::merai::MAX_DRIVES> drives_;
 
             // SharedMemory for ParameterServer
-            motion_control::merai::RAII_SharedMemory      configShm_;
-            const motion_control::merai::ParameterServer* configPtr_ = nullptr;
+            hand_control::merai::RAII_SharedMemory      configShm_;
+            const hand_control::merai::ParameterServer* configPtr_ = nullptr;
 
             // SharedMemory for RTMemoryLayout
-            motion_control::merai::RAII_SharedMemory rtDataShm_;
-            motion_control::merai::RTMemoryLayout*   rtLayout_ = nullptr;
+            hand_control::merai::RAII_SharedMemory rtDataShm_;
+            hand_control::merai::RTMemoryLayout*   rtLayout_ = nullptr;
 
             // SharedMemory for logging
-            motion_control::merai::RAII_SharedMemory          loggerShm_;
-            motion_control::merai::multi_ring_logger_memory*  loggerMem_ = nullptr;
+            hand_control::merai::RAII_SharedMemory          loggerShm_;
+            hand_control::merai::multi_ring_logger_memory*  loggerMem_ = nullptr;
         };
     } // namespace fieldbus
-} // namespace motion_control
+} // namespace hand_control

@@ -1,0 +1,253 @@
+{
+    "robot": {
+      "name": "UR5",
+      "manipulator_type": "6axis",
+  
+      "links": [
+        {
+          "name": "base_link",
+          "mass": 10.0,
+          "com": [0.0, 0.0, 0.0],
+          "inertia": [0.1, 0.1, 0.1, 0.0, 0.0, 0.0]
+        },
+        {
+          "name": "shoulder_link",
+          "mass": 3.7,
+          "com": [0.0, 0.0, 0.0],
+          "inertia": [0.1, 0.1, 0.1, 0.0, 0.0, 0.0]
+        },
+        {
+          "name": "upper_arm_link",
+          "mass": 8.4,
+          "com": [0.0, 0.0, 0.0],
+          "inertia": [0.2, 0.2, 0.2, 0.0, 0.0, 0.0]
+        },
+        {
+          "name": "forearm_link",
+          "mass": 2.33,
+          "com": [0.0, 0.0, 0.0],
+          "inertia": [0.05, 0.05, 0.05, 0.0, 0.0, 0.0]
+        },
+        {
+          "name": "wrist_1_link",
+          "mass": 1.96,
+          "com": [0.0, 0.0, 0.0],
+          "inertia": [0.03, 0.03, 0.03, 0.0, 0.0, 0.0]
+        },
+        {
+          "name": "wrist_2_link",
+          "mass": 1.23,
+          "com": [0.0, 0.0, 0.0],
+          "inertia": [0.02, 0.02, 0.02, 0.0, 0.0, 0.0]
+        },
+        {
+          "name": "wrist_3_link",
+          "mass": 0.35,
+          "com": [0.0, 0.0, 0.0],
+          "inertia": [0.01, 0.01, 0.01, 0.0, 0.0, 0.0]
+        }
+      ],
+  
+      "joints": [
+        {
+          "name": "shoulder_pan_joint",
+          "type": "revolute",
+          "parent": "base_link",
+          "child": "shoulder_link",
+  
+          "origin_pos": [0.0, 0.0, 0.0],
+          "origin_orient": [0.0, 0.0, 0.0],
+  
+          "axis": [0.0, 0.0, 1.0],
+  
+          "limits": {
+            "position": { "min": -180.0, "max": 180.0 },
+            "velocity": { "min": -180.0, "max": 180.0 },
+            "acceleration": { "min": -360.0, "max": 360.0 }
+          },
+  
+          "gear_ratio": 100.0,
+          "encoder_counts": 4096,
+          "axis_direction": 1,
+          "torque_axis_direction": 1,
+          "rated_torque": 50.0, 
+          "enable_drive": true,
+  
+          "limits_active": {
+            "position": true,
+            "velocity": true,
+            "acceleration": true,
+            "torque": true
+          },
+  
+          "position_offset": 0.0
+        },
+        {
+          "name": "shoulder_lift_joint",
+          "type": "revolute",
+          "parent": "shoulder_link",
+          "child": "upper_arm_link",
+  
+          "origin_pos": [0.0, 0.0, 0.4],
+          "origin_orient": [0.0, 0.0, 0.0],
+  
+          "axis": [0.0, 1.0, 0.0],
+  
+          "limits": {
+            "position": { "min": -110.0, "max": 110.0 },
+            "velocity": { "min": -150.0, "max": 150.0 },
+            "acceleration": { "min": -300.0, "max": 300.0 }
+          },
+  
+          "gear_ratio": 120.0,
+          "encoder_counts": 4096,
+          "axis_direction": 1,
+          "torque_axis_direction": 1,
+          "rated_torque": 50.0,
+          "enable_drive": true,
+  
+          "limits_active": {
+            "position": true,
+            "velocity": true,
+            "acceleration": true,
+            "torque": true
+          },
+  
+          "position_offset": 0.0
+        },
+        {
+          "name": "elbow_joint",
+          "type": "revolute",
+          "parent": "upper_arm_link",
+          "child": "forearm_link",
+  
+          "origin_pos": [0.0, 0.0, 0.4],
+          "origin_orient": [0.0, 0.0, 0.0],
+  
+          "axis": [0.0, 1.0, 0.0],
+  
+          "limits": {
+            "position": { "min": -140.0, "max": 140.0 },
+            "velocity": { "min": -150.0, "max": 150.0 },
+            "acceleration": { "min": -300.0, "max": 300.0 }
+          },
+  
+          "gear_ratio": 100.0,
+          "encoder_counts": 4096,
+          "axis_direction": 1,
+          "torque_axis_direction": 1,
+          "rated_torque": 50.0,
+          "enable_drive": true,
+  
+          "limits_active": {
+            "position": true,
+            "velocity": true,
+            "acceleration": true,
+            "torque": true
+          },
+  
+          "position_offset": 0.0
+        },
+        {
+          "name": "wrist_1_joint",
+          "type": "revolute",
+          "parent": "forearm_link",
+          "child": "wrist_1_link",
+  
+          "origin_pos": [0.0, 0.0, 0.4],
+          "origin_orient": [0.0, 0.0, 0.0],
+  
+          "axis": [1.0, 0.0, 0.0],
+  
+          "limits": {
+            "position": { "min": -180.0, "max": 180.0 },
+            "velocity": { "min": -180.0, "max": 180.0 },
+            "acceleration": { "min": -360.0, "max": 360.0 }
+          },
+  
+          "gear_ratio": 80.0,
+          "encoder_counts": 4096,
+          "axis_direction": 1,
+          "torque_axis_direction": 1,
+          "rated_torque": 30.0,
+          "enable_drive": true,
+  
+          "limits_active": {
+            "position": true,
+            "velocity": true,
+            "acceleration": true,
+            "torque": true
+          },
+  
+          "position_offset": 0.0
+        },
+        {
+          "name": "wrist_2_joint",
+          "type": "revolute",
+          "parent": "wrist_1_link",
+          "child": "wrist_2_link",
+  
+          "origin_pos": [0.0, 0.0, 0.1],
+          "origin_orient": [0.0, 0.0, 0.0],
+  
+          "axis": [0.0, 1.0, 0.0],
+  
+          "limits": {
+            "position": { "min": -180.0, "max": 180.0 },
+            "velocity": { "min": -180.0, "max": 180.0 },
+            "acceleration": { "min": -360.0, "max": 360.0 }
+          },
+  
+          "gear_ratio": 80.0,
+          "encoder_counts": 4096,
+          "axis_direction": 1,
+          "torque_axis_direction": 1,
+          "rated_torque": 20.0,
+          "enable_drive": true,
+  
+          "limits_active": {
+            "position": true,
+            "velocity": true,
+            "acceleration": true,
+            "torque": true
+          },
+  
+          "position_offset": 0.0
+        },
+        {
+          "name": "wrist_3_joint",
+          "type": "revolute",
+          "parent": "wrist_2_link",
+          "child": "wrist_3_link",
+  
+          "origin_pos": [0.0, 0.0, 0.1],
+          "origin_orient": [0.0, 0.0, 0.0],
+  
+          "axis": [1.0, 0.0, 0.0],
+  
+          "limits": {
+            "position": { "min": -180.0, "max": 180.0 },
+            "velocity": { "min": -180.0, "max": 180.0 },
+            "acceleration": { "min": -360.0, "max": 360.0 }
+          },
+  
+          "gear_ratio": 80.0,
+          "encoder_counts": 4096,
+          "axis_direction": 1,
+          "torque_axis_direction": 1,
+          "rated_torque": 15.0,
+          "enable_drive": true,
+  
+          "limits_active": {
+            "position": true,
+            "velocity": true,
+            "acceleration": true,
+            "torque": true
+          },
+  
+          "position_offset": 0.0
+        }
+      ]
+    }
+  }
+  

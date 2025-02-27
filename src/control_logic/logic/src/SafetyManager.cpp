@@ -1,14 +1,14 @@
 #include <cstdio>
 #include "logic/SafetyManager.h"
 
-// If JointState is in motion_control::merai, include it fully:
+// If JointState is in hand_control::merai, include it fully:
 // #include "merai/RTMemoryLayout.h"
 
-namespace motion_control
+namespace hand_control
 {
     namespace logic
     {
-        SafetyManager::SafetyManager(motion_control::logic::ErrorManager& errMgr)
+        SafetyManager::SafetyManager(hand_control::logic::ErrorManager& errMgr)
             : errorManager_(errMgr),
               minPosition_(-1000.0),
               maxPosition_(1000.0),
@@ -33,8 +33,8 @@ namespace motion_control
             maxTemperature_ = maxTemp;
         }
 
-        // If JointState is in motion_control::merai, fully qualify below:
-        //   void SafetyManager::checkAllLimits(const motion_control::merai::JointState* jointStates,
+        // If JointState is in hand_control::merai, fully qualify below:
+        //   void SafetyManager::checkAllLimits(const hand_control::merai::JointState* jointStates,
         //                                      int jointCount)
         void SafetyManager::checkAllLimits(const JointState* jointStates, int jointCount)
         {
@@ -70,4 +70,4 @@ namespace motion_control
             }
         }
     } // namespace logic
-} // namespace motion_control
+} // namespace hand_control

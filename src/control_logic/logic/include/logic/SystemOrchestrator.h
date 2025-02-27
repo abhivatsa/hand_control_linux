@@ -2,7 +2,7 @@
 
 #include "ErrorManager.h"
 
-namespace motion_control
+namespace hand_control
 {
     namespace logic
     {
@@ -25,7 +25,7 @@ namespace motion_control
         class SystemOrchestrator
         {
         public:
-            explicit SystemOrchestrator(motion_control::logic::ErrorManager& errMgr);
+            explicit SystemOrchestrator(hand_control::logic::ErrorManager& errMgr);
 
             /**
              * @brief Update call at ~100 Hz (or any chosen rate) to process commands and handle state transitions.
@@ -55,7 +55,7 @@ namespace motion_control
             void handleStateRUNNING();
             void handleStateERROR();
 
-            motion_control::logic::ErrorManager& errorManager_;
+            hand_control::logic::ErrorManager& errorManager_;
             OrchestratorState currentState_;
 
             // Flags (like user-intent commands)
@@ -63,4 +63,4 @@ namespace motion_control
             bool wantRun_    = false;
         };
     } // namespace logic
-} // namespace motion_control
+} // namespace hand_control

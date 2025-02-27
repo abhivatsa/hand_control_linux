@@ -3,7 +3,7 @@
 
 #include "logic/ErrorManager.h"
 
-namespace motion_control
+namespace hand_control
 {
     namespace logic
     {
@@ -107,4 +107,4 @@ namespace motion_control
             return -1;
         }
     } // namespace logic
-} // namespace motion_control
+} // namespace hand_control

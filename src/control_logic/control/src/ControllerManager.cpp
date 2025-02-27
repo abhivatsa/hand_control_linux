@@ -3,11 +3,11 @@
 
 #include "control/ControllerManager.h"
 
-namespace motion_control
+namespace hand_control
 {
     namespace control
     {
-        ControllerManager::ControllerManager(const motion_control::merai::ParameterServer* paramServer)
+        ControllerManager::ControllerManager(const hand_control::merai::ParameterServer *paramServer)
             : paramServer_(paramServer)
         {
             if (!paramServer_)
@@ -56,23 +56,23 @@ namespace motion_control
             return success;
         }
 
-        // If JointState / JointCommand come from motion_control::merai, fully qualify below:
+        // If JointState / JointCommand come from hand_control::merai, fully qualify below:
         //   void ControllerManager::update(
-        //       const motion_control::merai::JointState* states,
-        //       motion_control::merai::JointCommand* commands,
-        //       const motion_control::merai::ControllerUserCommand* userCmdArray,
-        //       motion_control::merai::ControllerFeedback* feedbackArray,
+        //       const hand_control::merai::JointState* states,
+        //       hand_control::merai::JointCommand* commands,
+        //       const hand_control::merai::ControllerUserCommand* userCmdArray,
+        //       hand_control::merai::ControllerFeedback* feedbackArray,
         //       int jointCount,
         //       double dt)
-        void ControllerManager::update(const JointState* states,
-                                       JointCommand*     commands,
-                                       const ControllerUserCommand* userCmdArray,
-                                       ControllerFeedback* feedbackArray,
+        void ControllerManager::update(const hand_control::merai::JointState *states,
+                                       hand_control::merai::JointCommand *commands,
+                                       const hand_control::merai::ControllerUserCommand *userCmdArray,
+                                       hand_control::merai::ControllerFeedback *feedbackArray,
                                        int jointCount,
                                        double dt)
         {
             // e.g. we only have 1 user command
-            const auto& userCmd = userCmdArray[0];
+            const auto &userCmd = userCmdArray[0];
 
             // Check if user requests a controller switch
             if (userCmd.requestSwitch)
@@ -89,11 +89,11 @@ namespace motion_control
             // (2) run the active or bridging controller
             if (active_controller_)
             {
-                active_controller_->update(states, commands, dt);
+                active_controller_->update(states, commands, jointCount, dt);
             }
             else if (bridgingController_)
             {
-                bridgingController_->update(states, commands, dt);
+                bridgingController_->update(states, commands, jointCount, dt);
             }
             else
             {
@@ -102,7 +102,7 @@ namespace motion_control
                 {
                     commands[i].position = states[i].position;
                     commands[i].velocity = 0.0;
-                    commands[i].torque   = 0.0;
+                    commands[i].torque = 0.0;
                 }
             }
 
@@ -110,7 +110,7 @@ namespace motion_control
             bool bridging = (switchState_ == SwitchState::BRIDGING);
             bool switching = (switchState_ != SwitchState::RUNNING);
 
-            feedbackArray[0].bridgingActive   = bridging;
+            feedbackArray[0].bridgingActive = bridging;
             feedbackArray[0].switchInProgress = switching;
             feedbackArray[0].controllerFailed = false; // e.g. if new controller not found or bridging fails
         }
@@ -193,7 +193,7 @@ namespace motion_control
             }
         }
 
-        bool ControllerManager::requiresBridging(BaseController* oldCtrl, BaseController* newCtrl)
+        bool ControllerManager::requiresBridging(BaseController *oldCtrl, BaseController *newCtrl)
         {
             // Example logic
             if (!oldCtrl || !newCtrl)
@@ -205,7 +205,7 @@ namespace motion_control
             return false;
         }
 
-        std::shared_ptr<BaseController> ControllerManager::findControllerByName(const std::string& name)
+        std::shared_ptr<BaseController> ControllerManager::findControllerByName(const std::string &name)
         {
             for (int i = 0; i < num_controllers_; i++)
             {
@@ -217,4 +217,4 @@ namespace motion_control
             return nullptr;
         }
     } // namespace control
-} // namespace motion_control
+} // namespace hand_control

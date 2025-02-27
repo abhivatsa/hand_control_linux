@@ -1,0 +1,2 @@
+/usr/bin/ar qc libmerai_foundation.a CMakeFiles/merai_foundation.dir/src/RAII_SharedMemory.cpp.o CMakeFiles/merai_foundation.dir/src/ParameterServer.cpp.o
+/usr/bin/ranlib libmerai_foundation.a

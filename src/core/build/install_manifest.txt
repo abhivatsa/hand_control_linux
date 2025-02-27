@@ -1,0 +1,13 @@
+/usr/lib/libmath_lib.a
+/usr/lib/librobotics_lib_haptic_device.a
+/usr/include/hand_control_core/math_lib/Vector.h
+/usr/include/hand_control_core/math_lib/Quaternion.h
+/usr/include/hand_control_core/math_lib/MatrixVectorOps.h
+/usr/include/hand_control_core/math_lib/RotationMatrix.h
+/usr/include/hand_control_core/math_lib/Matrix.h
+/usr/include/hand_control_core/math_lib/EulerAngles.h
+/usr/include/hand_control_core/robotics_lib/haptic_device/HapticDeviceKinematics.h
+/usr/include/hand_control_core/robotics_lib/haptic_device/HapticDeviceModel.h
+/usr/include/hand_control_core/robotics_lib/haptic_device/HapticDeviceDynamics.h
+/usr/lib/cmake/hand_control_core/hand_control_coreConfig.cmake
+/usr/lib/cmake/hand_control_core/hand_control_coreConfig-noconfig.cmake

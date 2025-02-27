@@ -3,13 +3,13 @@
 #include <cstddef>
 #include <cstdint>
 
-// control/hardware_abstraction/DriveData.h defines motion_control::control::DriveInput, DriveOutput
+// control/hardware_abstraction/DriveData.h defines hand_control::control::DriveInput, DriveOutput
 #include "control/hardware_abstraction/DriveData.h"
 
-// merai/RTMemoryLayout.h (or a similar header) for motion_control::merai::DriveUserSignals, DriveFeedback
+// merai/RTMemoryLayout.h (or a similar header) for hand_control::merai::DriveUserSignals, DriveFeedback
 #include "merai/RTMemoryLayout.h"
 
-namespace motion_control
+namespace hand_control
 {
     namespace control
     {
@@ -55,10 +55,10 @@ namespace motion_control
              * @param feedback       Array of DriveFeedback for logic to read
              * @param driveCount     Number of drives
              */
-            void update(const motion_control::control::DriveInput* driveInputs,
-                        motion_control::control::DriveOutput* driveOutputs,
-                        const motion_control::merai::DriveUserSignals* userSignals,
-                        motion_control::merai::DriveFeedback* feedback,
+            void update(const hand_control::control::DriveInput* driveInputs,
+                        hand_control::control::DriveOutput* driveOutputs,
+                        const hand_control::merai::DriveUserSignals* userSignals,
+                        hand_control::merai::DriveFeedback* feedback,
                         std::size_t driveCount);
 
         private:
@@ -68,4 +68,4 @@ namespace motion_control
             DriveState decodeStatusword(uint16_t statusWord);
         };
     } // namespace control
-} // namespace motion_control
+} // namespace hand_control

@@ -3,7 +3,7 @@
 #include <string>
 #include "merai/RTMemoryLayout.h" // for JointState, JointCommand
 
-namespace motion_control
+namespace hand_control
 {
     namespace control
     {
@@ -19,7 +19,7 @@ namespace motion_control
          * @brief BaseController is an interface for all controllers, providing
          *        lifecycle methods (init, start, stop, etc.) and an update step.
          *
-         * If JointState / JointCommand are defined in, say, motion_control::merai,
+         * If JointState / JointCommand are defined in, say, hand_control::merai,
          * we reference them fully. Adjust as needed if they live elsewhere.
          */
         class BaseController
@@ -31,9 +31,9 @@ namespace motion_control
             virtual void start() = 0;
 
             // Use fully qualified references if JointState / JointCommand
-            // come from motion_control::merai namespace. Adjust as needed.
-            virtual void update(const motion_control::merai::JointState* states,
-                                motion_control::merai::JointCommand* commands,
+            // come from hand_control::merai namespace. Adjust as needed.
+            virtual void update(const hand_control::merai::JointState* states,
+                                hand_control::merai::JointCommand* commands,
                                 int numJoints,
                                 double dt) = 0;
 
@@ -55,4 +55,4 @@ namespace motion_control
             ControllerState state_{ControllerState::UNINIT};
         };
     } // namespace control
-} // namespace motion_control
+} // namespace hand_control

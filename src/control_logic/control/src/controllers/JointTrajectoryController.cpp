@@ -1,9 +1,9 @@
-#include "JointTrajectoryController.h"
+#include "control/controllers/JointTrajectoryController.h"
 #include <iostream>  // for debugging if needed
 #include <algorithm> // std::max
 #include <cmath>
 
-namespace motion_control
+namespace hand_control
 {
     namespace control
     {
@@ -269,4 +269,4 @@ namespace motion_control
         }
 
     } // namespace control
-} // namespace motion_control
+} // namespace hand_control

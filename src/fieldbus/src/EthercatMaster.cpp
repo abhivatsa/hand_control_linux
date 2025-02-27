@@ -9,7 +9,7 @@
 #include "fieldbus/drives/ServoDrive.h"
 #include "fieldbus/drives/IoDrive.h"
 
-namespace motion_control
+namespace hand_control
 {
     namespace fieldbus
     {
@@ -24,7 +24,7 @@ namespace motion_control
               rtDataShm_(rtDataShmName, rtDataShmSize, false),
               loggerShm_(loggerShmName, loggerShmSize, false)
         {
-            configPtr_ = reinterpret_cast<const motion_control::merai::ParameterServer*>(
+            configPtr_ = reinterpret_cast<const hand_control::merai::ParameterServer*>(
                 configShm_.getPtr()
             );
             if (!configPtr_)
@@ -34,7 +34,9 @@ namespace motion_control
                 );
             }
 
-            rtLayout_ = reinterpret_cast<motion_control::merai::RTMemoryLayout*>(
+            std::cout<<"paramServerShmName : "<<paramServerShmName<<", paramServerShmSize : "<<paramServerShmSize<<std::endl;
+
+            rtLayout_ = reinterpret_cast<hand_control::merai::RTMemoryLayout*>(
                 rtDataShm_.getPtr()
             );
             if (!rtLayout_)
@@ -44,7 +46,7 @@ namespace motion_control
                 );
             }
 
-            loggerMem_ = reinterpret_cast<motion_control::merai::multi_ring_logger_memory*>(
+            loggerMem_ = reinterpret_cast<hand_control::merai::multi_ring_logger_memory*>(
                 loggerShm_.getPtr()
             );
             if (!loggerMem_)
@@ -54,7 +56,7 @@ namespace motion_control
                 );
             }
 
-            motion_control::merai::log_info(
+            hand_control::merai::log_info(
                 loggerMem_,
                 "Fieldbus",
                 100,
@@ -71,7 +73,7 @@ namespace motion_control
                 master_ = nullptr;
             }
 
-            motion_control::merai::log_info(
+            hand_control::merai::log_info(
                 loggerMem_,
                 "Fieldbus",
                 999,
@@ -84,7 +86,7 @@ namespace motion_control
             if (!configPtr_)
             {
                 std::cerr << "[Error] No valid ParameterServer pointer.\n";
-                motion_control::merai::log_error(
+                hand_control::merai::log_error(
                     loggerMem_,
                     "Fieldbus",
                     101,
@@ -100,7 +102,7 @@ namespace motion_control
             if (!master_)
             {
                 std::cerr << "[Error] Failed to retrieve EtherCAT Master.\n";
-                motion_control::merai::log_error(
+                hand_control::merai::log_error(
                     loggerMem_,
                     "Fieldbus",
                     102,
@@ -113,7 +115,7 @@ namespace motion_control
             if (!domain_)
             {
                 std::cerr << "[Error] Failed to create EtherCAT domain.\n";
-                motion_control::merai::log_error(
+                hand_control::merai::log_error(
                     loggerMem_,
                     "Fieldbus",
                     103,
@@ -122,10 +124,12 @@ namespace motion_control
                 return false;
             }
 
+            std::cout<<"configPtr_->driveCount : "<<configPtr_->driveCount<<std::endl;
+
             if (configPtr_->driveCount <= 0)
             {
                 std::cerr << "[Error] No drives found in ParameterServer.\n";
-                motion_control::merai::log_error(
+                hand_control::merai::log_error(
                     loggerMem_,
                     "Fieldbus",
                     104,
@@ -135,21 +139,21 @@ namespace motion_control
             }
 
             int driveCount = configPtr_->driveCount;
-            if (driveCount > motion_control::merai::MAX_DRIVES)
+            if (driveCount > hand_control::merai::MAX_DRIVES)
             {
-                motion_control::merai::log_warn(
+                hand_control::merai::log_warn(
                     loggerMem_,
                     "Fieldbus",
                     105,
                     "driveCount exceeds MAX_DRIVES, ignoring extras"
                 );
-                driveCount = motion_control::merai::MAX_DRIVES;
+                driveCount = hand_control::merai::MAX_DRIVES;
             }
 
             // Create and configure each drive
             for (int i = 0; i < driveCount; ++i)
             {
-                const motion_control::merai::DriveConfig& driveCfg = configPtr_->drives[i];
+                const hand_control::merai::DriveConfig& driveCfg = configPtr_->drives[i];
 
                 uint16_t alias        = static_cast<uint16_t>(driveCfg.alias);
                 uint16_t position     = static_cast<uint16_t>(driveCfg.position);
@@ -166,7 +170,7 @@ namespace motion_control
                               << ", vendor_id=0x" << std::hex << vendor_id
                               << ", product_code=0x" << product_code << std::dec << "\n";
 
-                    motion_control::merai::log_error(
+                    hand_control::merai::log_error(
                         loggerMem_,
                         "Fieldbus",
                         106,
@@ -201,7 +205,7 @@ namespace motion_control
                 else
                 {
                     std::cerr << "[Error] Unknown drive type: " << driveType << "\n";
-                    motion_control::merai::log_error(
+                    hand_control::merai::log_error(
                         loggerMem_,
                         "Fieldbus",
                         107,
@@ -211,15 +215,20 @@ namespace motion_control
                 }
             }
 
+            int ctr = 0;
+
             // Configure PDOs for all drives
             for (auto& drive : drives_)
             {
+
+                std::cout<<"drive_cnt : "<<ctr<<std::endl;
+                
                 if (drive)
                 {
                     if (!drive->configurePdos())
                     {
                         std::cerr << "[Error] Failed to configure PDOs.\n";
-                        motion_control::merai::log_error(
+                        hand_control::merai::log_error(
                             loggerMem_,
                             "Fieldbus",
                             108,
@@ -231,7 +240,7 @@ namespace motion_control
             }
 
             std::cout << "[Info] EthercatMaster: Initialization complete.\n";
-            motion_control::merai::log_info(
+            hand_control::merai::log_info(
                 loggerMem_,
                 "Fieldbus",
                 109,
@@ -245,7 +254,7 @@ namespace motion_control
             if (ecrt_master_activate(master_))
             {
                 std::cerr << "[Error] activating EtherCAT master. Aborting.\n";
-                motion_control::merai::log_error(
+                hand_control::merai::log_error(
                     loggerMem_,
                     "Fieldbus",
                     110,
@@ -258,7 +267,7 @@ namespace motion_control
             if (!domainPd_)
             {
                 std::cerr << "[Error] Failed to get domain data pointer.\n";
-                motion_control::merai::log_error(
+                hand_control::merai::log_error(
                     loggerMem_,
                     "Fieldbus",
                     111,
@@ -268,14 +277,14 @@ namespace motion_control
             }
 
             running_ = true;
-            motion_control::merai::log_info(
+            hand_control::merai::log_info(
                 loggerMem_,
                 "Fieldbus",
                 112,
                 "Entering EthercatMaster cyclicTask"
             );
             cyclicTask();
-            motion_control::merai::log_info(
+            hand_control::merai::log_info(
                 loggerMem_,
                 "Fieldbus",
                 113,
@@ -286,7 +295,7 @@ namespace motion_control
         void EthercatMaster::stop()
         {
             running_ = false;
-            motion_control::merai::log_warn(
+            hand_control::merai::log_warn(
                 loggerMem_,
                 "Fieldbus",
                 200,
@@ -304,7 +313,7 @@ namespace motion_control
                 if (ecrt_master_receive(master_) < 0)
                 {
                     std::cerr << "[ERROR] ecrt_master_receive() failed. Breaking.\n";
-                    motion_control::merai::log_error(
+                    hand_control::merai::log_error(
                         loggerMem_,
                         "Fieldbus",
                         201,
@@ -317,7 +326,7 @@ namespace motion_control
                 if (!domainPd_)
                 {
                     std::cerr << "[ERROR] domainPd_ invalid. Breaking.\n";
-                    motion_control::merai::log_error(
+                    hand_control::merai::log_error(
                         loggerMem_,
                         "Fieldbus",
                         202,
@@ -337,7 +346,7 @@ namespace motion_control
 
                 if (!checkDomainState())
                 {
-                    motion_control::merai::log_error(
+                    hand_control::merai::log_error(
                         loggerMem_,
                         "Fieldbus",
                         203,
@@ -347,7 +356,7 @@ namespace motion_control
                 }
                 if (!checkMasterState())
                 {
-                    motion_control::merai::log_error(
+                    hand_control::merai::log_error(
                         loggerMem_,
                         "Fieldbus",
                         204,
@@ -369,7 +378,7 @@ namespace motion_control
                 if (ecrt_domain_queue(domain_) < 0)
                 {
                     std::cerr << "[ERROR] ecrt_domain_queue() failed.\n";
-                    motion_control::merai::log_error(
+                    hand_control::merai::log_error(
                         loggerMem_,
                         "Fieldbus",
                         205,
@@ -381,7 +390,7 @@ namespace motion_control
                 if (ecrt_master_send(master_) < 0)
                 {
                     std::cerr << "[ERROR] ecrt_master_send() failed.\n";
-                    motion_control::merai::log_error(
+                    hand_control::merai::log_error(
                         loggerMem_,
                         "Fieldbus",
                         206,
@@ -447,4 +456,4 @@ namespace motion_control
             clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &pinfo->next_period, nullptr);
         }
     } // namespace fieldbus
-} // namespace motion_control
+} // namespace hand_control

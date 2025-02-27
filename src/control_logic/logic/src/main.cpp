@@ -10,14 +10,14 @@
 
 int main(int argc, char** argv)
 {
-    // Instantiate managers (all in motion_control::logic)
-    motion_control::logic::DriveManager        driveManager;
-    motion_control::logic::SafetyManager       safetyManager;
-    motion_control::logic::ErrorManager        errorManager;
-    motion_control::logic::ControllerModeManager ctrlModeManager;
+    // Instantiate managers (all in hand_control::logic)
+    hand_control::logic::DriveManager        driveManager;
+    hand_control::logic::SafetyManager       safetyManager;
+    hand_control::logic::ErrorManager        errorManager;
+    hand_control::logic::ControllerModeManager ctrlModeManager;
 
     // Create orchestrator
-    motion_control::logic::SystemOrchestrator orchestrator(
+    hand_control::logic::SystemOrchestrator orchestrator(
         driveManager,
         safetyManager,
         errorManager,
@@ -25,7 +25,7 @@ int main(int argc, char** argv)
     );
 
     // Load logic config
-    motion_control::logic::LogicConfig cfg;
+    hand_control::logic::LogicConfig cfg;
     cfg.updateRateHz = 1000.0;
 
     // Initialize orchestrator
@@ -43,7 +43,7 @@ int main(int argc, char** argv)
         // Sleep or wait for ~1ms
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
 
-        if (orchestrator.getSystemState() == motion_control::logic::SystemState::ERROR)
+        if (orchestrator.getSystemState() == hand_control::logic::SystemState::ERROR)
         {
             std::cerr << "System is in ERROR state. Stopping...\n";
             break;

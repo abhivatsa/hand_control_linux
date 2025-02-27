@@ -2,9 +2,8 @@
 
 #include <cstdint>
 #include <ecrt.h>
-#include "merai/Enums.h"
 
-namespace motion_control
+namespace hand_control
 {
     namespace fieldbus
     {
@@ -74,4 +73,4 @@ namespace motion_control
             ec_domain_t*       domain_      = nullptr;
         };
     } // namespace fieldbus
-} // namespace motion_control
+} // namespace hand_control

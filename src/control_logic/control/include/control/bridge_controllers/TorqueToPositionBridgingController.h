@@ -3,10 +3,10 @@
 #include <string>
 
 #include "control/bridge_controllers/BaseBridgingController.h"
-// If JointState, JointCommand come from motion_control::merai, include the header defining them, e.g.:
+// If JointState, JointCommand come from hand_control::merai, include the header defining them, e.g.:
 // #include "merai/RTMemoryLayout.h"
 
-namespace motion_control
+namespace hand_control
 {
     namespace control
     {
@@ -19,13 +19,14 @@ namespace motion_control
             bool init(const std::string& controllerName) override;
             void start() override;
 
-            // If JointState/JointCommand are from motion_control::merai, fully qualify, e.g.:
-            //   void update(const motion_control::merai::JointState* states,
-            //               motion_control::merai::JointCommand* commands,
+            // If JointState/JointCommand are from hand_control::merai, fully qualify, e.g.:
+            //   void update(const hand_control::merai::JointState* states,
+            //               hand_control::merai::JointCommand* commands,
             //               double dt) override;
 
-            void update(const motion_control::merai::JointState* states,
-                        motion_control::merai::JointCommand* commands,
+            void update(const hand_control::merai::JointState* states,
+                        hand_control::merai::JointCommand* commands,
+                        int numJoints,
                         double dt) override;
 
             void stop() override;
@@ -53,4 +54,4 @@ namespace motion_control
             int    jointCount_{6};  // or get from config
         };
     } // namespace control
-} // namespace motion_control
+} // namespace hand_control

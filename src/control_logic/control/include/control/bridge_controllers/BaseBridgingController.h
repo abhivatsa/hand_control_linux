@@ -2,7 +2,7 @@
 
 #include "control/controllers/BaseController.h"
 
-namespace motion_control
+namespace hand_control
 {
     namespace control
     {
@@ -20,4 +20,4 @@ namespace motion_control
             // More bridging-specific APIs can go here...
         };
     } // namespace control
-} // namespace motion_control
+} // namespace hand_control

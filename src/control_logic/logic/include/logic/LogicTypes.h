@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-namespace motion_control
+namespace hand_control
 {
     namespace logic
     {
@@ -42,4 +42,4 @@ namespace motion_control
             // Add more fields as needed...
         };
     } // namespace logic
-} // namespace motion_control
+} // namespace hand_control

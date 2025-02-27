@@ -2,7 +2,7 @@
 #include <stdexcept>
 #include <cstdlib>  // for EXIT_SUCCESS, EXIT_FAILURE
 
-#include "control/Control.h"  // motion_control::control::Control
+#include "control/Control.h"  // hand_control::control::Control
 
 int main(int argc, char* argv[])
 {
@@ -10,16 +10,16 @@ int main(int argc, char* argv[])
     {
         // 1) Shared memory names and sizes (matching your global config).
         std::string paramServerShmName = "/ParameterServerShm";
-        size_t paramServerShmSize      = sizeof(motion_control::merai::ParameterServer);
+        size_t paramServerShmSize      = sizeof(hand_control::merai::ParameterServer);
 
         std::string rtDataShmName = "/RTDataShm";
-        size_t rtDataShmSize      = sizeof(motion_control::merai::RTMemoryLayout);
+        size_t rtDataShmSize      = sizeof(hand_control::merai::RTMemoryLayout);
 
         std::string loggerShmName = "/LoggerShm";
-        size_t loggerShmSize      = sizeof(motion_control::merai::multi_ring_logger_memory);
+        size_t loggerShmSize      = sizeof(hand_control::merai::multi_ring_logger_memory);
 
         // 2) Create the Control object using the three shared memories
-        motion_control::control::Control controlApp(
+        hand_control::control::Control controlApp(
             paramServerShmName, paramServerShmSize,
             rtDataShmName,      rtDataShmSize,
             loggerShmName,      loggerShmSize

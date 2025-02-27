@@ -4,17 +4,15 @@
 
 #include "control/hardware_abstraction/RealHardwareAbstractionLayer.h"
 
-namespace motion_control
+namespace hand_control
 {
     namespace control
     {
-        // ---------------------------------------------------------------------
-        // Constructor
-        // ---------------------------------------------------------------------
+
         RealHardwareAbstractionLayer::RealHardwareAbstractionLayer(
-            motion_control::merai::RTMemoryLayout*           rtLayout,
-            const motion_control::merai::ParameterServer*    paramServerPtr,
-            motion_control::merai::multi_ring_logger_memory* loggerMem
+            hand_control::merai::RTMemoryLayout*           rtLayout,
+            const hand_control::merai::ParameterServer*    paramServerPtr,
+            hand_control::merai::multi_ring_logger_memory* loggerMem
         )
             : rtLayout_(rtLayout),
               paramServerPtr_(paramServerPtr),
@@ -30,25 +28,22 @@ namespace motion_control
             }
         }
 
-        // ---------------------------------------------------------------------
-        // init()
-        // ---------------------------------------------------------------------
         bool RealHardwareAbstractionLayer::init()
         {
             std::cout << "[RealHAL] init() called.\n";
 
-            // 1) Determine driveCount (servo) from ParameterServer
-            driveCount_ = paramServerPtr_->jointCount;  // Example field in ParameterServer
-            if (driveCount_ > motion_control::merai::MAX_SERVO_DRIVES)
+            // 1) Determine servo/driveCount from ParameterServer's jointCount
+            driveCount_ = paramServerPtr_->driveCount;  // new ParameterServer field
+            if (driveCount_ > hand_control::merai::MAX_DRIVES)
             {
-                driveCount_ = motion_control::merai::MAX_SERVO_DRIVES;
+                driveCount_ = hand_control::merai::MAX_DRIVES;
             }
 
-            // 2) Load static servo parameters (JointParameters)
+            // 2) Load static servo parameters from paramServerPtr_->joints[i]
+            //    Each element has gear_ratio, axis_direction, etc.
             for (int i = 0; i < driveCount_; i++)
             {
-                // Copy directly from your ParameterServer
-                localParams_[i] = paramServerPtr_->joints[i].parameters;
+                localParams_[i] = paramServerPtr_->joints[i];
             }
 
             // Zero out localJointStates_ / localJointCommands_
@@ -63,36 +58,9 @@ namespace motion_control
                 localJointCommands_[i].torque   = 0.0;
             }
 
-            // 3) Determine ioCount (I/O modules) from ParameterServer
-            ioCount_ = paramServerPtr_->ioModuleCount;  // Example field
-            if (ioCount_ > motion_control::merai::MAX_IO_DRIVES)
-            {
-                ioCount_ = motion_control::merai::MAX_IO_DRIVES;
-            }
-
-            // Zero out localIoStates_ / localIoCommands_
-            for (int i = 0; i < ioCount_; ++i)
-            {
-                // Digital
-                for (int ch = 0; ch < 8; ++ch)
-                {
-                    localIoStates_[i].digitalInputs[ch]   = false;
-                    localIoCommands_[i].digitalOutputs[ch] = false;
-                }
-                // Analog
-                for (int ch = 0; ch < 2; ++ch)
-                {
-                    localIoStates_[i].analogInputs[ch]    = 0.0f;
-                    localIoCommands_[i].analogOutputs[ch] = 0.0f;
-                }
-            }
-
             return true;
         }
 
-        // ---------------------------------------------------------------------
-        // read()
-        // ---------------------------------------------------------------------
         bool RealHardwareAbstractionLayer::read()
         {
             if (!rtLayout_)
@@ -101,9 +69,7 @@ namespace motion_control
                 return false;
             }
 
-            // ===============================
-            // 1) Servo: Read from EtherCAT => localDriveInputs_ => localJointStates_
-            // ===============================
+            // 1) Read servo data from EtherCAT => localDriveInputs_ => localJointStates_
             int servoFrontIdx = rtLayout_->servoBuffer.frontIndex.load(std::memory_order_acquire);
             auto& servoTxArray = rtLayout_->servoBuffer.buffer[servoFrontIdx].tx;
 
@@ -121,24 +87,9 @@ namespace motion_control
                 return false;
             }
 
-            // ===============================
-            // 2) I/O Read
-            // ===============================
-            int ioFrontIdx = rtLayout_->ioBuffer.frontIndex.load(std::memory_order_acquire);
-            auto& ioTxArray = rtLayout_->ioBuffer.buffer[ioFrontIdx].tx;
-
-            if (!mapIoTxToIoState(ioTxArray))
-            {
-                std::cerr << "[RealHAL] mapIoTxToIoState failed.\n";
-                return false;
-            }
-
             return true;
         }
 
-        // ---------------------------------------------------------------------
-        // write()
-        // ---------------------------------------------------------------------
         bool RealHardwareAbstractionLayer::write()
         {
             if (!rtLayout_)
@@ -147,9 +98,7 @@ namespace motion_control
                 return false;
             }
 
-            // ===============================
-            // 1) Servo: localJointCommands_ => localDriveOutputs_ => EtherCAT
-            // ===============================
+            // 1) localJointCommands_ => localDriveOutputs_ => EtherCAT
             int servoFrontIdx = rtLayout_->servoBuffer.frontIndex.load(std::memory_order_acquire);
             auto& servoRxArray = rtLayout_->servoBuffer.buffer[servoFrontIdx].rx;
 
@@ -167,27 +116,12 @@ namespace motion_control
                 return false;
             }
 
-            // ===============================
-            // 2) I/O Write
-            // ===============================
-            int ioFrontIdx = rtLayout_->ioBuffer.frontIndex.load(std::memory_order_acquire);
-            auto& ioRxArray = rtLayout_->ioBuffer.buffer[ioFrontIdx].rx;
-
-            if (!mapIoCommandToIoRx(ioRxArray))
-            {
-                std::cerr << "[RealHAL] mapIoCommandToIoRx failed.\n";
-                return false;
-            }
-
             return true;
         }
 
-        // ---------------------------------------------------------------------
-        // mapServoTxToDriveInputs()
-        // ---------------------------------------------------------------------
         bool RealHardwareAbstractionLayer::mapServoTxToDriveInputs(
-            const std::array<motion_control::merai::ServoTxPdo,
-                             motion_control::merai::MAX_SERVO_DRIVES>& servoTxArray)
+            const std::array<hand_control::merai::ServoTxPdo,
+                             hand_control::merai::MAX_SERVO_DRIVES>& servoTxArray)
         {
             for (int i = 0; i < driveCount_; ++i)
             {
@@ -196,37 +130,41 @@ namespace motion_control
                 localDriveInputs_[i].velocityRaw  = servoTxArray[i].velocityActual;
                 localDriveInputs_[i].torqueRaw    = servoTxArray[i].torqueActual;
                 // If servoTx has modeOfOperation display, you could read it too
+
+                std::cout<<"pos raw "<<i<<" : "<<servoTxArray[i].positionActual<<std::endl;
             }
             return true;
         }
 
-        // ---------------------------------------------------------------------
-        // convertDriveInputsToJointStates()
-        // ---------------------------------------------------------------------
         bool RealHardwareAbstractionLayer::convertDriveInputsToJointStates()
         {
             for (int i = 0; i < driveCount_; ++i)
             {
                 auto& input  = localDriveInputs_[i];
-                auto& p      = localParams_[i];  // JointParameters
+                auto& p      = localParams_[i];  // This is a JointConfig from paramServer
                 auto& jstate = localJointStates_[i];
 
-                double cpr = static_cast<double>(p.encoder_resolution.counts_per_revolution);
+                // Example conversions:
+                // You might define an "encoder_counts" or something in p if your JSON includes it.
+                // For now, let's do a simple example that uses gear_ratio, axis_direction, position_offset:
+                double gearRatio    = p.gear_ratio;        // from JointConfig
+                int axisDir         = p.axis_direction;    // ±1
+                double offset       = p.position_offset;   // e.g. zero offset in your JSON
 
-                // Example position conversion
-                double posRad = (static_cast<double>(input.positionRaw) * (2.0 * M_PI))
-                                / (cpr * p.gear_ratio);
-                posRad *= static_cast<double>(p.axis_direction);
-                posRad += p.joint_position_offset;
+                // Example position conversion from raw counts:
+                // We'll assume 1 count => 0.001 rad for demonstration.
+                double posRad = static_cast<double>(input.positionRaw) * 0.001;
+                posRad *= gearRatio * static_cast<double>(axisDir);
+                posRad += offset;
 
-                double velRad = (static_cast<double>(input.velocityRaw) * (2.0 * M_PI))
-                                / (cpr * p.gear_ratio);
-                velRad *= static_cast<double>(p.axis_direction);
+                // Example velocity conversion from raw counts:
+                // We'll assume 1 count => 0.0001 rad/s
+                double velRad = static_cast<double>(input.velocityRaw) * 0.0001;
+                velRad *= gearRatio * static_cast<double>(axisDir);
 
-                double torqueNm = (static_cast<double>(input.torqueRaw) / 1000.0)
-                                  * p.motor_rated_torque
-                                  * static_cast<double>(p.torque_axis_direction)
-                                  * p.gear_ratio;
+                // Example torque from raw => we assume 1 raw => 0.01 Nm
+                double torqueNm = static_cast<double>(input.torqueRaw) * 0.01;
+                torqueNm *= gearRatio * static_cast<double>(p.torque_axis_direction);
 
                 jstate.position = posRad;
                 jstate.velocity = velRad;
@@ -235,32 +173,33 @@ namespace motion_control
             return true;
         }
 
-        // ---------------------------------------------------------------------
-        // convertJointCommandsToDriveOutputs()
-        // ---------------------------------------------------------------------
         bool RealHardwareAbstractionLayer::convertJointCommandsToDriveOutputs()
         {
             for (int i = 0; i < driveCount_; ++i)
             {
-                auto& p   = localParams_[i];
+                auto& p   = localParams_[i]; // JointConfig
                 auto& cmd = localJointCommands_[i];
                 auto& out = localDriveOutputs_[i];
 
-                double cpr = static_cast<double>(p.encoder_resolution.counts_per_revolution);
+                double gearRatio  = p.gear_ratio;
+                int axisDir       = p.axis_direction;
+                double offset     = p.position_offset;
 
-                double desiredPos    = cmd.position;
-                double desiredVel    = cmd.velocity;
+                // Inverse of your read() conversion logic:
+                // E.g., if 1 raw => 0.001 rad, then 1 rad => 1000 raw
+                // If we want to set position in rad, multiply by 1000, etc.
+                double desiredPos = cmd.position - offset;
+                desiredPos /= static_cast<double>(axisDir);
+                desiredPos /= gearRatio;
+                int rawPos = static_cast<int>(desiredPos * 1000.0);
+
+                double desiredVel = cmd.velocity;
+                desiredVel /= (axisDir * gearRatio);
+                int rawVel = static_cast<int>(desiredVel * 10000.0);
+
                 double desiredTorque = cmd.torque;
-
-                int rawPos = static_cast<int>(
-                    (desiredPos * p.gear_ratio * cpr) / (2.0 * M_PI)
-                );
-                int rawVel = static_cast<int>(
-                    (desiredVel * p.gear_ratio * cpr) / (2.0 * M_PI)
-                );
-                int rawTorque = static_cast<int>(
-                    (desiredTorque / p.motor_rated_torque) * 1000.0
-                );
+                desiredTorque /= (gearRatio * static_cast<double>(p.torque_axis_direction));
+                int rawTorque = static_cast<int>(desiredTorque * 100.0); // if 1 raw => 0.01 Nm
 
                 // Default controlWord / modeOfOperation
                 out.controlWord       = 0x000F; // e.g. "Enable Operation"
@@ -272,12 +211,9 @@ namespace motion_control
             return true;
         }
 
-        // ---------------------------------------------------------------------
-        // mapDriveOutputsToServoRx()
-        // ---------------------------------------------------------------------
         bool RealHardwareAbstractionLayer::mapDriveOutputsToServoRx(
-            std::array<motion_control::merai::ServoRxPdo,
-                       motion_control::merai::MAX_SERVO_DRIVES>& servoRxArray)
+            std::array<hand_control::merai::ServoRxPdo,
+                       hand_control::merai::MAX_SERVO_DRIVES>& servoRxArray)
         {
             for (int i = 0; i < driveCount_; ++i)
             {
@@ -291,50 +227,5 @@ namespace motion_control
             return true;
         }
 
-        // ---------------------------------------------------------------------
-        // mapIoTxToIoState()
-        // ---------------------------------------------------------------------
-        bool RealHardwareAbstractionLayer::mapIoTxToIoState(
-            const std::array<motion_control::merai::IoTxPdo,
-                             motion_control::merai::MAX_IO_DRIVES>& ioTxArray)
-        {
-            for (int i = 0; i < ioCount_; ++i)
-            {
-                // Digital
-                for (int ch = 0; ch < 8; ++ch)
-                {
-                    localIoStates_[i].digitalInputs[ch] = ioTxArray[i].digitalInputs[ch];
-                }
-                // Analog
-                for (int ch = 0; ch < 2; ++ch)
-                {
-                    localIoStates_[i].analogInputs[ch] = ioTxArray[i].analogInputs[ch];
-                }
-            }
-            return true;
-        }
-
-        // ---------------------------------------------------------------------
-        // mapIoCommandToIoRx()
-        // ---------------------------------------------------------------------
-        bool RealHardwareAbstractionLayer::mapIoCommandToIoRx(
-            std::array<motion_control::merai::IoRxPdo,
-                       motion_control::merai::MAX_IO_DRIVES>& ioRxArray)
-        {
-            for (int i = 0; i < ioCount_; ++i)
-            {
-                // Digital
-                for (int ch = 0; ch < 8; ++ch)
-                {
-                    ioRxArray[i].digitalOutputs[ch] = localIoCommands_[i].digitalOutputs[ch];
-                }
-                // Analog
-                for (int ch = 0; ch < 2; ++ch)
-                {
-                    ioRxArray[i].analogOutputs[ch] = localIoCommands_[i].analogOutputs[ch];
-                }
-            }
-            return true;
-        }
     } // namespace control
-} // namespace motion_control
+} // namespace hand_control

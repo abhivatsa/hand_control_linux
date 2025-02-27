@@ -1,0 +1,2 @@
+/usr/bin/ar qc libmath_lib.a CMakeFiles/math_lib.dir/math_lib/src/MatrixVectorOps.cpp.o
+/usr/bin/ranlib libmath_lib.a

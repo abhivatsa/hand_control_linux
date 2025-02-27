@@ -3,16 +3,16 @@
 
 #include "fieldbus/drives/IoDrive.h"
 
-namespace motion_control
+namespace hand_control
 {
     namespace fieldbus
     {
-        IoDrive::IoDrive(const motion_control::merai::DriveConfig &driveCfg,
+        IoDrive::IoDrive(const hand_control::merai::DriveConfig &driveCfg,
                          ec_slave_config_t *sc,
                          ec_domain_t *domain,
-                         motion_control::merai::RTMemoryLayout *rtLayout,
+                         hand_control::merai::RTMemoryLayout *rtLayout,
                          int driveIndex,
-                         motion_control::merai::multi_ring_logger_memory *loggerMem)
+                         hand_control::merai::multi_ring_logger_memory *loggerMem)
             : BaseDrive(driveCfg.alias,
                         driveCfg.position,
                         driveCfg.vendor_id,
@@ -27,7 +27,7 @@ namespace motion_control
         {
             if (loggerMem_)
             {
-                motion_control::merai::log_debug(loggerMem_,
+                hand_control::merai::log_debug(loggerMem_,
                                                  "IoDrive",
                                                  100,
                                                  "Constructed IoDrive instance");
@@ -62,7 +62,8 @@ namespace motion_control
             {
                 const auto &sm = driveCfg_.syncManagers[smIndex];
                 int smId = sm.id;
-                ec_direction_t direction = (sm.type == "rxpdo") ? EC_DIR_OUTPUT : EC_DIR_INPUT;
+                ec_direction_t direction = (std::strcmp(sm.type.c_str(), "rxpdo") == 0) ? EC_DIR_OUTPUT : EC_DIR_INPUT;
+
                 ec_watchdog_mode_t wdMode = sm.watchdog_enabled ? EC_WD_ENABLE : EC_WD_DISABLE;
 
                 if (ecrt_slave_config_sync_manager(slaveConfig_, smId, direction, wdMode))
@@ -81,7 +82,12 @@ namespace motion_control
                 // Add each PDO assignment
                 for (int assignIdx = 0; assignIdx < sm.assignmentCount; ++assignIdx)
                 {
-                    uint16_t assignmentAddr = hexStringToUint(sm.pdo_assignments[assignIdx]);
+
+                    std::cout << "pdo_assignment : " << sm.pdo_assignments[assignIdx].c_str() << std::endl;
+                    uint16_t assignmentAddr = hexStringToUint(sm.pdo_assignments[assignIdx].c_str());
+
+                    std::cout << "smId : " << smId << ", assignmentAddr : " << assignmentAddr << std::endl;
+
                     if (ecrt_slave_config_pdo_assign_add(slaveConfig_, smId, assignmentAddr))
                     {
                         std::cerr << "IoDrive: Failed to add PDO assignment 0x"
@@ -101,12 +107,12 @@ namespace motion_control
                 for (int mgIndex = 0; mgIndex < sm.mappingGroupCount; ++mgIndex)
                 {
                     const auto &mg = sm.mappingGroups[mgIndex];
-                    uint16_t pdoAddress = hexStringToUint(mg.assignmentKey);
+                    uint16_t pdoAddress = hexStringToUint(mg.assignmentKey.c_str());
 
                     for (int eIndex = 0; eIndex < mg.entryCount; ++eIndex)
                     {
                         const auto &pme = mg.entries[eIndex];
-                        uint16_t index = hexStringToUint(pme.object_index);
+                        uint16_t index = hexStringToUint(pme.object_index.c_str());
                         uint8_t subIdx = static_cast<uint8_t>(pme.subindex);
                         uint8_t bitLen = static_cast<uint8_t>(pme.bit_length);
 
@@ -163,50 +169,50 @@ namespace motion_control
             uint32_t vendorId = driveCfg_.vendor_id;
             uint32_t productCode = driveCfg_.product_code;
 
-            // Example: register digital input at 0x6000:0x01
-            if (idx < MAX_ENTRIES)
+            // Re-visit the same pdo mappings to register offsets
+            for (int smIndex = 0; smIndex < driveCfg_.syncManagerCount; smIndex++)
             {
-                auto &reg = domainRegs[idx++];
-                reg.alias = alias;
-                reg.position = position;
-                reg.vendor_id = vendorId;
-                reg.product_code = productCode;
-                reg.index = 0x6000;
-                reg.subindex = 0x01;
-                reg.offset = reinterpret_cast<unsigned int *>(&ioOffsets_.inputOffset);
-                reg.bit_position = 0;
-            }
-            else
-            {
-                std::cerr << "IoDrive: Too many PDO entries.\n";
-                if (loggerMem_)
+                const auto &sm = driveCfg_.syncManagers[smIndex];
+                for (int mgIndex = 0; mgIndex < sm.mappingGroupCount; mgIndex++)
                 {
-                    log_error(loggerMem_, "IoDrive", 116, "Max PDO entries exceeded in IoDrive");
-                }
-                return false;
-            }
+                    const auto &mg = sm.mappingGroups[mgIndex];
+                    uint16_t pdoAddress = hexStringToUint(mg.assignmentKey.c_str());
 
-            // Example: register digital output at 0x7000:0x01
-            if (idx < MAX_ENTRIES)
-            {
-                auto &reg = domainRegs[idx++];
-                reg.alias = alias;
-                reg.position = position;
-                reg.vendor_id = vendorId;
-                reg.product_code = productCode;
-                reg.index = 0x7000;
-                reg.subindex = 0x01;
-                reg.offset = reinterpret_cast<unsigned int *>(&ioOffsets_.outputOffset);
-                reg.bit_position = 0;
-            }
-            else
-            {
-                std::cerr << "IoDrive: Too many PDO entries.\n";
-                if (loggerMem_)
-                {
-                    log_error(loggerMem_, "IoDrive", 117, "Max PDO entries exceeded in IoDrive");
+                    for (int eIndex = 0; eIndex < mg.entryCount; eIndex++)
+                    {
+                        // 1) Ensure we don't exceed our fixed capacity
+                        if (idx >= MAX_ENTRIES)
+                        {
+                            std::cerr << "IoDrive: Too many PDO entries. Increase MAX_ENTRIES.\n";
+                            return false;
+                        }
+
+                        const auto &pme = mg.entries[eIndex];
+                        uint16_t objIndex = hexStringToUint(pme.object_index.c_str());
+                        uint8_t subIndex = static_cast<uint8_t>(pme.subindex);
+
+                        // getOffsetPointerByIndex(...) decides
+                        // which servoOffsets_ field to store for that objIndex
+                        void *offsetPtr = getOffsetPointerByIndex(objIndex, subIndex);
+                        if (!offsetPtr)
+                        {
+                            std::cerr << "IoDrive: Unknown or unsupported object_index=0x"
+                                      << std::hex << objIndex << std::dec << "\n";
+                            return false;
+                        }
+
+                        // 2) Populate one ec_pdo_entry_reg_t
+                        ec_pdo_entry_reg_t &reg = domainRegs[idx++];
+                        reg.alias = alias;
+                        reg.position = position;
+                        reg.vendor_id = vendorId;
+                        reg.product_code = productCode;
+                        reg.index = objIndex;
+                        reg.subindex = subIndex;
+                        reg.offset = static_cast<unsigned int *>(offsetPtr);
+                        reg.bit_position = 0; // 0 if byte-aligned
+                    }
                 }
-                return false;
             }
 
             // Terminate
@@ -273,4 +279,4 @@ namespace motion_control
             return nullptr;
         }
     } // namespace fieldbus
-} // namespace motion_control
+} // namespace hand_control

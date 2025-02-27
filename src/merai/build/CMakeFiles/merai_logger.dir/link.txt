@@ -1,0 +1,1 @@
+/usr/bin/c++ CMakeFiles/merai_logger.dir/src/LoggerProcess.cpp.o -o merai_logger  libmerai_foundation.a 

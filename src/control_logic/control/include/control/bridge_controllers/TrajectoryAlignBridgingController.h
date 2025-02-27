@@ -4,10 +4,10 @@
 #include <vector>  // if we handle a path or just a single setpoint
 
 #include "control/bridge_controllers/BaseBridgingController.h"
-// If JointState / JointCommand come from motion_control::merai, include that header:
+// If JointState / JointCommand come from hand_control::merai, include that header:
 // #include "merai/RTMemoryLayout.h"
 
-namespace motion_control
+namespace hand_control
 {
     namespace control
     {
@@ -20,13 +20,14 @@ namespace motion_control
             bool init(const std::string& controllerName) override;
             void start() override;
 
-            // If JointState / JointCommand come from motion_control::merai, fully qualify them here:
-            //   void update(const motion_control::merai::JointState* states,
-            //               motion_control::merai::JointCommand* commands,
+            // If JointState / JointCommand come from hand_control::merai, fully qualify them here:
+            //   void update(const hand_control::merai::JointState* states,
+            //               hand_control::merai::JointCommand* commands,
             //               double dt) override;
 
-            void update(const motion_control::merai::JointState* states,
-                        motion_control::merai::JointCommand* commands,
+            void update(const hand_control::merai::JointState* states,
+                        hand_control::merai::JointCommand* commands,
+                        int numJoints,
                         double dt) override;
 
             void stop() override;
@@ -57,4 +58,4 @@ namespace motion_control
             std::vector<double> targetPositions_;  // the next trajectory's start
         };
     } // namespace control
-} // namespace motion_control
+} // namespace hand_control

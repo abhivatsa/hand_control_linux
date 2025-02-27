@@ -3,14 +3,14 @@
 
 #include "control/hardware_abstraction/MockHardwareAbstractionLayer.h"
 
-namespace motion_control
+namespace hand_control
 {
     namespace control
     {
         MockHardwareAbstractionLayer::MockHardwareAbstractionLayer(
-            motion_control::merai::RTMemoryLayout*           rtLayout,
-            const motion_control::merai::ParameterServer*    paramServerPtr,
-            motion_control::merai::multi_ring_logger_memory* loggerMem
+            hand_control::merai::RTMemoryLayout*           rtLayout,
+            const hand_control::merai::ParameterServer*    paramServerPtr,
+            hand_control::merai::multi_ring_logger_memory* loggerMem
         )
             : rtLayout_(rtLayout),
               paramServerPtr_(paramServerPtr),
@@ -57,4 +57,4 @@ namespace motion_control
             // then set in[i].statusWord bits for operationEnabled
         }
     } // namespace control
-} // namespace motion_control
+} // namespace hand_control

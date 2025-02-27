@@ -1,0 +1,6 @@
+{
+    "fieldbus_Loop_ns": 1000000,
+    "control_loop_ns": 1000000,
+    "logic_loop_ns": 10000000,
+    "simulate_mode": false
+}
