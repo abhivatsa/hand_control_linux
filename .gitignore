@@ -1,0 +1,72 @@
+###############################
+# Build Directories & Artifacts
+###############################
+/build/*
+!/build/.gitkeep
+
+/src/**/build/*
+!/src/**/build/.gitkeep
+
+/CMakeFiles/
+/CMakeCache.txt
+cmake_install.cmake
+Makefile
+
+###############################
+# Binary / Executable Outputs
+###############################
+*.exe
+*.out
+*.app
+*.dll
+*.so
+*.dylib
+*.a
+*.lib
+
+###############################
+# Logs & Temporary Files
+###############################
+*.log
+*.tmp
+*.swp
+*.swo
+*.lock
+
+###############################
+# OS-specific Files
+###############################
+.DS_Store
+Thumbs.db
+
+###############################
+# Editor/IDE Directories
+###############################
+.vscode/
+.idea/
+
+###############################
+# Generated/Intermediate
+###############################
+*.obj
+*.o
+*.pch
+*.pdb
+
+###############################
+# CPack / Packaging
+###############################
+_package/
+CPackConfig.cmake
+CPackSourceConfig.cmake
+
+###############################
+# Tests output
+###############################
+/src/**/tests/*.o
+/src/**/tests/*.out
+
+###############################
+# Additional Patterns
+###############################
+# (Add any other file patterns that your team doesn't want in Git)

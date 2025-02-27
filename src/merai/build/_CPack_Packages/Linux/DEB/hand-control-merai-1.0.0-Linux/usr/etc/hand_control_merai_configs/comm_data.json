@@ -1,9 +1,0 @@
-{
-  "Server": {
-    "Default": {
-      "URL": "wss://*:5567",
-      "Certificate": "/etc/ssl/certs/merai.pem",
-      "PrivateKey": "/etc/ssl/private/merai.key"
-    }
-  }
-}

@@ -1,1 +1,0 @@
-/usr/bin/c++ CMakeFiles/merai_launcher.dir/src/Launcher.cpp.o -o merai_launcher  libmerai_foundation.a 
