@@ -91,10 +91,6 @@ namespace hand_control
             {
                 active_controller_->update(states, commands, jointCount, dt);
             }
-            else if (bridgingController_)
-            {
-                bridgingController_->update(states, commands, jointCount, dt);
-            }
             else
             {
                 // fallback: hold current position
@@ -145,20 +141,10 @@ namespace hand_control
                 if (bridgingNeeded_)
                 {
                     // bridging logic (create bridgingController_, etc.)
-                    bridgingController_->start();
                     switchState_ = SwitchState::BRIDGING;
                 }
                 else
                 {
-                    switchState_ = SwitchState::START_NEW;
-                }
-                break;
-
-            case SwitchState::BRIDGING:
-                if (bridgingController_ && bridgingController_->isDone())
-                {
-                    bridgingController_->stop();
-                    bridgingController_.reset();
                     switchState_ = SwitchState::START_NEW;
                 }
                 break;

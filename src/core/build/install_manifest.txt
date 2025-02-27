@@ -1,5 +1,4 @@
-/usr/lib/libmath_lib.a
-/usr/lib/librobotics_lib_haptic_device.a
+/usr/lib/libhand_control_core.a
 /usr/include/hand_control_core/math_lib/Quaternion.h
 /usr/include/hand_control_core/math_lib/RotationMatrix.h
 /usr/include/hand_control_core/math_lib/Vector.h

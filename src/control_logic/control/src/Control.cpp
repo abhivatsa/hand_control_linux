@@ -9,8 +9,6 @@
 
 // Example controllers
 #include "control/controllers/GravityCompController.h"
-#include "control/controllers/JointTrajectoryController.h"
-#include "control/controllers/TeleOpController.h"
 
 namespace hand_control
 {
@@ -86,7 +84,7 @@ namespace hand_control
                 std::cout << "[Control] Building 6-axis model from paramServer.\n";
 
                 // Load from paramServer
-                if (!robotModel_.loadFromParameterServer(*paramServerPtr_))
+                if (!hapticDeviceModel_.loadFromParameterServer(*paramServerPtr_))
                 {
                     std::cerr << "[Control] loadFromParameterServer failed: not enough links/joints.\n";
                     return false;
@@ -102,26 +100,13 @@ namespace hand_control
 
             // 3) Register example controllers
             {
-                auto gravityComp = std::make_shared<GravityCompController>(robotModel_);
+                auto gravityComp = std::make_shared<GravityCompController>(hapticDeviceModel_);
                 if (!manager_->registerController(gravityComp))
                 {
                     std::cerr << "[Control] Failed to register GravityCompController.\n";
                     return false;
                 }
 
-                // auto jointTraj = std::make_shared<JointTrajectoryController>();
-                // if (!manager_->registerController(jointTraj))
-                // {
-                //     std::cerr << "[Control] Failed to register JointTrajectoryController.\n";
-                //     return false;
-                // }
-
-                // auto teleop = std::make_shared<TeleOpController>();
-                // if (!manager_->registerController(teleop))
-                // {
-                //     std::cerr << "[Control] Failed to register TeleOpController.\n";
-                //     return false;
-                // }
             }
 
             // 4) Init the manager

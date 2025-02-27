@@ -17,7 +17,8 @@
 #include "control/ControllerManager.h"
 
 // Robot-specific includes (hand control)
-#include "robotics_lib/hand_control/HandControlModel.h"
+// #include "robotics_lib/haptic_device/HapticDeviceModel.h"
+#include "robotics_lib/haptic_device/HapticDeviceModel.h"
 
 namespace hand_control
 {
@@ -118,7 +119,7 @@ namespace hand_control
             hand_control::merai::RAII_SharedMemory loggerShm_;
             hand_control::merai::multi_ring_logger_memory *loggerMem_ = nullptr;
 
-            hand_control::robotics::hand_control::HandControlModel handControlModel_;
+            hand_control::robotics::haptic_device::HapticDeviceModel hapticDeviceModel_;
         };
 
     } // namespace control

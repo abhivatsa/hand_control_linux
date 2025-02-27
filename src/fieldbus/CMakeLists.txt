@@ -2,13 +2,11 @@ cmake_minimum_required(VERSION 3.10)
 project(hand_control_fieldbus VERSION 1.0.0)
 
 # ----------------------------------------------------------------------------
-# 1) Find EtherCAT / EtherLab
-#    Make sure your find_package call and the actual CMake script match
+# 1) Find EtherLab (or EtherCAT), plus hand_control_merai
+#    Adjust names to match your actual find scripts / config files
 # ----------------------------------------------------------------------------
-find_package(EtherLab REQUIRED) 
-# If your script is "FindEtherCAT.cmake", do: find_package(EtherCAT REQUIRED)
-# The target might be something like "EtherLab::ethercat" or "EtherCAT::EtherCAT"
-# depending on how that find script is written.
+find_package(EtherCAT REQUIRED)
+find_package(hand_control_merai REQUIRED)
 
 # ----------------------------------------------------------------------------
 # 2) Create a STATIC library for the fieldbus code
@@ -22,7 +20,8 @@ add_library(hand_control_fieldbus_lib STATIC
 
 target_compile_features(hand_control_fieldbus_lib PUBLIC cxx_std_17)
 
-# If you absolutely need ../../external_libraries to build, mark it PRIVATE
+# If you absolutely need ../../external_libraries just for building,
+# mark it PRIVATE so it won't cause conflicts in the exported config:
 target_include_directories(hand_control_fieldbus_lib
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -31,17 +30,12 @@ target_include_directories(hand_control_fieldbus_lib
         ${CMAKE_CURRENT_SOURCE_DIR}/../../external_libraries
 )
 
-# Link your external library (and others if needed)
+# Link your external libraries (EtherLab + merai_foundation)
 target_link_libraries(hand_control_fieldbus_lib
-    PRIVATE
-        EtherLab::ethercat
+    PUBLIC
+        EtherLab::ethercat           # or EtherCAT::EtherCAT if your find script calls it that
+        hand_control_merai::merai_foundation
 )
-# If you also need to link something like "merai_foundation", do:
-# target_link_libraries(hand_control_fieldbus_lib
-#     PRIVATE
-#         EtherLab::ethercat
-#         hand_control_merai::merai_foundation
-# )
 
 # Export name => hand_control_fieldbus::hand_control_fieldbus_lib
 set_target_properties(hand_control_fieldbus_lib PROPERTIES

@@ -7,7 +7,6 @@ f86a783177b425dbd4e9b5a511615e68  usr/include/hand_control_core/math_lib/Matrix.
 9153773c851df804399d87b91fe25189  usr/include/hand_control_core/robotics_lib/haptic_device/HapticDeviceDynamics.h
 0b68d0a7278ee03857faffc64bb30796  usr/include/hand_control_core/robotics_lib/haptic_device/HapticDeviceKinematics.h
 2b0a0b62ca482647d17336a3243bab9c  usr/include/hand_control_core/robotics_lib/haptic_device/HapticDeviceModel.h
-f2a94b5f610b59bd6b8e06215ffaf29b  usr/lib/cmake/hand_control_core/hand_control_coreConfig-noconfig.cmake
-16f6e8982089d0eae4d7c53952e7e998  usr/lib/cmake/hand_control_core/hand_control_coreConfig.cmake
-add350285d840a7a8ce85fcdbc4356ee  usr/lib/libmath_lib.a
-17da2518b8d13b09457f43efb5be1afe  usr/lib/librobotics_lib_haptic_device.a
+cdfdf10dd2a078e2a0ea680481811d47  usr/lib/cmake/hand_control_core/hand_control_coreConfig-noconfig.cmake
+d0140a62946a6bf8168548de9a5ba7d7  usr/lib/cmake/hand_control_core/hand_control_coreConfig.cmake
+aeb2eb40f3ef8109a20da806d98219c5  usr/lib/libhand_control_core.a

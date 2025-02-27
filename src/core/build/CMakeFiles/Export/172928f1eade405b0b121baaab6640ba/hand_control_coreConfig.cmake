@@ -19,7 +19,7 @@ set(CMAKE_IMPORT_FILE_VERSION 1)
 set(_cmake_targets_defined "")
 set(_cmake_targets_not_defined "")
 set(_cmake_expected_targets "")
-foreach(_cmake_expected_target IN ITEMS hand_control::math_lib hand_control::robotics_lib_haptic_device)
+foreach(_cmake_expected_target IN ITEMS hand_control_core::core)
   list(APPEND _cmake_expected_targets "${_cmake_expected_target}")
   if(TARGET "${_cmake_expected_target}")
     list(APPEND _cmake_targets_defined "${_cmake_expected_target}")
@@ -55,21 +55,13 @@ if(_IMPORT_PREFIX STREQUAL "/")
   set(_IMPORT_PREFIX "")
 endif()
 
-# Create imported target hand_control::math_lib
-add_library(hand_control::math_lib STATIC IMPORTED)
+# Create imported target hand_control_core::core
+add_library(hand_control_core::core STATIC IMPORTED)
 
-set_target_properties(hand_control::math_lib PROPERTIES
+set_target_properties(hand_control_core::core PROPERTIES
   INTERFACE_COMPILE_FEATURES "cxx_std_17"
-  INTERFACE_INCLUDE_DIRECTORIES "${_IMPORT_PREFIX}/include/hand_control_core/math_lib"
-)
-
-# Create imported target hand_control::robotics_lib_haptic_device
-add_library(hand_control::robotics_lib_haptic_device STATIC IMPORTED)
-
-set_target_properties(hand_control::robotics_lib_haptic_device PROPERTIES
-  INTERFACE_COMPILE_FEATURES "cxx_std_17"
-  INTERFACE_INCLUDE_DIRECTORIES "${_IMPORT_PREFIX}/include/hand_control_core/robotics_lib"
-  INTERFACE_LINK_LIBRARIES "hand_control::math_lib;hand_control_merai::merai_foundation"
+  INTERFACE_INCLUDE_DIRECTORIES "${_IMPORT_PREFIX}/include/hand_control_core"
+  INTERFACE_LINK_LIBRARIES "hand_control_merai::merai_foundation"
 )
 
 if(CMAKE_VERSION VERSION_LESS 2.8.12)

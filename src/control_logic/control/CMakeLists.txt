@@ -1,12 +1,18 @@
 cmake_minimum_required(VERSION 3.10)
 project(hand_control_control VERSION 1.0.0)
 
-# 1) Find the installed core package.
-#    This requires that hand_control_coreConfig.cmake is on CMake’s search path,
-#    typically installed to /usr/lib/cmake/hand_control_core or similar.
+#
+# 1) Find dependencies
+#    Make sure "hand_control_core" and "hand_control_merai" are installed
+#    so their config files can be found.
+#
 find_package(hand_control_core REQUIRED)
+find_package(hand_control_merai REQUIRED)
 
+#
 # 2) Build the control library
+#    The sources below come from "control/src/..."
+#
 add_library(hand_control_control_lib STATIC
     src/Control.cpp
     src/ControllerManager.cpp
@@ -14,91 +20,113 @@ add_library(hand_control_control_lib STATIC
 
     # Controllers
     src/controllers/GravityCompController.cpp
-    src/controllers/JointTrajectoryController.cpp
-    src/controllers/TeleOpController.cpp
-
-    # Bridge Controllers
-    src/bridge_controllers/TorqueToPositionBridgingController.cpp
-    src/bridge_controllers/TrajectoryAlignBridgingController.cpp
 
     # Hardware Abstraction
     src/hardware_abstraction/MockHardwareAbstractionLayer.cpp
     src/hardware_abstraction/RealHardwareAbstractionLayer.cpp
 )
 
+#
 # 3) Require C++17
+#
 target_compile_features(hand_control_control_lib PUBLIC cxx_std_17)
 
-# 4) If you have local headers in this "control" project, expose them:
+#
+# 4) Include paths for local headers
+#    (Installs to a unique directory to avoid collisions)
+#
 target_include_directories(hand_control_control_lib
     PUBLIC
+        # If this CMakeLists is inside the 'control/' folder:
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-        $<INSTALL_INTERFACE:include>
+        $<INSTALL_INTERFACE:include/hand_control_control>
 )
 
-# 5) Link to the core libraries that were found via find_package.
-#    Since your core library exports "hand_control::math_lib" and
-#    "hand_control::robotics_lib_6axis", we link to whichever is needed.
+#
+# 5) Link with core (single library) and merai foundation
+#
 target_link_libraries(hand_control_control_lib
     PUBLIC
-        hand_control::robotics_lib_6axis
-        hand_control::math_lib   # Uncomment if your code directly uses math_lib calls
-        merai_foundation
+        hand_control_core::core
+        hand_control_merai::merai_foundation
 )
 
-# 6) Create an executable (optional) from main.cpp
-add_executable(hand_control_control src/main.cpp)
-target_link_libraries(hand_control_control PRIVATE hand_control_control_lib)
+#
+# 6) Optional main executable from "control/src/main.cpp"
+#
+add_executable(hand_control_control_exe
+    src/main.cpp
+)
+target_link_libraries(hand_control_control_exe
+    PRIVATE
+        hand_control_control_lib
+)
 
-# 7) Install the library
-install(TARGETS hand_control_control_lib
+#
+# 7) Install the library & executable
+#
+install(TARGETS hand_control_control_lib hand_control_control_exe
     EXPORT ControlTargets
     ARCHIVE DESTINATION lib
     LIBRARY DESTINATION lib
     RUNTIME DESTINATION bin
 )
 
-# 8) Install the executable
-install(TARGETS hand_control_control
-    RUNTIME DESTINATION bin
+#
+# 8) Install the headers under /usr/include/hand_control_control
+#
+install(
+    DIRECTORY include/
+    DESTINATION include/hand_control_control
 )
 
-# 9) Export the library config so other projects can find this "control" library
+#
+# 9) Export the library config so other projects can do:
+#    find_package(hand_control_control REQUIRED)
+#    target_link_libraries(... hand_control_control::hand_control_control_lib ...)
+#
 install(EXPORT ControlTargets
     FILE hand_control_controlConfig.cmake
-    NAMESPACE hand_control::
-    DESTINATION lib/cmake/control
+    NAMESPACE hand_control_control::
+    DESTINATION lib/cmake/hand_control_control
 )
 
-# 10) (Optional) Install your systemd service file
+#
+# 10) (Optional) Install systemd service files
+#
 install(
-    FILES ${CMAKE_CURRENT_SOURCE_DIR}/services/control.service
+    FILES
+        ${CMAKE_CURRENT_SOURCE_DIR}/services/control.service
     DESTINATION lib/systemd/system
 )
 
-# 11) CPack config for .deb
+#
+# 11) CPack configuration for .deb
+#
 set(CPACK_GENERATOR "DEB")
-set(CPACK_PACKAGE_NAME "control")
+set(CPACK_PACKAGE_NAME "hand-control-control")
 set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
 set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Abhishek Vatsa <abhi.vatsa16@gmail.com>")
 set(CPACK_PACKAGE_CONTACT "Abhishek Vatsa <abhi.vatsa16@gmail.com>")
 set(CPACK_DEBIAN_PACKAGE_SECTION "devel")
 set(CPACK_DEBIAN_PACKAGE_PRIORITY "optional")
 set(CPACK_DEBIAN_ARCHITECTURE "${CMAKE_SYSTEM_PROCESSOR}")
+
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Control library for real-time motion controllers")
 set(CPACK_DEBIAN_PACKAGE_DESCRIPTION
-    "This package provides the Control library for implementing various motion control "
-    "strategies (e.g. teleop, trajectory, etc.)."
+    "This package provides the control library for implementing various motion control\n"
+    "strategies (e.g. teleop, trajectory, etc.) in a hand-control robotics system."
 )
 
-# If you have dependencies on the 'core' package, you can list them:
-# set(CPACK_DEBIAN_PACKAGE_DEPENDS "core (>= 1.0.0)")
+# If your control libs specifically depend on the 'core' or 'merai' .deb packages:
+# set(CPACK_DEBIAN_PACKAGE_DEPENDS "hand-control-core (>= 1.0.0), hand-control-merai (>= 1.0.0)")
 
+# Post-install script
 set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA
     "${CMAKE_CURRENT_SOURCE_DIR}/scripts/postinst"
 )
 
-# (Optionally) use /usr as the default install prefix in .deb packages
+# Install prefix => /usr in the .deb
 set(CPACK_PACKAGING_INSTALL_PREFIX "/usr")
 
 include(CPack)

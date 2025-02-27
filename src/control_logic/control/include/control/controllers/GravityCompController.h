@@ -2,9 +2,11 @@
 
 #include <string>
 #include "control/controllers/BaseController.h"
-#include "robotics_lib/six_axis/SixAxisModel.h"
-#include "robotics_lib/six_axis/SixAxisKinematics.h"
-#include "robotics_lib/six_axis/SixAxisDynamics.h"
+
+#include "robotics_lib/haptic_device/HapticDeviceModel.h"
+#include "robotics_lib/haptic_device/HapticDeviceDynamics.h"
+#include "robotics_lib/haptic_device/HapticDeviceKinematics.h"
+
 
 namespace hand_control
 {
@@ -21,7 +23,7 @@ namespace hand_control
              * @brief Construct with a reference to the six-axis model.
              *        No dynamic memory used. The model must outlive this controller.
              */
-            explicit GravityCompController(const hand_control::robotics::six_axis::SixAxisModel &model);
+            explicit GravityCompController(const hand_control::robotics::haptic_device::HapticDeviceModel &model);
 
             ~GravityCompController() override = default;
 
@@ -45,13 +47,13 @@ namespace hand_control
 
         private:
             // Reference to the 6-axis robot model (loaded at init time).
-            const hand_control::robotics::six_axis::SixAxisModel &model_;
+            const hand_control::robotics::haptic_device::HapticDeviceModel &model_;
 
             /**
              * @brief A local SixAxisDynamics object that uses the same model.
              *        We'll use it to compute torque via Newton-Euler.
              */
-            hand_control::robotics::six_axis::SixAxisDynamics dynamics_;
+            hand_control::robotics::haptic_device::HapticDeviceDynamics dynamics_;
 
             // Example param for torque scaling or other offsets
             // (optional, could be a gravity scaling factor, friction offset, etc.)

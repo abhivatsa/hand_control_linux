@@ -7,7 +7,7 @@ namespace hand_control
     {
 
         GravityCompController::GravityCompController(
-            const hand_control::robotics::six_axis::SixAxisModel &model)
+            const hand_control::robotics::haptic_device::HapticDeviceModel &model)
             : model_(model), dynamics_(model) // Construct the SixAxisDynamics with the same model
         {
             // No dynamic allocations here

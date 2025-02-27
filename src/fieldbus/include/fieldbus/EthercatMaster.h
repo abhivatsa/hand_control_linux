@@ -8,10 +8,10 @@
 #include <ecrt.h>
 
 #include "fieldbus/drives/BaseDrive.h"        // BaseDrive is in hand_control::fieldbus
-#include "merai/RTMemoryLayout.h"             // hand_control::merai::RTMemoryLayout, MAX_DRIVES
-#include "merai/ParameterServer.h"            // hand_control::merai::ParameterServer
-#include "merai/RAII_SharedMemory.h"          // hand_control::merai::RAII_SharedMemory
-#include "merai/SharedLogger.h"               // hand_control::merai::multi_ring_logger_memory
+#include "hand_control_merai/merai/RTMemoryLayout.h"             // hand_control::merai::RTMemoryLayout, MAX_DRIVES
+#include "hand_control_merai/merai/ParameterServer.h"            // hand_control::merai::ParameterServer
+#include "hand_control_merai/merai/RAII_SharedMemory.h"          // hand_control::merai::RAII_SharedMemory
+#include "hand_control_merai/merai/SharedLogger.h"               // hand_control::merai::multi_ring_logger_memory
 
 namespace hand_control
 {

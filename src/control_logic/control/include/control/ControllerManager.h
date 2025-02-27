@@ -8,7 +8,6 @@
 #include "merai/ParameterServer.h"   // hand_control::merai::ParameterServer
 #include "merai/RTMemoryLayout.h"    // hand_control::merai::JointState, JointCommand, ControllerUserCommand, ControllerFeedback
 #include "control/controllers/BaseController.h"         // hand_control::control::BaseController
-#include "control/bridge_controllers/BaseBridgingController.h"  // hand_control::control::BaseBridgingController
 
 namespace hand_control
 {
@@ -68,7 +67,6 @@ namespace hand_control
             int num_controllers_{0};
 
             std::shared_ptr<BaseController> active_controller_{nullptr};
-            std::shared_ptr<BaseBridgingController> bridgingController_{nullptr};
 
             SwitchState switchState_{SwitchState::IDLE};
             bool bridgingNeeded_{false};

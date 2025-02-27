@@ -254,6 +254,9 @@ hand_control_core_BINARY_DIR:STATIC=/home/abhishek/hand_control_linux/src/core/b
 //Value Computed by CMake
 hand_control_core_IS_TOP_LEVEL:STATIC=ON
 
+//Dependencies for the target
+hand_control_core_LIB_DEPENDS:STATIC=general;hand_control_merai::merai_foundation;
+
 //Value Computed by CMake
 hand_control_core_SOURCE_DIR:STATIC=/home/abhishek/hand_control_linux/src/core
 

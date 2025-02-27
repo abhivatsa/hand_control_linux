@@ -182,37 +182,24 @@ depend:
 .PHONY : depend
 
 #=============================================================================
-# Target rules for targets named math_lib
+# Target rules for targets named hand_control_core
 
 # Build rule for target.
-math_lib: cmake_check_build_system
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 math_lib
-.PHONY : math_lib
+hand_control_core: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 hand_control_core
+.PHONY : hand_control_core
 
 # fast build rule for target.
-math_lib/fast:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/math_lib.dir/build.make CMakeFiles/math_lib.dir/build
-.PHONY : math_lib/fast
-
-#=============================================================================
-# Target rules for targets named robotics_lib_haptic_device
-
-# Build rule for target.
-robotics_lib_haptic_device: cmake_check_build_system
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 robotics_lib_haptic_device
-.PHONY : robotics_lib_haptic_device
-
-# fast build rule for target.
-robotics_lib_haptic_device/fast:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/robotics_lib_haptic_device.dir/build.make CMakeFiles/robotics_lib_haptic_device.dir/build
-.PHONY : robotics_lib_haptic_device/fast
+hand_control_core/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/hand_control_core.dir/build.make CMakeFiles/hand_control_core.dir/build
+.PHONY : hand_control_core/fast
 
 math_lib/src/MatrixVectorOps.o: math_lib/src/MatrixVectorOps.cpp.o
 .PHONY : math_lib/src/MatrixVectorOps.o
 
 # target to build an object file
 math_lib/src/MatrixVectorOps.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/math_lib.dir/build.make CMakeFiles/math_lib.dir/math_lib/src/MatrixVectorOps.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/hand_control_core.dir/build.make CMakeFiles/hand_control_core.dir/math_lib/src/MatrixVectorOps.cpp.o
 .PHONY : math_lib/src/MatrixVectorOps.cpp.o
 
 math_lib/src/MatrixVectorOps.i: math_lib/src/MatrixVectorOps.cpp.i
@@ -220,7 +207,7 @@ math_lib/src/MatrixVectorOps.i: math_lib/src/MatrixVectorOps.cpp.i
 
 # target to preprocess a source file
 math_lib/src/MatrixVectorOps.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/math_lib.dir/build.make CMakeFiles/math_lib.dir/math_lib/src/MatrixVectorOps.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/hand_control_core.dir/build.make CMakeFiles/hand_control_core.dir/math_lib/src/MatrixVectorOps.cpp.i
 .PHONY : math_lib/src/MatrixVectorOps.cpp.i
 
 math_lib/src/MatrixVectorOps.s: math_lib/src/MatrixVectorOps.cpp.s
@@ -228,7 +215,7 @@ math_lib/src/MatrixVectorOps.s: math_lib/src/MatrixVectorOps.cpp.s
 
 # target to generate assembly for a file
 math_lib/src/MatrixVectorOps.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/math_lib.dir/build.make CMakeFiles/math_lib.dir/math_lib/src/MatrixVectorOps.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/hand_control_core.dir/build.make CMakeFiles/hand_control_core.dir/math_lib/src/MatrixVectorOps.cpp.s
 .PHONY : math_lib/src/MatrixVectorOps.cpp.s
 
 robotics_lib/src/haptic_device/HapticDeviceDynamics.o: robotics_lib/src/haptic_device/HapticDeviceDynamics.cpp.o
@@ -236,7 +223,7 @@ robotics_lib/src/haptic_device/HapticDeviceDynamics.o: robotics_lib/src/haptic_d
 
 # target to build an object file
 robotics_lib/src/haptic_device/HapticDeviceDynamics.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/robotics_lib_haptic_device.dir/build.make CMakeFiles/robotics_lib_haptic_device.dir/robotics_lib/src/haptic_device/HapticDeviceDynamics.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/hand_control_core.dir/build.make CMakeFiles/hand_control_core.dir/robotics_lib/src/haptic_device/HapticDeviceDynamics.cpp.o
 .PHONY : robotics_lib/src/haptic_device/HapticDeviceDynamics.cpp.o
 
 robotics_lib/src/haptic_device/HapticDeviceDynamics.i: robotics_lib/src/haptic_device/HapticDeviceDynamics.cpp.i
@@ -244,7 +231,7 @@ robotics_lib/src/haptic_device/HapticDeviceDynamics.i: robotics_lib/src/haptic_d
 
 # target to preprocess a source file
 robotics_lib/src/haptic_device/HapticDeviceDynamics.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/robotics_lib_haptic_device.dir/build.make CMakeFiles/robotics_lib_haptic_device.dir/robotics_lib/src/haptic_device/HapticDeviceDynamics.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/hand_control_core.dir/build.make CMakeFiles/hand_control_core.dir/robotics_lib/src/haptic_device/HapticDeviceDynamics.cpp.i
 .PHONY : robotics_lib/src/haptic_device/HapticDeviceDynamics.cpp.i
 
 robotics_lib/src/haptic_device/HapticDeviceDynamics.s: robotics_lib/src/haptic_device/HapticDeviceDynamics.cpp.s
@@ -252,7 +239,7 @@ robotics_lib/src/haptic_device/HapticDeviceDynamics.s: robotics_lib/src/haptic_d
 
 # target to generate assembly for a file
 robotics_lib/src/haptic_device/HapticDeviceDynamics.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/robotics_lib_haptic_device.dir/build.make CMakeFiles/robotics_lib_haptic_device.dir/robotics_lib/src/haptic_device/HapticDeviceDynamics.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/hand_control_core.dir/build.make CMakeFiles/hand_control_core.dir/robotics_lib/src/haptic_device/HapticDeviceDynamics.cpp.s
 .PHONY : robotics_lib/src/haptic_device/HapticDeviceDynamics.cpp.s
 
 robotics_lib/src/haptic_device/HapticDeviceKinematics.o: robotics_lib/src/haptic_device/HapticDeviceKinematics.cpp.o
@@ -260,7 +247,7 @@ robotics_lib/src/haptic_device/HapticDeviceKinematics.o: robotics_lib/src/haptic
 
 # target to build an object file
 robotics_lib/src/haptic_device/HapticDeviceKinematics.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/robotics_lib_haptic_device.dir/build.make CMakeFiles/robotics_lib_haptic_device.dir/robotics_lib/src/haptic_device/HapticDeviceKinematics.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/hand_control_core.dir/build.make CMakeFiles/hand_control_core.dir/robotics_lib/src/haptic_device/HapticDeviceKinematics.cpp.o
 .PHONY : robotics_lib/src/haptic_device/HapticDeviceKinematics.cpp.o
 
 robotics_lib/src/haptic_device/HapticDeviceKinematics.i: robotics_lib/src/haptic_device/HapticDeviceKinematics.cpp.i
@@ -268,7 +255,7 @@ robotics_lib/src/haptic_device/HapticDeviceKinematics.i: robotics_lib/src/haptic
 
 # target to preprocess a source file
 robotics_lib/src/haptic_device/HapticDeviceKinematics.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/robotics_lib_haptic_device.dir/build.make CMakeFiles/robotics_lib_haptic_device.dir/robotics_lib/src/haptic_device/HapticDeviceKinematics.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/hand_control_core.dir/build.make CMakeFiles/hand_control_core.dir/robotics_lib/src/haptic_device/HapticDeviceKinematics.cpp.i
 .PHONY : robotics_lib/src/haptic_device/HapticDeviceKinematics.cpp.i
 
 robotics_lib/src/haptic_device/HapticDeviceKinematics.s: robotics_lib/src/haptic_device/HapticDeviceKinematics.cpp.s
@@ -276,7 +263,7 @@ robotics_lib/src/haptic_device/HapticDeviceKinematics.s: robotics_lib/src/haptic
 
 # target to generate assembly for a file
 robotics_lib/src/haptic_device/HapticDeviceKinematics.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/robotics_lib_haptic_device.dir/build.make CMakeFiles/robotics_lib_haptic_device.dir/robotics_lib/src/haptic_device/HapticDeviceKinematics.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/hand_control_core.dir/build.make CMakeFiles/hand_control_core.dir/robotics_lib/src/haptic_device/HapticDeviceKinematics.cpp.s
 .PHONY : robotics_lib/src/haptic_device/HapticDeviceKinematics.cpp.s
 
 robotics_lib/src/haptic_device/HapticDeviceModel.o: robotics_lib/src/haptic_device/HapticDeviceModel.cpp.o
@@ -284,7 +271,7 @@ robotics_lib/src/haptic_device/HapticDeviceModel.o: robotics_lib/src/haptic_devi
 
 # target to build an object file
 robotics_lib/src/haptic_device/HapticDeviceModel.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/robotics_lib_haptic_device.dir/build.make CMakeFiles/robotics_lib_haptic_device.dir/robotics_lib/src/haptic_device/HapticDeviceModel.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/hand_control_core.dir/build.make CMakeFiles/hand_control_core.dir/robotics_lib/src/haptic_device/HapticDeviceModel.cpp.o
 .PHONY : robotics_lib/src/haptic_device/HapticDeviceModel.cpp.o
 
 robotics_lib/src/haptic_device/HapticDeviceModel.i: robotics_lib/src/haptic_device/HapticDeviceModel.cpp.i
@@ -292,7 +279,7 @@ robotics_lib/src/haptic_device/HapticDeviceModel.i: robotics_lib/src/haptic_devi
 
 # target to preprocess a source file
 robotics_lib/src/haptic_device/HapticDeviceModel.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/robotics_lib_haptic_device.dir/build.make CMakeFiles/robotics_lib_haptic_device.dir/robotics_lib/src/haptic_device/HapticDeviceModel.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/hand_control_core.dir/build.make CMakeFiles/hand_control_core.dir/robotics_lib/src/haptic_device/HapticDeviceModel.cpp.i
 .PHONY : robotics_lib/src/haptic_device/HapticDeviceModel.cpp.i
 
 robotics_lib/src/haptic_device/HapticDeviceModel.s: robotics_lib/src/haptic_device/HapticDeviceModel.cpp.s
@@ -300,7 +287,7 @@ robotics_lib/src/haptic_device/HapticDeviceModel.s: robotics_lib/src/haptic_devi
 
 # target to generate assembly for a file
 robotics_lib/src/haptic_device/HapticDeviceModel.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/robotics_lib_haptic_device.dir/build.make CMakeFiles/robotics_lib_haptic_device.dir/robotics_lib/src/haptic_device/HapticDeviceModel.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/hand_control_core.dir/build.make CMakeFiles/hand_control_core.dir/robotics_lib/src/haptic_device/HapticDeviceModel.cpp.s
 .PHONY : robotics_lib/src/haptic_device/HapticDeviceModel.cpp.s
 
 # Help Target
@@ -317,8 +304,7 @@ help:
 	@echo "... package"
 	@echo "... package_source"
 	@echo "... rebuild_cache"
-	@echo "... math_lib"
-	@echo "... robotics_lib_haptic_device"
+	@echo "... hand_control_core"
 	@echo "... math_lib/src/MatrixVectorOps.o"
 	@echo "... math_lib/src/MatrixVectorOps.i"
 	@echo "... math_lib/src/MatrixVectorOps.s"
