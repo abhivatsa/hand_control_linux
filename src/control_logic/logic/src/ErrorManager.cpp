@@ -1,110 +1,53 @@
-#include <cstdio>    // printf
-#include <cstring>   // strncpy
-
 #include "logic/ErrorManager.h"
+#include <iostream>
 
 namespace hand_control
 {
     namespace logic
     {
-        ErrorManager::ErrorManager()
+        bool ErrorManager::init()
         {
-            for (int i = 0; i < MAX_ACTIVE_ERRORS; i++)
-            {
-                errors_[i].code      = ERROR_NONE;
-                errors_[i].active    = false;
-                errors_[i].message[0] = '\0';
-            }
+            // If you need to load config or set up a file, do it here
+            return true;
         }
 
-        void ErrorManager::reportError(ErrorCode code, const char* message)
+        void ErrorManager::reportError(int errorCode, const std::string& message)
         {
-            if (code == ERROR_NONE)
+            std::lock_guard<std::mutex> lock(mutex_);
+            errors_.push_back({errorCode, message});
+
+            // Example: treat codes >= 100 as critical
+            if (errorCode >= 100)
             {
-                return;
+                criticalErrorActive_ = true;
             }
-
-            // Check if this error already exists
-            int slot = findErrorSlot(code);
-            if (slot >= 0)
-            {
-                // Update existing message if needed
-                std::strncpy(errors_[slot].message, message, sizeof(errors_[slot].message) - 1);
-                errors_[slot].message[sizeof(errors_[slot].message) - 1] = '\0';
-                return;
-            }
-
-            // Otherwise, find an empty slot
-            for (int i = 0; i < MAX_ACTIVE_ERRORS; i++)
-            {
-                if (!errors_[i].active)
-                {
-                    errors_[i].code   = code;
-                    errors_[i].active = true;
-                    std::strncpy(errors_[i].message, message, sizeof(errors_[i].message) - 1);
-                    errors_[i].message[sizeof(errors_[i].message) - 1] = '\0';
-
-                    std::printf("[ErrorManager] Error reported: code=%d, msg=%s\n",
-                                static_cast<int>(code), errors_[i].message);
-                    return;
-                }
-            }
-
-            // If no free slots
-            std::printf("[ErrorManager] No free error slots, error not recorded.\n");
+            // Also print or log
+            std::cerr << "[ErrorManager] Error " << errorCode << ": " << message << "\n";
         }
 
-        void ErrorManager::clearError(ErrorCode code)
+        std::vector<std::string> ErrorManager::flushErrors()
         {
-            for (int i = 0; i < MAX_ACTIVE_ERRORS; i++)
+            std::lock_guard<std::mutex> lock(mutex_);
+            std::vector<std::string> msgs;
+            msgs.reserve(errors_.size());
+            for (auto &e : errors_)
             {
-                if (errors_[i].active && errors_[i].code == code)
-                {
-                    errors_[i].active    = false;
-                    errors_[i].code      = ERROR_NONE;
-                    errors_[i].message[0] = '\0';
-                    std::printf("[ErrorManager] Cleared error code=%d\n", static_cast<int>(code));
-                }
+                msgs.push_back("Code " + std::to_string(e.code) + ": " + e.message);
             }
+            errors_.clear();
+            return msgs;
         }
 
-        bool ErrorManager::hasActiveErrors() const
+        bool ErrorManager::hasCriticalError() const
         {
-            for (int i = 0; i < MAX_ACTIVE_ERRORS; i++)
-            {
-                if (errors_[i].active)
-                {
-                    return true;
-                }
-            }
-            return false;
+            std::lock_guard<std::mutex> lock(mutex_);
+            return criticalErrorActive_;
         }
 
-        bool ErrorManager::isErrorActive(ErrorCode code) const
+        void ErrorManager::clearCriticalError()
         {
-            return (findErrorSlot(code) >= 0);
+            std::lock_guard<std::mutex> lock(mutex_);
+            criticalErrorActive_ = false;
         }
-
-        void ErrorManager::clearAll()
-        {
-            for (int i = 0; i < MAX_ACTIVE_ERRORS; i++)
-            {
-                errors_[i].active    = false;
-                errors_[i].code      = ERROR_NONE;
-                errors_[i].message[0] = '\0';
-            }
-        }
-
-        int ErrorManager::findErrorSlot(ErrorCode code) const
-        {
-            for (int i = 0; i < MAX_ACTIVE_ERRORS; i++)
-            {
-                if (errors_[i].active && errors_[i].code == code)
-                {
-                    return i;
-                }
-            }
-            return -1;
-        }
-    } // namespace logic
-} // namespace hand_control
+    }
+}

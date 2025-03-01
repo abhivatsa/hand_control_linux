@@ -1,66 +1,47 @@
 #pragma once
 
-#include "ErrorManager.h"
+#include <string>
+#include "merai/ParameterServer.h"
+#include "merai/RTMemoryLayout.h"
+#include "logic/ErrorManager.h"
 
 namespace hand_control
 {
     namespace logic
     {
-        /**
-         * @brief Possible states for the orchestrator’s top-level system mode.
-         */
         enum class OrchestratorState
         {
-            INIT = 0,
-            READY,
-            RUNNING,
-            ERROR,
-            SHUTDOWN
+            INIT,
+            HOMING,
+            IDLE,
+            ACTIVE,
+            FAULT
         };
 
-        /**
-         * @brief SystemOrchestrator manages high-level transitions (e.g., from INIT → READY → RUNNING),
-         *        handling user requests and monitoring error states.
-         */
         class SystemOrchestrator
         {
         public:
-            explicit SystemOrchestrator(hand_control::logic::ErrorManager& errMgr);
+            bool init(const hand_control::merai::ParameterServer* paramServer,
+                      hand_control::merai::RTMemoryLayout* rtLayout,
+                      ErrorManager* errorMgr);
 
-            /**
-             * @brief Update call at ~100 Hz (or any chosen rate) to process commands and handle state transitions.
-             */
             void update();
 
-            /**
-             * @brief Requests from user or external modules
-             */
-            void requestEnable();
-            void requestRun();
-            void requestDisable();
-            void resetErrors();
-
-            /**
-             * @brief Gets the current orchestrator state.
-             * @return OrchestratorState enum value (INIT, READY, RUNNING, etc.).
-             */
-            OrchestratorState getCurrentState() const
-            {
-                return currentState_;
-            }
+            void forceEmergencyStop();
 
         private:
-            void handleStateINIT();
-            void handleStateREADY();
-            void handleStateRUNNING();
-            void handleStateERROR();
+            // Helper conditions
+            bool needHoming() const;
+            bool homingComplete() const;
+            bool userRequestedActive() const;
+            bool userStops() const;
+            bool systemReset() const;
 
-            hand_control::logic::ErrorManager& errorManager_;
-            OrchestratorState currentState_;
+            const hand_control::merai::ParameterServer* paramServer_ = nullptr;
+            hand_control::merai::RTMemoryLayout*        rtLayout_    = nullptr;
+            ErrorManager*                               errorMgr_    = nullptr;
 
-            // Flags (like user-intent commands)
-            bool wantEnable_ = false;
-            bool wantRun_    = false;
+            OrchestratorState currentState_ = OrchestratorState::INIT;
         };
-    } // namespace logic
-} // namespace hand_control
+    }
+}

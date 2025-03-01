@@ -3,11 +3,16 @@
 
 #include "control/ControllerManager.h"
 
+// Suppose we have these headers for the specialized controllers
+#include "control/controllers/HomingController.h"
+#include "control/controllers/GravityDampingController.h"  // Combined gravity + damping
+#include "control/controllers/EStopController.h"
+
 namespace hand_control
 {
     namespace control
     {
-        ControllerManager::ControllerManager(const hand_control::merai::ParameterServer *paramServer)
+        ControllerManager::ControllerManager(const hand_control::merai::ParameterServer* paramServer)
             : paramServer_(paramServer)
         {
             if (!paramServer_)
@@ -36,6 +41,7 @@ namespace hand_control
         bool ControllerManager::init()
         {
             bool success = true;
+            // Initialize all registered controllers (e.g. Homing, GravityDamping, EStop)
             for (int i = 0; i < num_controllers_; i++)
             {
                 if (controllers_[i] &&
@@ -45,7 +51,7 @@ namespace hand_control
                 }
             }
 
-            // default to first if any
+            // Default to the first registered controller if any
             if (num_controllers_ > 0)
             {
                 active_controller_ = controllers_[0];
@@ -56,59 +62,51 @@ namespace hand_control
             return success;
         }
 
-        // If JointState / JointCommand come from hand_control::merai, fully qualify below:
-        //   void ControllerManager::update(
-        //       const hand_control::merai::JointState* states,
-        //       hand_control::merai::JointCommand* commands,
-        //       const hand_control::merai::ControllerUserCommand* userCmdArray,
-        //       hand_control::merai::ControllerFeedback* feedbackArray,
-        //       int jointCount,
-        //       double dt)
-        void ControllerManager::update(const hand_control::merai::JointState *states,
-                                       hand_control::merai::JointCommand *commands,
-                                       const hand_control::merai::ControllerUserCommand *userCmdArray,
-                                       hand_control::merai::ControllerFeedback *feedbackArray,
+        void ControllerManager::update(const hand_control::merai::JointState* states,
+                                       hand_control::merai::JointCommand* commands,
+                                       const hand_control::merai::ControllerUserCommand* userCmdArray,
+                                       hand_control::merai::ControllerFeedback* feedbackArray,
                                        int jointCount,
                                        double dt)
         {
-            // e.g. we only have 1 user command
-            const auto &userCmd = userCmdArray[0];
+            // We only have 1 user command in this example
+            const auto& userCmd = userCmdArray[0];
 
-            // Check if user requests a controller switch
+            // Check if user requests a controller switch (e.g. to HomingController, EStopController,
+            // or GravityDampingController)
             if (userCmd.requestSwitch)
             {
-                // store the request
+                // Store the request
                 target_controller_name_ = userCmd.targetControllerName;
                 switch_pending_.store(true);
-                // Optionally clear the request in shared memory
             }
 
-            // (1) handle bridging logic
+            // (1) Handle bridging logic (or skip if bridgingNeeded_ = false)
             processControllerSwitch();
 
-            // (2) run the active or bridging controller
+            // (2) Run the active controller if we have one
             if (active_controller_)
             {
                 active_controller_->update(states, commands, jointCount, dt);
             }
             else
             {
-                // fallback: hold current position
+                // Fallback: hold current position if no controller is active
                 for (int i = 0; i < jointCount; ++i)
                 {
                     commands[i].position = states[i].position;
                     commands[i].velocity = 0.0;
-                    commands[i].torque = 0.0;
+                    commands[i].torque   = 0.0;
                 }
             }
 
-            // (3) write minimal feedback
-            bool bridging = (switchState_ == SwitchState::BRIDGING);
+            // (3) Write minimal feedback
+            bool bridging  = (switchState_ == SwitchState::BRIDGING);
             bool switching = (switchState_ != SwitchState::RUNNING);
 
-            feedbackArray[0].bridgingActive = bridging;
+            feedbackArray[0].bridgingActive   = bridging;
             feedbackArray[0].switchInProgress = switching;
-            feedbackArray[0].controllerFailed = false; // e.g. if new controller not found or bridging fails
+            feedbackArray[0].controllerFailed = false; // set true if newController_ not found, etc.
         }
 
         void ControllerManager::processControllerSwitch()
@@ -141,12 +139,19 @@ namespace hand_control
                 if (bridgingNeeded_)
                 {
                     // bridging logic (create bridgingController_, etc.)
+                    // or skip bridging if you want immediate switch
                     switchState_ = SwitchState::BRIDGING;
                 }
                 else
                 {
                     switchState_ = SwitchState::START_NEW;
                 }
+                break;
+
+            case SwitchState::BRIDGING:
+                // If bridging is needed, do partial transitions here
+                // For simplicity, we go directly to START_NEW
+                switchState_ = SwitchState::START_NEW;
                 break;
 
             case SwitchState::START_NEW:
@@ -179,15 +184,15 @@ namespace hand_control
             }
         }
 
-        bool ControllerManager::requiresBridging(BaseController *oldCtrl, BaseController *newCtrl)
+        bool ControllerManager::requiresBridging(BaseController* oldCtrl, BaseController* newCtrl)
         {
-            // Example logic
+            // Example logic:
+            // If oldCtrl was torque-based and newCtrl is position-based, bridging might be needed
+            // For now, always false
             if (!oldCtrl || !newCtrl)
             {
                 return false;
             }
-            // e.g. bridging if torque->position
-            // (We haven't shown controlMode() or ControlMode enum, so adjust as needed)
             return false;
         }
 
@@ -202,5 +207,6 @@ namespace hand_control
             }
             return nullptr;
         }
+
     } // namespace control
 } // namespace hand_control

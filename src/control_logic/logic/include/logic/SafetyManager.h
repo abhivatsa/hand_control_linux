@@ -1,8 +1,8 @@
 #pragma once
 
-#include "ErrorManager.h"
-// If JointState is defined in hand_control::merai (or somewhere else), include it:
-// #include "merai/RTMemoryLayout.h"  // or your actual header
+#include "merai/ParameterServer.h"
+#include "merai/RTMemoryLayout.h"
+#include "logic/ErrorManager.h"
 
 namespace hand_control
 {
@@ -11,30 +11,21 @@ namespace hand_control
         class SafetyManager
         {
         public:
-            explicit SafetyManager(hand_control::logic::ErrorManager& errMgr);
+            bool init(const merai::ParameterServer* paramServer,
+                      merai::RTMemoryLayout* rtLayout,
+                      ErrorManager* errorMgr);
 
-            void setPositionLimits(double minPos, double maxPos);
-            void setVelocityLimit(double maxVel);
-            void setTemperatureLimit(double maxTemp);
+            void update();
 
-            /**
-             * @brief checkAllLimits Called periodically to check position, velocity, and temperature limits.
-             * @param jointStates Pointer to array of JointState objects
-             * @param jointCount  Number of joints
-             *
-             * If JointState is in hand_control::merai, we fully qualify it here:
-             *    void checkAllLimits(const hand_control::merai::JointState* jointStates, int jointCount);
-             */
-            void checkAllLimits(const /* hand_control::merai:: */ JointState* jointStates,
-                                int jointCount);
+            bool isFaulted() const;
+            void clearFault();
 
         private:
-            hand_control::logic::ErrorManager& errorManager_;
+            const merai::ParameterServer* paramServer_ = nullptr;
+            merai::RTMemoryLayout*        rtLayout_    = nullptr;
+            ErrorManager*                 errorMgr_    = nullptr;
 
-            double minPosition_;
-            double maxPosition_;
-            double maxVelocity_;
-            double maxTemperature_;
+            bool faulted_{false};
         };
-    } // namespace logic
-} // namespace hand_control
+    }
+}

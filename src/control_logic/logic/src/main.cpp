@@ -1,54 +1,43 @@
 #include <iostream>
-#include <thread>
-#include <chrono>
+#include <stdexcept>
+#include <cstdlib>
 
-#include "logic/SystemOrchestrator.h"
-#include "logic/DriveManager.h"
-#include "logic/SafetyManager.h"
-#include "logic/ErrorManager.h"
-#include "logic/ControllerModeManager.h"
+#include "logic/Logic.h"
 
-int main(int argc, char** argv)
+int main(int argc, char* argv[])
 {
-    // Instantiate managers (all in hand_control::logic)
-    hand_control::logic::DriveManager        driveManager;
-    hand_control::logic::SafetyManager       safetyManager;
-    hand_control::logic::ErrorManager        errorManager;
-    hand_control::logic::ControllerModeManager ctrlModeManager;
-
-    // Create orchestrator
-    hand_control::logic::SystemOrchestrator orchestrator(
-        driveManager,
-        safetyManager,
-        errorManager,
-        ctrlModeManager
-    );
-
-    // Load logic config
-    hand_control::logic::LogicConfig cfg;
-    cfg.updateRateHz = 1000.0;
-
-    // Initialize orchestrator
-    if (!orchestrator.init(cfg))
+    try
     {
-        std::cerr << "Failed to initialize SystemOrchestrator.\n";
-        return -1;
-    }
+        std::string paramServerShmName = "/ParameterServerShm";
+        size_t paramServerShmSize      = sizeof(hand_control::merai::ParameterServer);
 
-    // Example loop (non-real-time for demonstration)
-    while (true)
-    {
-        orchestrator.update();
+        std::string rtDataShmName = "/RTDataShm";
+        size_t rtDataShmSize      = sizeof(hand_control::merai::RTMemoryLayout);
 
-        // Sleep or wait for ~1ms
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        std::string loggerShmName = "/LoggerShm";
+        size_t loggerShmSize      = sizeof(hand_control::merai::multi_ring_logger_memory);
 
-        if (orchestrator.getSystemState() == hand_control::logic::SystemState::ERROR)
+        hand_control::logic::Logic logicApp(
+            paramServerShmName, paramServerShmSize,
+            rtDataShmName,      rtDataShmSize,
+            loggerShmName,      loggerShmSize
+        );
+
+        if (!logicApp.init())
         {
-            std::cerr << "System is in ERROR state. Stopping...\n";
-            break;
+            std::cerr << "[Logic Main] init failed.\n";
+            return EXIT_FAILURE;
         }
-    }
 
-    return 0;
+        std::cout << "[Logic Main] Starting logic loop...\n";
+        logicApp.run();  // blocks until requestStop()
+        std::cout << "[Logic Main] Exiting.\n";
+
+        return EXIT_SUCCESS;
+    }
+    catch (const std::exception& e)
+    {
+        std::cerr << "[Logic Main] Exception: " << e.what() << "\n";
+        return EXIT_FAILURE;
+    }
 }

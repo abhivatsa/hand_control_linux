@@ -1,73 +1,45 @@
-#include <cstdio>
 #include "logic/SafetyManager.h"
-
-// If JointState is in hand_control::merai, include it fully:
-// #include "merai/RTMemoryLayout.h"
+#include <iostream>
 
 namespace hand_control
 {
     namespace logic
     {
-        SafetyManager::SafetyManager(hand_control::logic::ErrorManager& errMgr)
-            : errorManager_(errMgr),
-              minPosition_(-1000.0),
-              maxPosition_(1000.0),
-              maxVelocity_(10.0),
-              maxTemperature_(80.0)
+        bool SafetyManager::init(const merai::ParameterServer* paramServer,
+                                 merai::RTMemoryLayout* rtLayout,
+                                 ErrorManager* errorMgr)
         {
+            paramServer_ = paramServer;
+            rtLayout_    = rtLayout;
+            errorMgr_    = errorMgr;
+            faulted_     = false;
+            return true;
         }
 
-        void SafetyManager::setPositionLimits(double minPos, double maxPos)
+        void SafetyManager::update()
         {
-            minPosition_ = minPos;
-            maxPosition_ = maxPos;
+            // Example: read some flags from rtLayout_
+            // e.g., auto &sf = rtLayout_->safetyFeedback;
+            // if (sf.eStop || sf.overTemp || sf.limitExceeded)
+            // {
+            //     faulted_ = true;
+            //     if (errorMgr_)
+            //     {
+            //         errorMgr_->reportError(200, "Safety fault: eStop or limit exceeded");
+            //     }
+            // }
+
+            // Another approach: check paramServer_ for some dynamic threshold
         }
 
-        void SafetyManager::setVelocityLimit(double maxVel)
+        bool SafetyManager::isFaulted() const
         {
-            maxVelocity_ = maxVel;
+            return faulted_;
         }
 
-        void SafetyManager::setTemperatureLimit(double maxTemp)
+        void SafetyManager::clearFault()
         {
-            maxTemperature_ = maxTemp;
+            faulted_ = false;
         }
-
-        // If JointState is in hand_control::merai, fully qualify below:
-        //   void SafetyManager::checkAllLimits(const hand_control::merai::JointState* jointStates,
-        //                                      int jointCount)
-        void SafetyManager::checkAllLimits(const JointState* jointStates, int jointCount)
-        {
-            for (int i = 0; i < jointCount; i++)
-            {
-                double pos  = jointStates[i].position;
-                double vel  = jointStates[i].velocity;
-                double temp = jointStates[i].temperature;
-
-                if (pos < minPosition_ || pos > maxPosition_)
-                {
-                    char msg[64];
-                    std::snprintf(msg, sizeof(msg),
-                                  "Pos limit exceeded joint=%d, pos=%.2f", i, pos);
-                    errorManager_.reportError(ERROR_LIMIT_EXCEEDED, msg);
-                }
-
-                if (vel > maxVelocity_ || vel < -maxVelocity_)
-                {
-                    char msg[64];
-                    std::snprintf(msg, sizeof(msg),
-                                  "Vel limit exceeded joint=%d, vel=%.2f", i, vel);
-                    errorManager_.reportError(ERROR_LIMIT_EXCEEDED, msg);
-                }
-
-                if (temp > maxTemperature_)
-                {
-                    char msg[64];
-                    std::snprintf(msg, sizeof(msg),
-                                  "Over-temp joint=%d, temp=%.1fC", i, temp);
-                    errorManager_.reportError(ERROR_OVER_TEMPERATURE, msg);
-                }
-            }
-        }
-    } // namespace logic
-} // namespace hand_control
+    }
+}

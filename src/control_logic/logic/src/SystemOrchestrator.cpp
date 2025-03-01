@@ -1,117 +1,106 @@
-#include <cstdio>
 #include "logic/SystemOrchestrator.h"
+#include <iostream>
 
 namespace hand_control
 {
     namespace logic
     {
-        SystemOrchestrator::SystemOrchestrator(ErrorManager& errMgr)
-            : errorManager_(errMgr),
-              currentState_(OrchestratorState::INIT),
-              wantEnable_(false),
-              wantRun_(false)
+        bool SystemOrchestrator::init(const merai::ParameterServer* paramServer,
+                                      merai::RTMemoryLayout* rtLayout,
+                                      ErrorManager* errorMgr)
         {
+            paramServer_ = paramServer;
+            rtLayout_    = rtLayout;
+            errorMgr_    = errorMgr;
+
+            currentState_ = OrchestratorState::INIT;
+            return true;
         }
 
         void SystemOrchestrator::update()
         {
-            // If we detect any errors and aren't already in ERROR state, go there
-            if (errorManager_.hasActiveErrors() &&
-                currentState_ != OrchestratorState::ERROR)
-            {
-                std::printf("[SystemOrchestrator] Transition to ERROR (due to active errors)\n");
-                currentState_ = OrchestratorState::ERROR;
-            }
-
             switch (currentState_)
             {
             case OrchestratorState::INIT:
-                handleStateINIT();
+                if (needHoming())
+                {
+                    currentState_ = OrchestratorState::HOMING;
+                    std::cout << "[Orchestrator] Transition to HOMING.\n";
+                }
+                else
+                {
+                    currentState_ = OrchestratorState::IDLE;
+                    std::cout << "[Orchestrator] Transition to IDLE.\n";
+                }
                 break;
 
-            case OrchestratorState::READY:
-                handleStateREADY();
+            case OrchestratorState::HOMING:
+                if (homingComplete())
+                {
+                    currentState_ = OrchestratorState::IDLE;
+                    std::cout << "[Orchestrator] Homing done, now IDLE.\n";
+                }
+                // If homing fails, we can report an error:
+                // errorMgr_->reportError(101, "Homing failure on joint X");
                 break;
 
-            case OrchestratorState::RUNNING:
-                handleStateRUNNING();
+            case OrchestratorState::IDLE:
+                if (userRequestedActive())
+                {
+                    currentState_ = OrchestratorState::ACTIVE;
+                    std::cout << "[Orchestrator] Going ACTIVE.\n";
+                }
                 break;
 
-            case OrchestratorState::ERROR:
-                handleStateERROR();
+            case OrchestratorState::ACTIVE:
+                if (userStops())
+                {
+                    currentState_ = OrchestratorState::IDLE;
+                    std::cout << "[Orchestrator] User stopped, back to IDLE.\n";
+                }
                 break;
 
-            case OrchestratorState::SHUTDOWN:
-                // Possibly do nothing or final steps
+            case OrchestratorState::FAULT:
+                // Remain in FAULT until systemReset() is true
+                if (systemReset())
+                {
+                    currentState_ = OrchestratorState::INIT;
+                    std::cout << "[Orchestrator] System reset, back to INIT.\n";
+                }
                 break;
             }
         }
 
-        void SystemOrchestrator::handleStateINIT()
+        void SystemOrchestrator::forceEmergencyStop()
         {
-            // Example: if user wants enable & no errors, move to READY
-            if (wantEnable_ && !errorManager_.hasActiveErrors())
+            currentState_ = OrchestratorState::FAULT;
+            std::cout << "[Orchestrator] Forcing E-STOP => FAULT state.\n";
+            if (errorMgr_)
             {
-                std::printf("[SystemOrchestrator] Transition INIT->READY\n");
-                currentState_ = OrchestratorState::READY;
+                errorMgr_->reportError(999, "Emergency Stop triggered by orchestrator");
             }
         }
 
-        void SystemOrchestrator::handleStateREADY()
+        // Stub condition checks
+        bool SystemOrchestrator::needHoming() const
         {
-            // If user wants to run & no errors
-            if (wantRun_ && !errorManager_.hasActiveErrors())
-            {
-                std::printf("[SystemOrchestrator] Transition READY->RUNNING\n");
-                currentState_ = OrchestratorState::RUNNING;
-            }
+            return paramServer_ && paramServer_->startup.requireHoming;
         }
-
-        void SystemOrchestrator::handleStateRUNNING()
+        bool SystemOrchestrator::homingComplete() const
         {
-            // If user no longer wants run or an error occurs, we leave RUNNING
-            if (!wantRun_)
-            {
-                std::printf("[SystemOrchestrator] Transition RUNNING->READY\n");
-                currentState_ = OrchestratorState::READY;
-            }
+            return false;
         }
-
-        void SystemOrchestrator::handleStateERROR()
+        bool SystemOrchestrator::userRequestedActive() const
         {
-            // Typically wait until user calls resetErrors() or system is re-initialized
-            // No automatic transition out of ERROR unless we confirm errors cleared
+            return false;
         }
-
-        void SystemOrchestrator::requestEnable()
+        bool SystemOrchestrator::userStops() const
         {
-            wantEnable_ = true;
+            return false;
         }
-
-        void SystemOrchestrator::requestRun()
+        bool SystemOrchestrator::systemReset() const
         {
-            wantRun_ = true;
+            return false;
         }
-
-        void SystemOrchestrator::requestDisable()
-        {
-            // For example, if we want to fully shut down
-            wantEnable_ = false;
-            wantRun_    = false;
-            currentState_ = OrchestratorState::SHUTDOWN;
-        }
-
-        void SystemOrchestrator::resetErrors()
-        {
-            // Clear all errors
-            errorManager_.clearAll();
-
-            // Optionally return to INIT
-            if (!errorManager_.hasActiveErrors())
-            {
-                std::printf("[SystemOrchestrator] Errors cleared, returning to INIT.\n");
-                currentState_ = OrchestratorState::INIT;
-            }
-        }
-    } // namespace logic
-} // namespace hand_control
+    }
+}
