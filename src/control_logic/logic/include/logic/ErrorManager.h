@@ -1,45 +1,81 @@
-#include "logic/SafetyManager.h"
-#include <iostream>
+#pragma once
+
+#include <cstddef>   // for size_t
+#include <cstdint>   // for int32_t
+#include "logic/Severity.h" // Include the severity enum
 
 namespace hand_control
 {
     namespace logic
     {
-        bool SafetyManager::init(const merai::ParameterServer* paramServer,
-                                 merai::RTMemoryLayout* rtLayout,
-                                 ErrorManager* errorMgr)
+        /**
+         * @brief A minimal ErrorManager storing a ring buffer of (code, severity) pairs.
+         *        - Single-thread usage only (no locking).
+         *        - If a CRITICAL severity is reported, sets a flag for immediate action.
+         */
+        class ErrorManager
         {
-            paramServer_ = paramServer;
-            rtLayout_    = rtLayout;
-            errorMgr_    = errorMgr;
-            faulted_     = false;
-            return true;
-        }
+        public:
+            static constexpr std::size_t MAX_ERRORS = 32;  // capacity of the ring buffer
 
-        void SafetyManager::update()
-        {
-            // Example: read some flags from rtLayout_
-            // e.g., auto &sf = rtLayout_->safetyFeedback;
-            // if (sf.eStop || sf.overTemp || sf.limitExceeded)
-            // {
-            //     faulted_ = true;
-            //     if (errorMgr_)
-            //     {
-            //         errorMgr_->reportError(200, "Safety fault: eStop or limit exceeded");
-            //     }
-            // }
+            ErrorManager() = default;
+            ~ErrorManager() = default;
 
-            // Another approach: check paramServer_ for some dynamic threshold
-        }
+            /**
+             * @brief Initializes/resets the error manager (clear buffer, reset flags).
+             * @return true if successful
+             */
+            bool init();
 
-        bool SafetyManager::isFaulted() const
-        {
-            return faulted_;
-        }
+            /**
+             * @brief Report a new error with code and severity.
+             *        Overwrites the oldest if the buffer is full.
+             *
+             * @param code     integer code (e.g. 101)
+             * @param severity enumerated severity: INFO, WARNING, ERROR, CRITICAL
+             */
+            void reportError(int32_t code, Severity severity);
 
-        void SafetyManager::clearFault()
-        {
-            faulted_ = false;
-        }
-    }
-}
+            /**
+             * @brief Flush stored errors out of the ring buffer, removing them from internal storage.
+             *
+             * @param outCodes       array to receive the error codes
+             * @param outSeverities  array to receive the severities
+             * @param maxCount       max number of errors you can retrieve
+             * @return number of errors actually retrieved
+             */
+            std::size_t flushErrors(int32_t* outCodes,
+                                    Severity* outSeverities,
+                                    std::size_t maxCount);
+
+            /**
+             * @brief Check if a CRITICAL error has been reported but not cleared.
+             */
+            bool hasCriticalError() const;
+
+            /**
+             * @brief Clear the critical error flag (for system recovery).
+             */
+            void clearCriticalError();
+
+        private:
+            struct ErrorEntry
+            {
+                int32_t  code;
+                Severity severity;
+            };
+
+            ErrorEntry  errors_[MAX_ERRORS];
+            std::size_t head_  = 0; // index of oldest error
+            std::size_t count_ = 0; // how many errors in the buffer
+
+            bool criticalErrorActive_ = false;
+
+            /**
+             * @brief Check severity, set criticalErrorActive_ if it's CRITICAL.
+             */
+            void handleSeverity(Severity sev);
+        };
+
+    } // namespace logic
+} // namespace hand_control

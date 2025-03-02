@@ -1,18 +1,13 @@
 #pragma once
 
-#include <memory>
 #include <atomic>
 #include <string>
-#include <time.h>  // for timespec
-
+#include <cstddef>
+#include <time.h>
 #include "merai/ParameterServer.h"
 #include "merai/RTMemoryLayout.h"
-#include "merai/SharedLogger.h"
 #include "merai/RAII_SharedMemory.h"
-
-#include "logic/SystemOrchestrator.h"
-#include "logic/SafetyManager.h"
-#include "logic/ErrorManager.h"
+#include "logic/SystemOrchestrator.h"  // includes OrchestratorState, DriveCommand
 
 namespace hand_control
 {
@@ -21,9 +16,9 @@ namespace hand_control
         class Logic
         {
         public:
-            Logic(const std::string &paramServerShmName, size_t paramServerShmSize,
-                  const std::string &rtDataShmName,      size_t rtDataShmSize,
-                  const std::string &loggerShmName,      size_t loggerShmSize);
+            Logic(const std::string& paramServerShmName, std::size_t paramServerShmSize,
+                  const std::string& rtDataShmName,      std::size_t rtDataShmSize,
+                  const std::string& loggerShmName,      std::size_t loggerShmSize);
 
             ~Logic();
 
@@ -33,6 +28,34 @@ namespace hand_control
 
         private:
             void cyclicTask();
+
+            /**
+             * @brief readDriveSummary
+             *  - Reads aggregator from control that indicates "anyFaulted" and a severity
+             */
+            void readDriveSummary(bool& outAnyFaulted, int& outFaultSeverity);
+
+            /**
+             * @brief readControllerUserCommands
+             *  - Possibly read user aggregator or commands to see if
+             *    user wants the robot active or wants a controller switch
+             */
+            void readControllerUserCommands(bool& outUserRequestedActive,
+                                            bool& outUserRequestedSwitch,
+                                            char* outControllerName);
+
+            /**
+             * @brief writeDriveCommand
+             *  - Writes the single enumerated drive command to shared memory,
+             *    so control side can interpret it
+             */
+            void writeDriveCommand(hand_control::logic::DriveCommand cmd);
+
+            /**
+             * @brief writeControllerSwitch
+             *  - If orchestrator wants a new controller, write aggregator to control side
+             */
+            void writeControllerSwitch(bool switchWanted, const std::string& ctrlName);
 
             struct period_info
             {
@@ -47,20 +70,16 @@ namespace hand_control
         private:
             std::atomic_bool stopRequested_{false};
 
-            // SHM attachments
-            hand_control::merai::RAII_SharedMemory paramServerShm_;
-            const hand_control::merai::ParameterServer* paramServerPtr_ = nullptr;
+            merai::RAII_SharedMemory paramServerShm_;
+            const merai::ParameterServer* paramServerPtr_ = nullptr;
 
-            hand_control::merai::RAII_SharedMemory rtDataShm_;
-            hand_control::merai::RTMemoryLayout* rtLayout_ = nullptr;
+            merai::RAII_SharedMemory rtDataShm_;
+            merai::RTMemoryLayout* rtLayout_ = nullptr;
 
-            hand_control::merai::RAII_SharedMemory loggerShm_;
-            hand_control::merai::multi_ring_logger_memory* loggerMem_ = nullptr;
+            merai::RAII_SharedMemory loggerShm_;
+            merai::multi_ring_logger_memory* loggerMem_ = nullptr;
 
-            // Managers
-            std::unique_ptr<SystemOrchestrator> orchestrator_;
-            std::unique_ptr<SafetyManager>      safetyManager_;
-            std::unique_ptr<ErrorManager>       errorManager_;
+            SystemOrchestrator systemOrchestrator_;
         };
     }
 }

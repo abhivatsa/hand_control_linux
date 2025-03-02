@@ -8,15 +8,15 @@ namespace hand_control
 {
     namespace merai
     {
-        // =======================
+        // =======================================
         // 1) Maximum constants
-        // =======================
+        // =======================================
         constexpr int MAX_SERVO_DRIVES = 12;
         constexpr int MAX_IO_DRIVES    = 4;
 
-        // =======================
+        // =======================================
         // 2) Basic Fieldbus Structures
-        // =======================
+        // =======================================
         struct ServoRxPdo
         {
             uint16_t controlWord     = 0; // e.g. 0x6040
@@ -46,9 +46,9 @@ namespace hand_control
             std::array<float, 4>  analogInputs{};
         };
 
-        // =======================
+        // =======================================
         // 3) High-Level Joint Data (SI units)
-        // =======================
+        // =======================================
         struct JointCommand
         {
             double position = 0.0;
@@ -63,9 +63,9 @@ namespace hand_control
             double torque   = 0.0;
         };
 
-        // =======================
+        // =======================================
         // 4) High-Level I/O Data
-        // =======================
+        // =======================================
         struct IoCommand
         {
             std::array<bool, 8>  digitalOutputs{};
@@ -78,9 +78,9 @@ namespace hand_control
             std::array<float, 2> analogInputs{};
         };
 
-        // =======================
+        // =======================================
         // 5) Drive-Level Signals & Feedback
-        // =======================
+        // =======================================
         struct DriveUserSignals
         {
             bool faultReset     = false;
@@ -95,9 +95,9 @@ namespace hand_control
             bool operationEnabled  = false;
         };
 
-        // =======================
+        // =======================================
         // 6) Controller-Level Commands & Feedback
-        // =======================
+        // =======================================
         struct ControllerUserCommand
         {
             bool requestSwitch = false;
@@ -111,9 +111,9 @@ namespace hand_control
             bool controllerFailed = false;
         };
 
-        // =======================
+        // =======================================
         // 7) DoubleBuffer Template
-        // =======================
+        // =======================================
         template <typename T>
         struct DoubleBuffer
         {
@@ -121,9 +121,9 @@ namespace hand_control
             std::atomic<int> frontIndex{0}; // 0 or 1
         };
 
-        // =======================
+        // =======================================
         // 8) Aggregated Fieldbus Data
-        // =======================
+        // =======================================
         struct ServoSharedData
         {
             std::array<ServoRxPdo, MAX_SERVO_DRIVES> rx;
@@ -136,9 +136,9 @@ namespace hand_control
             std::array<IoTxPdo, MAX_IO_DRIVES> tx;
         };
 
-        // =======================
+        // =======================================
         // 9) Aggregated High-Level Data
-        // =======================
+        // =======================================
         struct JointData
         {
             std::array<JointCommand, MAX_SERVO_DRIVES> commands;
@@ -151,9 +151,9 @@ namespace hand_control
             std::array<IoState,   MAX_IO_DRIVES> states;
         };
 
-        // =======================
+        // =======================================
         // 10) Aggregated Drive Signals & Feedback
-        // =======================
+        // =======================================
         struct DriveUserSignalsData
         {
             std::array<DriveUserSignals, MAX_SERVO_DRIVES> signals;
@@ -164,9 +164,9 @@ namespace hand_control
             std::array<DriveFeedback, MAX_SERVO_DRIVES> feedback;
         };
 
-        // =======================
+        // =======================================
         // 11) Controller Signals & Feedback
-        // =======================
+        // =======================================
         struct ControllerUserCommandData
         {
             std::array<ControllerUserCommand, 1> commands;
@@ -177,9 +177,35 @@ namespace hand_control
             std::array<ControllerFeedback, 1> feedback;
         };
 
-        // =======================
+        // =======================================
+        // Extra Summaries / Aggregators
+        // =======================================
+
+        // Suppose the control side sets this summary for the logic
+        struct DriveSummary
+        {
+            bool anyFaulted       = false;
+            int  faultSeverity    = 0;  // 1 => recoverable, 2 => major, etc.
+        };
+
+        // Logic can set a single enumerated drive command
+        // (defined in logic, e.g. DriveCommand::ENABLE_ALL)
+        // but we store it as an int here
+        struct DriveCommandAggregated
+        {
+            int driveCommand = 0; // 0 = NONE, 1=ENABLE_ALL, 2=DISABLE_ALL, etc.
+        };
+
+        // Logic can also set a controller switch aggregator
+        struct ControllerCommandAggregated
+        {
+            bool requestSwitch = false;
+            char targetControllerName[64] = {0};
+        };
+
+        // =======================================
         // 12) Top-Level Shared Layout
-        // =======================
+        // =======================================
         struct RTMemoryLayout
         {
             DoubleBuffer<ServoSharedData> servoBuffer;
@@ -193,6 +219,12 @@ namespace hand_control
 
             DoubleBuffer<ControllerUserCommandData> controllerUserCmdBuffer;
             DoubleBuffer<ControllerFeedbackData>    controllerFeedbackBuffer;
+
+            // New aggregator for logic -> control
+            DoubleBuffer<DriveSummary>         driveSummaryBuffer;      // control->logic
+            DoubleBuffer<DriveCommandAggregated> driveCommandBuffer;    // logic->control
+
+            DoubleBuffer<ControllerCommandAggregated> controllerCommandsAggBuffer; // logic->control
         };
     } // namespace merai
 } // namespace hand_control

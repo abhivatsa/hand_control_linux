@@ -1,2 +1,0 @@
-/usr/bin/ar qc librobotics_lib_haptic_device.a CMakeFiles/robotics_lib_haptic_device.dir/robotics_lib/src/haptic_device/HapticDeviceModel.cpp.o CMakeFiles/robotics_lib_haptic_device.dir/robotics_lib/src/haptic_device/HapticDeviceKinematics.cpp.o CMakeFiles/robotics_lib_haptic_device.dir/robotics_lib/src/haptic_device/HapticDeviceDynamics.cpp.o
-/usr/bin/ranlib librobotics_lib_haptic_device.a

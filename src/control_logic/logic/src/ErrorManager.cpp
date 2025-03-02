@@ -1,5 +1,4 @@
 #include "logic/ErrorManager.h"
-#include <iostream>
 
 namespace hand_control
 {
@@ -7,47 +6,75 @@ namespace hand_control
     {
         bool ErrorManager::init()
         {
-            // If you need to load config or set up a file, do it here
+            head_ = 0;
+            count_ = 0;
+            criticalErrorActive_ = false;
             return true;
         }
 
-        void ErrorManager::reportError(int errorCode, const std::string& message)
+        void ErrorManager::reportError(int32_t code, Severity severity)
         {
-            std::lock_guard<std::mutex> lock(mutex_);
-            errors_.push_back({errorCode, message});
-
-            // Example: treat codes >= 100 as critical
-            if (errorCode >= 100)
+            // Insert into ring buffer
+            std::size_t insertIndex = (head_ + count_) % MAX_ERRORS;
+            if (count_ < MAX_ERRORS)
             {
-                criticalErrorActive_ = true;
+                count_++;
             }
-            // Also print or log
-            std::cerr << "[ErrorManager] Error " << errorCode << ": " << message << "\n";
+            else
+            {
+                // buffer full => overwrite oldest
+                head_ = (head_ + 1) % MAX_ERRORS;
+            }
+
+            errors_[insertIndex].code     = code;
+            errors_[insertIndex].severity = severity;
+
+            // check if severity is CRITICAL
+            handleSeverity(severity);
         }
 
-        std::vector<std::string> ErrorManager::flushErrors()
+        std::size_t ErrorManager::flushErrors(int32_t* outCodes,
+                                              Severity* outSeverities,
+                                              std::size_t maxCount)
         {
-            std::lock_guard<std::mutex> lock(mutex_);
-            std::vector<std::string> msgs;
-            msgs.reserve(errors_.size());
-            for (auto &e : errors_)
+            // flush up to maxCount or however many are stored
+            std::size_t numFlushed = (count_ < maxCount) ? count_ : maxCount;
+
+            for (std::size_t i = 0; i < numFlushed; i++)
             {
-                msgs.push_back("Code " + std::to_string(e.code) + ": " + e.message);
+                std::size_t idx = (head_ + i) % MAX_ERRORS;
+
+                if (outCodes)
+                    outCodes[i] = errors_[idx].code;
+
+                if (outSeverities)
+                    outSeverities[i] = errors_[idx].severity;
             }
-            errors_.clear();
-            return msgs;
+
+            // remove them from the ring
+            head_ = (head_ + numFlushed) % MAX_ERRORS;
+            count_ -= numFlushed;
+
+            return numFlushed;
         }
 
         bool ErrorManager::hasCriticalError() const
         {
-            std::lock_guard<std::mutex> lock(mutex_);
             return criticalErrorActive_;
         }
 
         void ErrorManager::clearCriticalError()
         {
-            std::lock_guard<std::mutex> lock(mutex_);
             criticalErrorActive_ = false;
         }
-    }
-}
+
+        void ErrorManager::handleSeverity(Severity sev)
+        {
+            if (sev == Severity::CRITICAL)
+            {
+                criticalErrorActive_ = true;
+            }
+        }
+
+    } // namespace logic
+} // namespace hand_control

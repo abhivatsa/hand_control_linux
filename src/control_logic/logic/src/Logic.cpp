@@ -3,69 +3,46 @@
 #include <stdexcept>
 #include <chrono>
 #include <thread>
+#include <cstring>
 
 namespace hand_control
 {
     namespace logic
     {
-        Logic::Logic(const std::string &paramServerShmName, size_t paramServerShmSize,
-                     const std::string &rtDataShmName,      size_t rtDataShmSize,
-                     const std::string &loggerShmName,      size_t loggerShmSize)
-            : paramServerShm_(paramServerShmName, paramServerShmSize, /*readOnly=*/true)
-            , rtDataShm_(rtDataShmName, rtDataShmSize, /*readOnly=*/false)
-            , loggerShm_(loggerShmName, loggerShmSize, /*readOnly=*/false)
+        Logic::Logic(const std::string& paramServerShmName, std::size_t paramServerShmSize,
+                     const std::string& rtDataShmName,      std::size_t rtDataShmSize,
+                     const std::string& loggerShmName,      std::size_t loggerShmSize)
+            : paramServerShm_(paramServerShmName, paramServerShmSize, true)
+            , rtDataShm_(rtDataShmName, rtDataShmSize, false)
+            , loggerShm_(loggerShmName, loggerShmSize, false)
         {
-            // Attach & map ParameterServer
-            paramServerPtr_ = reinterpret_cast<const merai::ParameterServer*>(
-                paramServerShm_.getPtr());
+            // Attach param server
+            paramServerPtr_ = reinterpret_cast<const merai::ParameterServer*>(paramServerShm_.getPtr());
             if (!paramServerPtr_)
-            {
                 throw std::runtime_error("[Logic] Failed to map ParameterServer memory.");
-            }
 
-            // Attach & map RTMemoryLayout
+            // Attach RTMemoryLayout
             rtLayout_ = reinterpret_cast<merai::RTMemoryLayout*>(rtDataShm_.getPtr());
             if (!rtLayout_)
-            {
                 throw std::runtime_error("[Logic] Failed to map RTMemoryLayout memory.");
-            }
 
-            // Attach & map Logger memory
+            // Attach logger memory
             loggerMem_ = reinterpret_cast<merai::multi_ring_logger_memory*>(loggerShm_.getPtr());
             if (!loggerMem_)
-            {
                 throw std::runtime_error("[Logic] Failed to map logger memory.");
-            }
 
-            std::cout << "[Logic] Shared memory attached successfully.\n";
+            std::cout << "[Logic] Shared memory attached.\n";
         }
 
         Logic::~Logic()
         {
-            // Cleanup if needed
         }
 
         bool Logic::init()
         {
-            // 1) Create managers
-            orchestrator_ = std::make_unique<SystemOrchestrator>();
-            safetyManager_ = std::make_unique<SafetyManager>();
-            errorManager_  = std::make_unique<ErrorManager>();
-
-            // 2) Initialize them (example)
-            if (!orchestrator_->init(paramServerPtr_, rtLayout_, errorManager_.get()))
+            if (!systemOrchestrator_.init())
             {
                 std::cerr << "[Logic] SystemOrchestrator init failed.\n";
-                return false;
-            }
-            if (!safetyManager_->init(paramServerPtr_, rtLayout_, errorManager_.get()))
-            {
-                std::cerr << "[Logic] SafetyManager init failed.\n";
-                return false;
-            }
-            if (!errorManager_->init())
-            {
-                std::cerr << "[Logic] ErrorManager init failed.\n";
                 return false;
             }
 
@@ -75,7 +52,7 @@ namespace hand_control
 
         void Logic::run()
         {
-            std::cout << "[Logic] Running main loop.\n";
+            std::cout << "[Logic] Entering main loop.\n";
             cyclicTask();
         }
 
@@ -87,38 +64,128 @@ namespace hand_control
         void Logic::cyclicTask()
         {
             period_info pinfo;
-            // e.g. 10 ms cycle
-            periodic_task_init(&pinfo, 10'000'000L);
+            periodic_task_init(&pinfo, 10'000'000L); // 10ms
 
             while (!stopRequested_.load(std::memory_order_relaxed))
             {
-                // 1) Update safety
-                safetyManager_->update();
+                //============================
+                // (1) Read aggregator from Control
+                //============================
+                bool faultActive = false;
+                int faultSeverity = 0;
+                readDriveSummary(faultActive, faultSeverity);
 
-                // 2) If safety triggers a fault, orchestrator handles it
-                //    but let's check if the safety manager reported something
-                if (safetyManager_->isFaulted())
-                {
-                    orchestrator_->forceEmergencyStop(); // or something similar
-                }
+                bool userActive = false;
+                bool userSwitch = false;
+                char ctrlName[64] = {0};
+                readControllerUserCommands(userActive, userSwitch, ctrlName);
 
-                // 3) Update orchestrator
-                orchestrator_->update();
+                //============================
+                // (2) Orchestrator update
+                //============================
+                // pass whether there's a fault, user wants active, user wants ctrl switch
+                systemOrchestrator_.update(
+                    faultActive, faultSeverity,
+                    userActive,
+                    userSwitch, 
+                    ctrlName
+                );
 
-                // 4) Check if there's a critical error
-                if (errorManager_->hasCriticalError())
-                {
-                    // Possibly ensure orchestrator is in FAULT
-                    orchestrator_->forceEmergencyStop();
-                }
+                // retrieve the orchestrator's single drive command
+                auto driveCmd = systemOrchestrator_.getDriveCommand();
 
-                // 5) Sleep until next cycle
+                // check if orchestrator wants a new controller
+                bool wantCtrlSwitch = systemOrchestrator_.wantsControllerSwitch();
+                auto desiredCtrlName = systemOrchestrator_.desiredControllerName();
+
+                //============================
+                // (3) Write drive command aggregator
+                //============================
+                writeDriveCommand(driveCmd);
+
+                // (4) Write controller switch aggregator if needed
+                writeControllerSwitch(wantCtrlSwitch, desiredCtrlName);
+
+                //============================
+                // (5) Sleep
+                //============================
                 wait_rest_of_period(&pinfo);
             }
 
             std::cout << "[Logic] Exiting main loop.\n";
         }
 
+        //===============================
+        // Helpers
+        //===============================
+        void Logic::readDriveSummary(bool& outAnyFaulted, int& outSeverity)
+        {
+            int frontIdx = rtLayout_->driveSummaryBuffer.frontIndex.load(std::memory_order_acquire);
+            const auto& summary = rtLayout_->driveSummaryBuffer.buffer[frontIdx];
+            outAnyFaulted = summary.anyFaulted;  
+            outSeverity   = summary.faultSeverity; 
+        }
+
+        void Logic::readControllerUserCommands(bool& outUserRequestedActive,
+                                               bool& outUserRequestedSwitch,
+                                               char* outControllerName)
+        {
+            // For demonstration, we might read a user aggregator 
+            // or something from paramServer. 
+            // We'll keep it simple:
+            // Suppose the control side (or a user interface) wrote a small aggregator
+            // indicating "start operation" or "switch controller"
+
+            // Example:
+            int frontIdx = rtLayout_->controllerUserCmdBuffer.frontIndex.load(std::memory_order_acquire);
+            const auto& cmdBuf = rtLayout_->controllerUserCmdBuffer.buffer[frontIdx];
+            // e.g. we interpret userCmdBuf.commands[0] differently
+            // For demonstration, let's say requestSwitch => user requests ctrl switch
+            outUserRequestedSwitch = cmdBuf.commands[0].requestSwitch;
+            if (outUserRequestedSwitch)
+            {
+                std::strncpy(outControllerName,
+                             cmdBuf.commands[0].targetControllerName,
+                             63);
+            }
+
+            // Maybe we have another aggregator for "start operation"
+            // For demonstration, let's just default to false
+            outUserRequestedActive = false;
+        }
+
+        void Logic::writeDriveCommand(hand_control::logic::DriveCommand cmd)
+        {
+            int frontIdx  = rtLayout_->driveCommandBuffer.frontIndex.load(std::memory_order_acquire);
+            int backIndex = 1 - frontIdx;
+
+            auto& driveCmdAgg = rtLayout_->driveCommandBuffer.buffer[backIndex];
+            driveCmdAgg.driveCommand = cmd; // store the enum
+
+            rtLayout_->driveCommandBuffer.frontIndex.store(backIndex, std::memory_order_release);
+        }
+
+        void Logic::writeControllerSwitch(bool switchWanted, const std::string& ctrlName)
+        {
+            int frontIdx  = rtLayout_->controllerCommandsAggBuffer.frontIndex.load(std::memory_order_acquire);
+            int backIndex = 1 - frontIdx;
+
+            auto& ctrlAgg = rtLayout_->controllerCommandsAggBuffer.buffer[backIndex];
+            ctrlAgg.requestSwitch = false;
+            std::memset(ctrlAgg.targetControllerName, 0, sizeof(ctrlAgg.targetControllerName));
+
+            if (switchWanted)
+            {
+                ctrlAgg.requestSwitch = true;
+                std::strncpy(ctrlAgg.targetControllerName,
+                             ctrlName.c_str(),
+                             sizeof(ctrlAgg.targetControllerName)-1);
+            }
+
+            rtLayout_->controllerCommandsAggBuffer.frontIndex.store(backIndex, std::memory_order_release);
+        }
+
+        // scheduling
         void Logic::periodic_task_init(period_info* pinfo, long periodNs)
         {
             clock_gettime(CLOCK_MONOTONIC, &pinfo->next_period);

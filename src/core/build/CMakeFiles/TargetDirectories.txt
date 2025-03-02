@@ -1,9 +1,0 @@
-/home/abhishek/hand_control_linux/src/core/build/CMakeFiles/hand_control_core.dir
-/home/abhishek/hand_control_linux/src/core/build/CMakeFiles/package.dir
-/home/abhishek/hand_control_linux/src/core/build/CMakeFiles/package_source.dir
-/home/abhishek/hand_control_linux/src/core/build/CMakeFiles/edit_cache.dir
-/home/abhishek/hand_control_linux/src/core/build/CMakeFiles/rebuild_cache.dir
-/home/abhishek/hand_control_linux/src/core/build/CMakeFiles/list_install_components.dir
-/home/abhishek/hand_control_linux/src/core/build/CMakeFiles/install.dir
-/home/abhishek/hand_control_linux/src/core/build/CMakeFiles/install/local.dir
-/home/abhishek/hand_control_linux/src/core/build/CMakeFiles/install/strip.dir
