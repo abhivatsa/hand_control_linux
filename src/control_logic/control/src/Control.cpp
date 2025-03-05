@@ -6,26 +6,25 @@
 #include "control/Control.h"
 #include "control/hardware_abstraction/MockHardwareAbstractionLayer.h"
 #include "control/hardware_abstraction/RealHardwareAbstractionLayer.h"
-
-// Example controllers
 #include "control/controllers/GravityCompController.h"
 
 namespace hand_control
 {
     namespace control
     {
-
-        // --------------------------------------------------------------------------------
+        // -------------------------------------------------------------------
         // Constructor
-        // --------------------------------------------------------------------------------
+        // -------------------------------------------------------------------
         Control::Control(const std::string &paramServerShmName, size_t paramServerShmSize,
                          const std::string &rtDataShmName, size_t rtDataShmSize,
                          const std::string &loggerShmName, size_t loggerShmSize)
-            : paramServerShm_(paramServerShmName, paramServerShmSize, /*readOnly=*/true), rtDataShm_(rtDataShmName, rtDataShmSize, /*readOnly=*/false), loggerShm_(loggerShmName, loggerShmSize, /*readOnly=*/false)
+            : paramServerShm_(paramServerShmName, paramServerShmSize, true),
+              rtDataShm_(rtDataShmName, rtDataShmSize, false),
+              loggerShm_(loggerShmName, loggerShmSize, false)
         {
             // 1) Attach & map ParameterServer
             paramServerPtr_ =
-                reinterpret_cast<const hand_control::merai::ParameterServer *>(paramServerShm_.getPtr());
+                reinterpret_cast<const hand_control::merai::ParameterServer*>(paramServerShm_.getPtr());
             if (!paramServerPtr_)
             {
                 throw std::runtime_error("[Control] Failed to map ParameterServer memory.");
@@ -33,7 +32,7 @@ namespace hand_control
 
             // 2) Attach & map RTMemoryLayout
             rtLayout_ =
-                reinterpret_cast<hand_control::merai::RTMemoryLayout *>(rtDataShm_.getPtr());
+                reinterpret_cast<hand_control::merai::RTMemoryLayout*>(rtDataShm_.getPtr());
             if (!rtLayout_)
             {
                 throw std::runtime_error("[Control] Failed to map RTMemoryLayout memory.");
@@ -41,7 +40,7 @@ namespace hand_control
 
             // 3) Attach & map Logger memory
             loggerMem_ =
-                reinterpret_cast<hand_control::merai::multi_ring_logger_memory *>(loggerShm_.getPtr());
+                reinterpret_cast<hand_control::merai::multi_ring_logger_memory*>(loggerShm_.getPtr());
             if (!loggerMem_)
             {
                 throw std::runtime_error("[Control] Failed to map multi_ring_logger_memory.");
@@ -66,23 +65,22 @@ namespace hand_control
             driveStateManager_ = std::make_unique<DriveStateManager>();
         }
 
-        // --------------------------------------------------------------------------------
+        // -------------------------------------------------------------------
         // Destructor
-        // --------------------------------------------------------------------------------
+        // -------------------------------------------------------------------
         Control::~Control()
         {
             // Cleanup if needed
         }
 
-        // --------------------------------------------------------------------------------
+        // -------------------------------------------------------------------
         // init()
-        // --------------------------------------------------------------------------------
+        // -------------------------------------------------------------------
         bool Control::init()
         {
             // 1) Build a 6-axis model from ParameterServer
             {
                 std::cout << "[Control] Building 6-axis model from paramServer.\n";
-
                 // Load from paramServer
                 if (!hapticDeviceModel_.loadFromParameterServer(*paramServerPtr_))
                 {
@@ -106,7 +104,6 @@ namespace hand_control
                     std::cerr << "[Control] Failed to register GravityCompController.\n";
                     return false;
                 }
-
             }
 
             // 4) Init the manager
@@ -120,25 +117,25 @@ namespace hand_control
             return true;
         }
 
-        // --------------------------------------------------------------------------------
+        // -------------------------------------------------------------------
         // run()
-        // --------------------------------------------------------------------------------
+        // -------------------------------------------------------------------
         void Control::run()
         {
             cyclicTask();
         }
 
-        // --------------------------------------------------------------------------------
+        // -------------------------------------------------------------------
         // requestStop()
-        // --------------------------------------------------------------------------------
+        // -------------------------------------------------------------------
         void Control::requestStop()
         {
             stopRequested_.store(true, std::memory_order_relaxed);
         }
 
-        // --------------------------------------------------------------------------------
-        // Real-time loop
-        // --------------------------------------------------------------------------------
+        // -------------------------------------------------------------------
+        // cyclicTask() - real-time loop (1 ms)
+        // -------------------------------------------------------------------
         void Control::cyclicTask()
         {
             period_info pinfo;
@@ -147,78 +144,43 @@ namespace hand_control
 
             while (!stopRequested_.load(std::memory_order_relaxed))
             {
-                // 1) Read from hardware
+                // (1) Read from hardware
                 hal_->read();
 
-                // 1a) Copy joint & I/O states -> shared memory
+                // (2) Copy states -> shared memory
                 copyJointStatesToSharedMemory();
                 copyIoStatesToSharedMemory();
 
-                // 1b) Check safety flags
-                checkSafetyFlags();
+                // (3) aggregator reads from logic
+                DriveCommand driveCmdEnum = readDriveCommandAggregator();
+                ControllerCommandAggregated ctrlCmdAgg = readControllerCommandAggregator();
 
-                // (A) DriveStateManager
-                {
-                    int sigFrontIdx =
-                        rtLayout_->driveUserSignalsBuffer.frontIndex.load(std::memory_order_acquire);
-                    auto &sigBuf = rtLayout_->driveUserSignalsBuffer.buffer[sigFrontIdx];
+                // (4) apply aggregator locally
+                applyDriveCommand(driveCmdEnum);     
+                applyControllerSwitch(ctrlCmdAgg);
 
-                    int fdbkBackIdx =
-                        1 - rtLayout_->driveFeedbackBuffer.frontIndex.load(std::memory_order_acquire);
-                    auto &fdbkBuf = rtLayout_->driveFeedbackBuffer.buffer[fdbkBackIdx];
+                // (5) sub-managers
+                updateDriveStateManager();   
+                updateControllerManager();
 
-                    driveStateManager_->update(
-                        hal_->getDriveInputsPtr(),
-                        hal_->getDriveOutputsPtr(),
-                        sigBuf.signals.data(),
-                        fdbkBuf.feedback.data(),
-                        hal_->getDriveCount());
-
-                    rtLayout_->driveFeedbackBuffer.frontIndex.store(
-                        fdbkBackIdx, std::memory_order_release);
-                }
-
-                // // (B) ControllerManager
-                // {
-                //     int cmdFrontIdx =
-                //         rtLayout_->controllerUserCmdBuffer.frontIndex.load(std::memory_order_acquire);
-                //     auto &ctrlCmdBuf = rtLayout_->controllerUserCmdBuffer.buffer[cmdFrontIdx];
-
-                //     int ctrlFdbkBackIdx =
-                //         1 - rtLayout_->controllerFeedbackBuffer.frontIndex.load(std::memory_order_acquire);
-                //     auto &ctrlFdbkBuf = rtLayout_->controllerFeedbackBuffer.buffer[ctrlFdbkBackIdx];
-
-                //     manager_->update(
-                //         hal_->getJointStatesPtr(),
-                //         hal_->getJointCommandsPtr(),
-                //         ctrlCmdBuf.commands.data(),
-                //         ctrlFdbkBuf.feedback.data(),
-                //         static_cast<int>(hal_->getJointCount()),
-                //         0.001 // dt in seconds (1 ms)
-                //     );
-
-                //     rtLayout_->controllerFeedbackBuffer.frontIndex.store(
-                //         ctrlFdbkBackIdx, std::memory_order_release);
-                // }
-
-                // 3a) Copy updated commands from shared memory -> HAL
+                // (6) copy updated commands -> hardware
                 copyJointCommandsFromSharedMemory();
                 copyIoCommandsFromSharedMemory();
-
-                // 4) Write to hardware
                 hal_->write();
 
-                // 5) Sleep until next cycle
+                // (7) possibly write aggregator feedback for logic (driveSummaryBuffer)
+                writeDriveSummaryAggregator();
+
+                // (8) Sleep until next cycle
                 wait_rest_of_period(&pinfo);
             }
 
-            // Optionally disable drives upon exit
-            // driveStateManager_->disableAllDrives();
+            // optionally disable drives upon exit
         }
 
-        // --------------------------------------------------------------------------------
+        // -------------------------------------------------------------------
         // Scheduling Helpers
-        // --------------------------------------------------------------------------------
+        // -------------------------------------------------------------------
         void Control::periodic_task_init(period_info *pinfo, long periodNs)
         {
             clock_gettime(CLOCK_MONOTONIC, &pinfo->next_period);
@@ -241,9 +203,9 @@ namespace hand_control
             clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &pinfo->next_period, nullptr);
         }
 
-        // --------------------------------------------------------------------------------
-        // Copy Joint States TO Shared Memory
-        // --------------------------------------------------------------------------------
+        // -------------------------------------------------------------------
+        // Copy Joint & I/O States
+        // -------------------------------------------------------------------
         void Control::copyJointStatesToSharedMemory()
         {
             int currentFront = rtLayout_->jointBuffer.frontIndex.load(std::memory_order_acquire);
@@ -257,18 +219,12 @@ namespace hand_control
             {
                 backStates[i].position = halStates[i].position;
                 backStates[i].velocity = halStates[i].velocity;
-                backStates[i].torque = halStates[i].torque;
-
-                std::cout<<"joint pos: "<<i<<" : "<<halStates[i].position<<std::endl;
+                backStates[i].torque   = halStates[i].torque;
             }
 
-            // Publish new data
             rtLayout_->jointBuffer.frontIndex.store(backIndex, std::memory_order_release);
         }
 
-        // --------------------------------------------------------------------------------
-        // Copy I/O States TO Shared Memory
-        // --------------------------------------------------------------------------------
         void Control::copyIoStatesToSharedMemory()
         {
             int currentFront = rtLayout_->ioDataBuffer.frontIndex.load(std::memory_order_acquire);
@@ -280,7 +236,7 @@ namespace hand_control
             auto *halIoStates = hal_->getIoStatesPtr();
             if (!halIoStates || ioCount == 0)
             {
-                return; // No I/O
+                return;
             }
 
             for (size_t i = 0; i < ioCount; i++)
@@ -298,28 +254,12 @@ namespace hand_control
             rtLayout_->ioDataBuffer.frontIndex.store(backIndex, std::memory_order_release);
         }
 
-        // --------------------------------------------------------------------------------
-        // Check Safety Flags
-        // --------------------------------------------------------------------------------
         void Control::checkSafetyFlags()
         {
-            // auto &sf = rtLayout_->safetyFeedback;
-            // if (sf.limitExceeded || sf.overTemp || sf.eStop)
-            // {
-            //     std::cout << "[Control] Safety triggered: "
-            //               << "limit=" << sf.limitExceeded
-            //               << ", overTemp=" << sf.overTemp
-            //               << ", eStop=" << sf.eStop
-            //               << "\n";
-
-            //     // Possibly disable drives or zero commands
-            //     // driveStateManager_->forceDisableAllDrives();
-            // }
+            // Possibly read from a separate aggregator or structure
+            // and if something is triggered, handle it
         }
 
-        // --------------------------------------------------------------------------------
-        // Copy Joint Commands FROM Shared Memory
-        // --------------------------------------------------------------------------------
         void Control::copyJointCommandsFromSharedMemory()
         {
             int frontIndex = rtLayout_->jointBuffer.frontIndex.load(std::memory_order_acquire);
@@ -332,13 +272,10 @@ namespace hand_control
             {
                 halCommands[i].position = cmds[i].position;
                 halCommands[i].velocity = cmds[i].velocity;
-                halCommands[i].torque = cmds[i].torque;
+                halCommands[i].torque   = cmds[i].torque;
             }
         }
 
-        // --------------------------------------------------------------------------------
-        // Copy I/O Commands FROM Shared Memory
-        // --------------------------------------------------------------------------------
         void Control::copyIoCommandsFromSharedMemory()
         {
             int frontIndex = rtLayout_->ioDataBuffer.frontIndex.load(std::memory_order_acquire);
@@ -349,7 +286,7 @@ namespace hand_control
 
             if (!halIoCommands || ioCount == 0)
             {
-                return; // No I/O
+                return;
             }
 
             for (size_t i = 0; i < ioCount; i++)
@@ -363,6 +300,147 @@ namespace hand_control
                     halIoCommands[i].analogOutputs[ch] = ioCmds[i].analogOutputs[ch];
                 }
             }
+        }
+
+        // -------------------------------------------------------------------
+        // Aggregator Helpers
+        // -------------------------------------------------------------------
+        DriveCommand Control::readDriveCommandAggregator()
+        {
+            int frontIdx = rtLayout_->driveCommandBuffer.frontIndex.load(std::memory_order_acquire);
+            const auto &cmdAgg = rtLayout_->driveCommandBuffer.buffer[frontIdx];
+            int cmdInt = cmdAgg.driveCommand;
+
+            switch(cmdInt)
+            {
+                case 1: return DriveCommand::ENABLE_ALL;
+                case 2: return DriveCommand::DISABLE_ALL;
+                case 3: return DriveCommand::QUICK_STOP;
+                // etc
+                default: return DriveCommand::NONE;
+            }
+        }
+
+        Control::ControllerCommandAggregated Control::readControllerCommandAggregator()
+        {
+            ControllerCommandAggregated local{};
+            int frontIdx = rtLayout_->controllerCommandsAggBuffer.frontIndex.load(std::memory_order_acquire);
+            const auto &ctrlAgg = rtLayout_->controllerCommandsAggBuffer.buffer[frontIdx];
+
+            local.requestSwitch = ctrlAgg.requestSwitch;
+            std::strncpy(local.targetControllerName,
+                         ctrlAgg.targetControllerName,
+                         sizeof(local.targetControllerName)-1);
+
+            return local;
+        }
+
+        void Control::writeDriveSummaryAggregator()
+        {
+            bool anyFault = driveStateManager_->anyFaulted();
+            int faultSev  = driveStateManager_->faultSeverity();
+
+            int frontIdx  = rtLayout_->driveSummaryBuffer.frontIndex.load(std::memory_order_acquire);
+            int backIdx   = 1 - frontIdx;
+            auto &summary = rtLayout_->driveSummaryBuffer.buffer[backIdx];
+            summary.anyFaulted    = anyFault;
+            summary.faultSeverity = faultSev;
+
+            rtLayout_->driveSummaryBuffer.frontIndex.store(backIdx, std::memory_order_release);
+        }
+
+        void Control::applyDriveCommand(DriveCommand cmd)
+        {
+            // interpret the enumerated command => produce local user signals
+            std::array<DriveUserSignals, MAX_SERVO_DRIVES> localSignals{};
+
+            switch(cmd)
+            {
+                case DriveCommand::ENABLE_ALL:
+                    for (auto &sig : localSignals) { sig.allowOperation = true; }
+                    break;
+                case DriveCommand::DISABLE_ALL:
+                    for (auto &sig : localSignals) { sig.forceDisable = true; }
+                    break;
+                case DriveCommand::QUICK_STOP:
+                    for (auto &sig : localSignals) { sig.quickStop = true; }
+                    break;
+                default: // NONE or unknown => do nothing
+                    break;
+            }
+
+            // Now store localSignals into driveUserSignalsBuffer
+            int frontIdx = rtLayout_->driveUserSignalsBuffer.frontIndex.load(std::memory_order_acquire);
+            int backIdx  = 1 - frontIdx;
+            auto &sigBuf = rtLayout_->driveUserSignalsBuffer.buffer[backIdx];
+            for (int i=0; i<MAX_SERVO_DRIVES; i++)
+            {
+                sigBuf.signals[i] = localSignals[i];
+            }
+            rtLayout_->driveUserSignalsBuffer.frontIndex.store(backIdx, std::memory_order_release);
+        }
+
+        void Control::applyControllerSwitch(const ControllerCommandAggregated &ctrlCmd)
+        {
+            if (ctrlCmd.requestSwitch)
+            {
+                // fill existing userCmdBuffer or call manager directly
+                int cFrontIdx  = rtLayout_->controllerUserCmdBuffer.frontIndex.load(std::memory_order_acquire);
+                int cBackIdx   = 1 - cFrontIdx;
+                auto &ctrlBuf  = rtLayout_->controllerUserCmdBuffer.buffer[cBackIdx];
+
+                ctrlBuf.commands[0].requestSwitch = true;
+                std::strncpy(ctrlBuf.commands[0].targetControllerName,
+                             ctrlCmd.targetControllerName,
+                             sizeof(ctrlBuf.commands[0].targetControllerName)-1);
+
+                rtLayout_->controllerUserCmdBuffer.frontIndex.store(cBackIdx, std::memory_order_release);
+            }
+        }
+
+        void Control::updateDriveStateManager()
+        {
+            int sigFrontIdx =
+                rtLayout_->driveUserSignalsBuffer.frontIndex.load(std::memory_order_acquire);
+            auto &sigBuf = rtLayout_->driveUserSignalsBuffer.buffer[sigFrontIdx];
+
+            int fdbkBackIdx =
+                1 - rtLayout_->driveFeedbackBuffer.frontIndex.load(std::memory_order_acquire);
+            auto &fdbkBuf = rtLayout_->driveFeedbackBuffer.buffer[fdbkBackIdx];
+
+            driveStateManager_->update(
+                hal_->getDriveInputsPtr(),
+                hal_->getDriveOutputsPtr(),
+                sigBuf.signals.data(),
+                fdbkBuf.feedback.data(),
+                hal_->getDriveCount()
+            );
+
+            rtLayout_->driveFeedbackBuffer.frontIndex.store(
+                fdbkBackIdx, std::memory_order_release);
+        }
+
+        void Control::updateControllerManager()
+        {
+            int cmdFrontIdx =
+                rtLayout_->controllerUserCmdBuffer.frontIndex.load(std::memory_order_acquire);
+            auto &ctrlCmdBuf = rtLayout_->controllerUserCmdBuffer.buffer[cmdFrontIdx];
+
+            int ctrlFdbkBackIdx =
+                1 - rtLayout_->controllerFeedbackBuffer.frontIndex.load(std::memory_order_acquire);
+            auto &ctrlFdbkBuf = rtLayout_->controllerFeedbackBuffer.buffer[ctrlFdbkBackIdx];
+
+            manager_->update(
+                hal_->getJointStatesPtr(),
+                hal_->getJointCommandsPtr(),
+                ctrlCmdBuf.commands.data(),
+                ctrlFdbkBuf.feedback.data(),
+                static_cast<int>(hal_->getJointCount()),
+                0.001
+            );
+
+            rtLayout_->controllerFeedbackBuffer.frontIndex.store(
+                ctrlFdbkBackIdx, std::memory_order_release);
         }
 
     } // namespace control

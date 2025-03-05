@@ -17,13 +17,22 @@
 #include "control/ControllerManager.h"
 
 // Robot-specific includes (hand control)
-// #include "robotics_lib/haptic_device/HapticDeviceModel.h"
 #include "robotics_lib/haptic_device/HapticDeviceModel.h"
 
 namespace hand_control
 {
     namespace control
     {
+        // Example enum for DriveCommand if you want to store an integer in aggregator
+        enum class DriveCommand : int
+        {
+            NONE        = 0,
+            ENABLE_ALL  = 1,
+            DISABLE_ALL = 2,
+            QUICK_STOP  = 3,
+            FAULT_RESET = 4,
+            // etc.
+        };
 
         /**
          * @brief Main control class that attaches to shared memory segments (ParameterServer,
@@ -95,6 +104,51 @@ namespace hand_control
             void checkSafetyFlags();
             void copyJointCommandsFromSharedMemory();
             void copyIoCommandsFromSharedMemory();
+
+            // ==============================
+            // Aggregator read/write helpers
+            // ==============================
+
+            /**
+             * @brief readDriveCommandAggregator
+             *  Reads the integer from driveCommandBuffer, converting to DriveCommand enum
+             */
+            DriveCommand readDriveCommandAggregator();
+
+            /**
+             * @brief readControllerCommandAggregator
+             *  Reads from controllerCommandsAggBuffer (requestSwitch + name)
+             */
+            struct ControllerCommandAggregated
+            {
+                bool requestSwitch = false;
+                char targetControllerName[64];
+            };
+            ControllerCommandAggregated readControllerCommandAggregator();
+
+            /**
+             * @brief writeDriveSummaryAggregator
+             *  Writes whether any fault and severity for the logic to read
+             */
+            void writeDriveSummaryAggregator();
+
+            /**
+             * @brief applyDriveCommand
+             *  Interprets the enumerated DriveCommand, sets local signals or user signals buffer
+             */
+            void applyDriveCommand(DriveCommand cmd);
+
+            /**
+             * @brief applyControllerSwitch
+             *  If requestSwitch is true, fill the controllerUserCmdBuffer or call manager
+             */
+            void applyControllerSwitch(const ControllerCommandAggregated &ctrlCmd);
+
+            /**
+             * @brief sub-manager updates
+             */
+            void updateDriveStateManager();
+            void updateControllerManager();
 
         private:
             // HAL (real or mock)

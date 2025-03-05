@@ -30,32 +30,32 @@ namespace hand_control
             void cyclicTask();
 
             /**
-             * @brief readDriveSummary
+             * @brief readDriveSummaryAggregator
              *  - Reads aggregator from control that indicates "anyFaulted" and a severity
              */
-            void readDriveSummary(bool& outAnyFaulted, int& outFaultSeverity);
+            void readDriveSummaryAggregator(bool& outAnyFaulted, int& outFaultSeverity);
 
             /**
-             * @brief readControllerUserCommands
-             *  - Possibly read user aggregator or commands to see if
-             *    user wants the robot active or wants a controller switch
+             * @brief readUserCommandsAggregator
+             *  - Possibly read aggregator or user commands to see if
+             *    user wants robot active or a controller switch
              */
-            void readControllerUserCommands(bool& outUserRequestedActive,
+            void readUserCommandsAggregator(bool& outUserRequestedActive,
                                             bool& outUserRequestedSwitch,
                                             char* outControllerName);
 
             /**
-             * @brief writeDriveCommand
+             * @brief writeDriveCommandAggregator
              *  - Writes the single enumerated drive command to shared memory,
              *    so control side can interpret it
              */
-            void writeDriveCommand(hand_control::logic::DriveCommand cmd);
+            void writeDriveCommandAggregator(hand_control::logic::DriveCommand cmd);
 
             /**
-             * @brief writeControllerSwitch
+             * @brief writeControllerSwitchAggregator
              *  - If orchestrator wants a new controller, write aggregator to control side
              */
-            void writeControllerSwitch(bool switchWanted, const std::string& ctrlName);
+            void writeControllerSwitchAggregator(bool switchWanted, const std::string& ctrlName);
 
             struct period_info
             {
@@ -70,6 +70,7 @@ namespace hand_control
         private:
             std::atomic_bool stopRequested_{false};
 
+            // RAII handles for shared memory
             merai::RAII_SharedMemory paramServerShm_;
             const merai::ParameterServer* paramServerPtr_ = nullptr;
 
@@ -79,6 +80,7 @@ namespace hand_control
             merai::RAII_SharedMemory loggerShm_;
             merai::multi_ring_logger_memory* loggerMem_ = nullptr;
 
+            // Our orchestrator
             SystemOrchestrator systemOrchestrator_;
         };
     }

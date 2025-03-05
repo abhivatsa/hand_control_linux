@@ -12,21 +12,21 @@ namespace hand_control
         Logic::Logic(const std::string& paramServerShmName, std::size_t paramServerShmSize,
                      const std::string& rtDataShmName,      std::size_t rtDataShmSize,
                      const std::string& loggerShmName,      std::size_t loggerShmSize)
-            : paramServerShm_(paramServerShmName, paramServerShmSize, true)
-            , rtDataShm_(rtDataShmName, rtDataShmSize, false)
-            , loggerShm_(loggerShmName, loggerShmSize, false)
+            : paramServerShm_(paramServerShmName, paramServerShmSize, true),
+              rtDataShm_(rtDataShmName, rtDataShmSize, false),
+              loggerShm_(loggerShmName, loggerShmSize, false)
         {
-            // Attach param server
+            // 1) param server
             paramServerPtr_ = reinterpret_cast<const merai::ParameterServer*>(paramServerShm_.getPtr());
             if (!paramServerPtr_)
                 throw std::runtime_error("[Logic] Failed to map ParameterServer memory.");
 
-            // Attach RTMemoryLayout
+            // 2) RTMemoryLayout
             rtLayout_ = reinterpret_cast<merai::RTMemoryLayout*>(rtDataShm_.getPtr());
             if (!rtLayout_)
                 throw std::runtime_error("[Logic] Failed to map RTMemoryLayout memory.");
 
-            // Attach logger memory
+            // 3) Logger
             loggerMem_ = reinterpret_cast<merai::multi_ring_logger_memory*>(loggerShm_.getPtr());
             if (!loggerMem_)
                 throw std::runtime_error("[Logic] Failed to map logger memory.");
@@ -34,18 +34,16 @@ namespace hand_control
             std::cout << "[Logic] Shared memory attached.\n";
         }
 
-        Logic::~Logic()
-        {
-        }
+        Logic::~Logic() {}
 
         bool Logic::init()
         {
+            // e.g. orchestrator init
             if (!systemOrchestrator_.init())
             {
                 std::cerr << "[Logic] SystemOrchestrator init failed.\n";
                 return false;
             }
-
             std::cout << "[Logic] init complete.\n";
             return true;
         }
@@ -61,116 +59,94 @@ namespace hand_control
             stopRequested_.store(true, std::memory_order_relaxed);
         }
 
+        // The main loop (10ms for example)
         void Logic::cyclicTask()
         {
             period_info pinfo;
-            periodic_task_init(&pinfo, 10'000'000L); // 10ms
+            periodic_task_init(&pinfo, 10'000'000L);
 
             while (!stopRequested_.load(std::memory_order_relaxed))
             {
-                //============================
-                // (1) Read aggregator from Control
-                //============================
-                bool faultActive = false;
-                int faultSeverity = 0;
-                readDriveSummary(faultActive, faultSeverity);
+                // (1) read aggregator from control: driveSummary
+                bool faultActive=false;
+                int faultSeverity=0;
+                readDriveSummaryAggregator(faultActive, faultSeverity);
 
-                bool userActive = false;
-                bool userSwitch = false;
-                char ctrlName[64] = {0};
-                readControllerUserCommands(userActive, userSwitch, ctrlName);
+                // read user aggregator if any (for demonstration, we use controllerUserCmdBuffer)
+                bool userActive=false, userSwitch=false;
+                char ctrlName[64]={0};
+                readUserCommandsAggregator(userActive, userSwitch, ctrlName);
 
-                //============================
-                // (2) Orchestrator update
-                //============================
-                // pass whether there's a fault, user wants active, user wants ctrl switch
-                systemOrchestrator_.update(
-                    faultActive, faultSeverity,
-                    userActive,
-                    userSwitch, 
-                    ctrlName
-                );
+                // (2) orchestrator update
+                systemOrchestrator_.update(faultActive, faultSeverity,
+                                           userActive, userSwitch,
+                                           ctrlName);
 
-                // retrieve the orchestrator's single drive command
+                // (3) get orchestrator's single DriveCommand
                 auto driveCmd = systemOrchestrator_.getDriveCommand();
-
-                // check if orchestrator wants a new controller
                 bool wantCtrlSwitch = systemOrchestrator_.wantsControllerSwitch();
                 auto desiredCtrlName = systemOrchestrator_.desiredControllerName();
 
-                //============================
-                // (3) Write drive command aggregator
-                //============================
-                writeDriveCommand(driveCmd);
+                // (4) write aggregator => driveCommandBuffer
+                writeDriveCommandAggregator(driveCmd);
 
-                // (4) Write controller switch aggregator if needed
-                writeControllerSwitch(wantCtrlSwitch, desiredCtrlName);
+                // (5) write aggregator => controllerCommandsAggBuffer
+                writeControllerSwitchAggregator(wantCtrlSwitch, desiredCtrlName);
 
-                //============================
-                // (5) Sleep
-                //============================
                 wait_rest_of_period(&pinfo);
             }
 
             std::cout << "[Logic] Exiting main loop.\n";
         }
 
-        //===============================
-        // Helpers
-        //===============================
-        void Logic::readDriveSummary(bool& outAnyFaulted, int& outSeverity)
+        // ======================
+        // Aggregator Helpers
+        // ======================
+        void Logic::readDriveSummaryAggregator(bool& outAnyFaulted, int& outSeverity)
         {
             int frontIdx = rtLayout_->driveSummaryBuffer.frontIndex.load(std::memory_order_acquire);
-            const auto& summary = rtLayout_->driveSummaryBuffer.buffer[frontIdx];
-            outAnyFaulted = summary.anyFaulted;  
-            outSeverity   = summary.faultSeverity; 
+            const auto &summary = rtLayout_->driveSummaryBuffer.buffer[frontIdx];
+            outAnyFaulted = summary.anyFaulted;
+            outSeverity   = summary.faultSeverity;
         }
 
-        void Logic::readControllerUserCommands(bool& outUserRequestedActive,
-                                               bool& outUserRequestedSwitch,
+        void Logic::readUserCommandsAggregator(bool& outUserActive,
+                                               bool& outUserSwitch,
                                                char* outControllerName)
         {
-            // For demonstration, we might read a user aggregator 
-            // or something from paramServer. 
-            // We'll keep it simple:
-            // Suppose the control side (or a user interface) wrote a small aggregator
-            // indicating "start operation" or "switch controller"
-
-            // Example:
+            // For demonstration, read from controllerUserCmdBuffer
             int frontIdx = rtLayout_->controllerUserCmdBuffer.frontIndex.load(std::memory_order_acquire);
-            const auto& cmdBuf = rtLayout_->controllerUserCmdBuffer.buffer[frontIdx];
-            // e.g. we interpret userCmdBuf.commands[0] differently
-            // For demonstration, let's say requestSwitch => user requests ctrl switch
-            outUserRequestedSwitch = cmdBuf.commands[0].requestSwitch;
-            if (outUserRequestedSwitch)
+            const auto &ucBuf = rtLayout_->controllerUserCmdBuffer.buffer[frontIdx];
+
+            outUserSwitch = ucBuf.commands[0].requestSwitch;
+            if (outUserSwitch)
             {
                 std::strncpy(outControllerName,
-                             cmdBuf.commands[0].targetControllerName,
-                             63);
+                             ucBuf.commands[0].targetControllerName,
+                             sizeof(ucBuf.commands[0].targetControllerName)-1);
             }
-
-            // Maybe we have another aggregator for "start operation"
-            // For demonstration, let's just default to false
-            outUserRequestedActive = false;
+            // outUserActive might come from another aggregator, for now false
+            outUserActive = false;
         }
 
-        void Logic::writeDriveCommand(hand_control::logic::DriveCommand cmd)
+        void Logic::writeDriveCommandAggregator(hand_control::logic::DriveCommand cmd)
         {
+            int driveCmdInt = static_cast<int>(cmd);
             int frontIdx  = rtLayout_->driveCommandBuffer.frontIndex.load(std::memory_order_acquire);
-            int backIndex = 1 - frontIdx;
+            int backIdx   = 1 - frontIdx;
 
-            auto& driveCmdAgg = rtLayout_->driveCommandBuffer.buffer[backIndex];
-            driveCmdAgg.driveCommand = cmd; // store the enum
+            auto &agg = rtLayout_->driveCommandBuffer.buffer[backIdx];
+            agg.driveCommand = driveCmdInt;
 
-            rtLayout_->driveCommandBuffer.frontIndex.store(backIndex, std::memory_order_release);
+            rtLayout_->driveCommandBuffer.frontIndex.store(backIdx, std::memory_order_release);
         }
 
-        void Logic::writeControllerSwitch(bool switchWanted, const std::string& ctrlName)
+        void Logic::writeControllerSwitchAggregator(bool switchWanted, const std::string &ctrlName)
         {
             int frontIdx  = rtLayout_->controllerCommandsAggBuffer.frontIndex.load(std::memory_order_acquire);
-            int backIndex = 1 - frontIdx;
+            int backIdx   = 1 - frontIdx;
 
-            auto& ctrlAgg = rtLayout_->controllerCommandsAggBuffer.buffer[backIndex];
+            auto &ctrlAgg = rtLayout_->controllerCommandsAggBuffer.buffer[backIdx];
             ctrlAgg.requestSwitch = false;
             std::memset(ctrlAgg.targetControllerName, 0, sizeof(ctrlAgg.targetControllerName));
 
@@ -182,7 +158,7 @@ namespace hand_control
                              sizeof(ctrlAgg.targetControllerName)-1);
             }
 
-            rtLayout_->controllerCommandsAggBuffer.frontIndex.store(backIndex, std::memory_order_release);
+            rtLayout_->controllerCommandsAggBuffer.frontIndex.store(backIdx, std::memory_order_release);
         }
 
         // scheduling
@@ -207,6 +183,5 @@ namespace hand_control
             inc_period(pinfo);
             clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &pinfo->next_period, nullptr);
         }
-
     } // namespace logic
 } // namespace hand_control

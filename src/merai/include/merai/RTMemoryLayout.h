@@ -19,19 +19,19 @@ namespace hand_control
         // =======================================
         struct ServoRxPdo
         {
-            uint16_t controlWord     = 0; // e.g. 0x6040
-            uint8_t  modeOfOperation = 0; // e.g. 0x6060
-            int16_t  targetTorque    = 0; // e.g. 0x6071
-            int32_t  targetPosition  = 0; // e.g. 0x607A
-            int32_t  targetVelocity  = 0; // e.g. 0x60FF
+            uint16_t controlWord     = 0; 
+            uint8_t  modeOfOperation = 0; 
+            int16_t  targetTorque    = 0; 
+            int32_t  targetPosition  = 0; 
+            int32_t  targetVelocity  = 0; 
         };
 
         struct ServoTxPdo
         {
-            uint16_t statusWord     = 0; // e.g. 0x6041
-            int32_t  positionActual = 0; // e.g. 0x6064
-            int32_t  velocityActual = 0; // e.g. 0x606C
-            int16_t  torqueActual   = 0; // e.g. 0x6077
+            uint16_t statusWord     = 0; 
+            int32_t  positionActual = 0; 
+            int32_t  velocityActual = 0; 
+            int16_t  torqueActual   = 0; 
         };
 
         struct IoRxPdo
@@ -91,8 +91,8 @@ namespace hand_control
 
         struct DriveFeedback
         {
-            bool faultActive       = false;
-            bool operationEnabled  = false;
+            bool faultActive      = false;
+            bool operationEnabled = false;
         };
 
         // =======================================
@@ -178,25 +178,36 @@ namespace hand_control
         };
 
         // =======================================
-        // Extra Summaries / Aggregators
+        // 12) Additional Aggregators for Logic <-> Control
         // =======================================
 
-        // Suppose the control side sets this summary for the logic
+        /**
+         * @brief DriveSummary
+         *  - The Control side writes whether any drive is faulted and how severe
+         *  - The Logic side reads this aggregator to decide next actions
+         */
         struct DriveSummary
         {
-            bool anyFaulted       = false;
-            int  faultSeverity    = 0;  // 1 => recoverable, 2 => major, etc.
+            bool anyFaulted     = false;
+            int  faultSeverity  = 0; // 1 => recoverable, 2 => major, etc.
         };
 
-        // Logic can set a single enumerated drive command
-        // (defined in logic, e.g. DriveCommand::ENABLE_ALL)
-        // but we store it as an int here
+        /**
+         * @brief DriveCommandAggregated
+         *  - The Logic side writes a single enumerated drive command as an integer
+         *    (0=NONE,1=ENABLE_ALL,2=DISABLE_ALL, etc.)
+         *  - The Control side reads it and applies the final drive actions
+         */
         struct DriveCommandAggregated
         {
-            int driveCommand = 0; // 0 = NONE, 1=ENABLE_ALL, 2=DISABLE_ALL, etc.
+            int driveCommand = 0; 
         };
 
-        // Logic can also set a controller switch aggregator
+        /**
+         * @brief ControllerCommandAggregated
+         *  - The Logic side writes whether we want a new controller switch
+         *  - The Control side sees requestSwitch + targetControllerName, performs the switch
+         */
         struct ControllerCommandAggregated
         {
             bool requestSwitch = false;
@@ -204,27 +215,30 @@ namespace hand_control
         };
 
         // =======================================
-        // 12) Top-Level Shared Layout
+        // 13) Top-Level Shared Layout
         // =======================================
         struct RTMemoryLayout
         {
+            // Real-time buffer for servo + IO data
             DoubleBuffer<ServoSharedData> servoBuffer;
             DoubleBuffer<IoSharedData>    ioBuffer;
 
+            // High-level data for joints + IO
             DoubleBuffer<JointData> jointBuffer;
             DoubleBuffer<IoData>    ioDataBuffer;
 
+            // Drive-level signals & feedback
             DoubleBuffer<DriveUserSignalsData> driveUserSignalsBuffer;
             DoubleBuffer<DriveFeedbackData>    driveFeedbackBuffer;
 
+            // Controller user commands & feedback
             DoubleBuffer<ControllerUserCommandData> controllerUserCmdBuffer;
             DoubleBuffer<ControllerFeedbackData>    controllerFeedbackBuffer;
 
-            // New aggregator for logic -> control
-            DoubleBuffer<DriveSummary>         driveSummaryBuffer;      // control->logic
-            DoubleBuffer<DriveCommandAggregated> driveCommandBuffer;    // logic->control
-
-            DoubleBuffer<ControllerCommandAggregated> controllerCommandsAggBuffer; // logic->control
+            // Additional aggregator buffers:
+            DoubleBuffer<DriveSummary>               driveSummaryBuffer;      // Control->Logic
+            DoubleBuffer<DriveCommandAggregated>     driveCommandBuffer;      // Logic->Control
+            DoubleBuffer<ControllerCommandAggregated> controllerCommandsAggBuffer; // Logic->Control
         };
     } // namespace merai
 } // namespace hand_control
