@@ -10,6 +10,8 @@
 #include "merai/RTMemoryLayout.h"
 #include "merai/SharedLogger.h"
 #include "merai/RAII_SharedMemory.h"
+// Pull in your global enums (DriveCommand, ControllerID)
+#include "merai/Enums.h"
 
 // Control-layer includes
 #include "control/hardware_abstraction/IHardwareAbstractionLayer.h"
@@ -23,20 +25,10 @@ namespace hand_control
 {
     namespace control
     {
-        // Example enum for DriveCommand if you want to store an integer in aggregator
-        enum class DriveCommand : int
-        {
-            NONE        = 0,
-            ENABLE_ALL  = 1,
-            DISABLE_ALL = 2,
-            QUICK_STOP  = 3,
-            FAULT_RESET = 4,
-            // etc.
-        };
-
         /**
-         * @brief Main control class that attaches to shared memory segments (ParameterServer,
-         *        RTMemoryLayout, and Logger) to run the real-time control loop.
+         * @brief Main control class that attaches to shared memory segments
+         *        (ParameterServer, RTMemoryLayout, and Logger) to run
+         *        the real-time control loop.
          */
         class Control
         {
@@ -111,19 +103,26 @@ namespace hand_control
 
             /**
              * @brief readDriveCommandAggregator
-             *  Reads the integer from driveCommandBuffer, converting to DriveCommand enum
+             *  Reads the enum from driveCommandBuffer
              */
-            DriveCommand readDriveCommandAggregator();
+            hand_control::merai::DriveCommand readDriveCommandAggregator();
 
             /**
-             * @brief readControllerCommandAggregator
-             *  Reads from controllerCommandsAggBuffer (requestSwitch + name)
+             * @brief Aggregated controller command used by readControllerCommandAggregator()
+             *        and applyControllerSwitch().
              */
             struct ControllerCommandAggregated
             {
                 bool requestSwitch = false;
-                char targetControllerName[64];
+                // Instead of a string, store the controller ID as an enum
+                hand_control::merai::ControllerID targetController
+                    = hand_control::merai::ControllerID::NONE;
             };
+
+            /**
+             * @brief readControllerCommandAggregator
+             *  Reads from controllerCommandsAggBuffer (requestSwitch + enum ID)
+             */
             ControllerCommandAggregated readControllerCommandAggregator();
 
             /**
@@ -136,7 +135,7 @@ namespace hand_control
              * @brief applyDriveCommand
              *  Interprets the enumerated DriveCommand, sets local signals or user signals buffer
              */
-            void applyDriveCommand(DriveCommand cmd);
+            void applyDriveCommand(hand_control::merai::DriveCommand cmd);
 
             /**
              * @brief applyControllerSwitch
@@ -173,6 +172,7 @@ namespace hand_control
             hand_control::merai::RAII_SharedMemory loggerShm_;
             hand_control::merai::multi_ring_logger_memory *loggerMem_ = nullptr;
 
+            // Robot model
             hand_control::robotics::haptic_device::HapticDeviceModel hapticDeviceModel_;
         };
 

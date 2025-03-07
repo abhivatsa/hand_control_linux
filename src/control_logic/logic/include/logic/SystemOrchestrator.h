@@ -2,32 +2,19 @@
 
 #include <string>
 
+// Pull in the enums from merai/Enums.h
+#include "merai/Enums.h"
+
 namespace hand_control
 {
     namespace logic
     {
-        // The possible orchestrator states
-        enum class OrchestratorState
-        {
-            INIT,
-            HOMING,
-            IDLE,
-            ACTIVE,
-            RECOVERY,
-            FAULT
-        };
-
-        // A simple enum for drive commands
-        enum class DriveCommand : int
-        {
-            NONE        = 0,
-            ENABLE_ALL  = 1,
-            DISABLE_ALL = 2,
-            QUICK_STOP  = 3,
-            FAULT_RESET = 4,
-            // add more as needed
-        };
-
+        /**
+         * @brief SystemOrchestrator
+         *  - Manages high-level state transitions (INIT, HOMING, IDLE, etc.)
+         *  - Chooses a single drive command (ENABLE_ALL, DISABLE_ALL, etc.)
+         *  - Optionally sets a controller switch request
+         */
         class SystemOrchestrator
         {
         public:
@@ -37,7 +24,7 @@ namespace hand_control
              * @brief update the orchestrator:
              *  - Check if there's a fault (faultActive, severity)
              *  - Check user requests (start, stop, or user requests controller switch)
-             *  - Decide a single DriveCommand (enable, disable, etc.)
+             *  - Decide a single drive command (enable, disable, etc.)
              *  - Possibly switch states
              */
             void update(bool faultActive, int faultSeverity,
@@ -49,7 +36,7 @@ namespace hand_control
              * @brief getDriveCommand
              *  The single enumerated command the logic should write to shared memory
              */
-            DriveCommand getDriveCommand() const;
+            hand_control::merai::DriveCommand getDriveCommand() const;
 
             /**
              * @brief wantsControllerSwitch
@@ -68,10 +55,13 @@ namespace hand_control
             void forceRecovery();
 
         private:
-            OrchestratorState currentState_ = OrchestratorState::INIT;
+            // We now use the OrchestratorState from merai::Enums.h
+            hand_control::merai::OrchestratorState currentState_ 
+                = hand_control::merai::OrchestratorState::INIT;
 
-            // Internal drive command for this cycle
-            DriveCommand currentDriveCmd_ = DriveCommand::NONE;
+            // Single enumerated drive command
+            hand_control::merai::DriveCommand currentDriveCmd_ 
+                = hand_control::merai::DriveCommand::NONE;
 
             // If we want a new controller switch
             bool controllerSwitchWanted_ = false;
@@ -79,7 +69,6 @@ namespace hand_control
 
             // Possibly user event checks
             bool systemReset() const;
-            // e.g. might read aggregator or do logic
         };
-    }
-}
+    } // namespace logic
+} // namespace hand_control

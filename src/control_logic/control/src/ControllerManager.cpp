@@ -3,10 +3,13 @@
 
 #include "control/ControllerManager.h"
 
-// Suppose we have these headers for the specialized controllers
+// Example specialized controllers
 #include "control/controllers/HomingController.h"
-#include "control/controllers/GravityDampingController.h"  // Combined gravity + damping
+#include "control/controllers/GravityDampingController.h"
 #include "control/controllers/EStopController.h"
+
+// If needed for merai::ControllerID
+#include "merai/Enums.h"
 
 namespace hand_control
 {
@@ -41,7 +44,7 @@ namespace hand_control
         bool ControllerManager::init()
         {
             bool success = true;
-            // Initialize all registered controllers (e.g. Homing, GravityDamping, EStop)
+            // Initialize all registered controllers
             for (int i = 0; i < num_controllers_; i++)
             {
                 if (controllers_[i] &&
@@ -72,12 +75,10 @@ namespace hand_control
             // We only have 1 user command in this example
             const auto& userCmd = userCmdArray[0];
 
-            // Check if user requests a controller switch (e.g. to HomingController, EStopController,
-            // or GravityDampingController)
+            // If the user requests a controller switch, store the ID
             if (userCmd.requestSwitch)
             {
-                // Store the request
-                target_controller_name_ = userCmd.targetControllerName;
+                target_controller_id_ = userCmd.controllerId;
                 switch_pending_.store(true);
             }
 
@@ -100,7 +101,7 @@ namespace hand_control
                 }
             }
 
-            // (3) Write minimal feedback
+            // (3) Minimal feedback
             bool bridging  = (switchState_ == SwitchState::BRIDGING);
             bool switching = (switchState_ != SwitchState::RUNNING);
 
@@ -118,11 +119,11 @@ namespace hand_control
                 {
                     switch_pending_.store(false);
                     oldController_ = active_controller_;
-                    newController_ = findControllerByName(target_controller_name_);
+                    newController_ = findControllerById(target_controller_id_);
                     if (!newController_)
                     {
-                        std::cerr << "[ControllerManager] Controller not found: "
-                                  << target_controller_name_ << "\n";
+                        std::cerr << "[ControllerManager] Controller not found for ID: "
+                                  << static_cast<int>(target_controller_id_) << "\n";
                         break;
                     }
                     bridgingNeeded_ = requiresBridging(oldController_.get(), newController_.get());
@@ -138,8 +139,7 @@ namespace hand_control
 
                 if (bridgingNeeded_)
                 {
-                    // bridging logic (create bridgingController_, etc.)
-                    // or skip bridging if you want immediate switch
+                    // bridging logic
                     switchState_ = SwitchState::BRIDGING;
                 }
                 else
@@ -149,8 +149,8 @@ namespace hand_control
                 break;
 
             case SwitchState::BRIDGING:
-                // If bridging is needed, do partial transitions here
-                // For simplicity, we go directly to START_NEW
+                // If bridging is needed, do partial transitions
+                // For simplicity, go directly to START_NEW
                 switchState_ = SwitchState::START_NEW;
                 break;
 
@@ -170,11 +170,11 @@ namespace hand_control
                 {
                     switch_pending_.store(false);
                     oldController_ = active_controller_;
-                    newController_ = findControllerByName(target_controller_name_);
+                    newController_ = findControllerById(target_controller_id_);
                     if (!newController_)
                     {
-                        std::cerr << "[ControllerManager] Controller not found: "
-                                  << target_controller_name_ << "\n";
+                        std::cerr << "[ControllerManager] Controller not found for ID: "
+                                  << static_cast<int>(target_controller_id_) << "\n";
                         break;
                     }
                     bridgingNeeded_ = requiresBridging(oldController_.get(), newController_.get());
@@ -186,14 +186,49 @@ namespace hand_control
 
         bool ControllerManager::requiresBridging(BaseController* oldCtrl, BaseController* newCtrl)
         {
-            // Example logic:
-            // If oldCtrl was torque-based and newCtrl is position-based, bridging might be needed
-            // For now, always false
+            // Example logic
             if (!oldCtrl || !newCtrl)
             {
                 return false;
             }
+            // e.g., if old is torque-based and new is position-based, bridging might be needed
             return false;
+        }
+
+        /**
+         * @brief We assume each BaseController either has a known ID or we keep a 
+         *        mapping from ID to index. For demonstration, we'll do a naive loop
+         *        checking each controller's "id()" if you store it. Otherwise, you could
+         *        do a switch-case or a direct array index if IDs map 1:1 to array positions.
+         */
+        std::shared_ptr<BaseController> ControllerManager::findControllerById(hand_control::merai::ControllerID id)
+        {
+            // Example: if your controllers store an ID in their derived classes:
+            // 
+            // for (int i = 0; i < num_controllers_; i++)
+            // {
+            //     if (controllers_[i] && controllers_[i]->controllerId() == id)
+            //     {
+            //         return controllers_[i];
+            //     }
+            // }
+            // 
+            // Return nullptr if not found
+
+            // For now, we’ll just do name-based fallback or a simple switch 
+            // if your real code hasn't been fully adapted to ID-based:
+            switch (id)
+            {
+                case hand_control::merai::ControllerID::HOMING:
+                    // find the HomingController in our array, or create it
+                    return findControllerByName("HomingController");
+                case hand_control::merai::ControllerID::GRAVITY_COMP:
+                    return findControllerByName("GravityDampingController");
+                case hand_control::merai::ControllerID::E_STOP:
+                    return findControllerByName("EStopController");
+                default:
+                    return nullptr;
+            }
         }
 
         std::shared_ptr<BaseController> ControllerManager::findControllerByName(const std::string &name)

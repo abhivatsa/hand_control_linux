@@ -1,75 +1,67 @@
 #pragma once
 
-#include <cstdint>
-
 namespace hand_control
 {
-    namespace fieldbus
+    namespace merai
     {
-        enum class FieldbusState
+        // ===========================================
+        // Drive-Related Enums
+        // ===========================================
+        /**
+         * @brief Defines high-level drive commands
+         * that the Logic layer can issue and the Control layer can interpret.
+         * 
+         * For example: NONE=0, ENABLE_ALL=1, etc.
+         */
+        enum class DriveCommand : int
         {
-            POWER_ON,
-            STARTUP,
-            SAFETY_CHECK,
-            PRE_OPERATION,
-            OPERATIONAL,
-            STOP_0,       // Immediate power removal (E-stop)
-            STOP_1,       // Controlled stop, then power removal
-            STOP_2,       // Controlled stop with power retained
-            FAULT,
-            SHUTDOWN
+            NONE         = 0,
+            ENABLE_ALL   = 1,
+            DISABLE_ALL  = 2,
+            QUICK_STOP   = 3,
+            FAULT_RESET  = 4,
+            // Add others as needed
         };
 
-        enum class StopCause
-        {
-            NONE,
-            ESTOP_TRIGGERED,
-            SAFETY_CIRCUIT_FAIL,
-            DRIVE_FAULT,
-            USER_REQUESTED_STOP,
-            UNKNOWN
-        };
-    } // namespace fieldbus
-
-    namespace control
-    {
-        enum class EControlMode
-        {
-            Teleop,     // Teleoperation controller
-            Gravity,    // Gravity compensation controller
-            Trajectory  // Joint trajectory controller
-            // Add more as needed...
-        };
-    } // namespace control
-
-    namespace logic
-    {
-        enum class LogicLimitCheck
-        {
-            OK,
-            NOT_OK,
-            NOT_EVAL
-        };
-
-        enum class UserInputState
+        // ===========================================
+        // Orchestrator-Related Enums
+        // ===========================================
+        /**
+         * @brief High-level states in the system orchestration
+         */
+        enum class OrchestratorState : int
         {
             INIT,
-            START,
-            SWITCH_ON,
-            IDLE,
-            HANDCONTROLLER,
             HOMING,
-            OPERATIONAL
+            IDLE,
+            ACTIVE,
+            RECOVERY,
+            FAULT
+            // Add others if needed
         };
 
-        enum class LogicState
+        // ===========================================
+        // Controller-Related Enums
+        // ===========================================
+        /**
+         * @brief Identifiers for each controller you want to run.
+         * 
+         * Instead of passing a string like "HomingController" or "GravityCompController",
+         * you can use these IDs in the real-time code.
+         */
+        enum class ControllerID : int
         {
-            INIT,
-            START,
-            IDLE,
-            HANDCONTROLLER,
-            HOMING,
-            OPERATIONAL
+            NONE            = 0,
+            HOMING          = 1,
+            GRAVITY_COMP    = 2,
+            E_STOP          = 3,
+            // Extend as needed...
         };
-    } // namespace logic
+
+        // Add more enum groups as needed, e.g. for error codes or logging levels
+        // ===========================================
+        // Error Codes
+        // enum class ErrorCode : int { ... };
+        // ===========================================
+    } // namespace merai
 } // namespace hand_control

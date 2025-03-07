@@ -4,6 +4,9 @@
 #include <atomic>
 #include <cstdint>
 
+// Include your newly created Enums.h for DriveCommand, ControllerID, etc.
+#include "merai/Enums.h"
+
 namespace hand_control
 {
     namespace merai
@@ -19,19 +22,19 @@ namespace hand_control
         // =======================================
         struct ServoRxPdo
         {
-            uint16_t controlWord     = 0; 
-            uint8_t  modeOfOperation = 0; 
-            int16_t  targetTorque    = 0; 
-            int32_t  targetPosition  = 0; 
-            int32_t  targetVelocity  = 0; 
+            uint16_t controlWord     = 0;
+            uint8_t  modeOfOperation = 0;
+            int16_t  targetTorque    = 0;
+            int32_t  targetPosition  = 0;
+            int32_t  targetVelocity  = 0;
         };
 
         struct ServoTxPdo
         {
-            uint16_t statusWord     = 0; 
-            int32_t  positionActual = 0; 
-            int32_t  velocityActual = 0; 
-            int16_t  torqueActual   = 0; 
+            uint16_t statusWord     = 0;
+            int32_t  positionActual = 0;
+            int32_t  velocityActual = 0;
+            int16_t  torqueActual   = 0;
         };
 
         struct IoRxPdo
@@ -98,10 +101,15 @@ namespace hand_control
         // =======================================
         // 6) Controller-Level Commands & Feedback
         // =======================================
+        /**
+         * @brief ControllerUserCommand
+         *  - If we want to store an enum (ControllerID) instead of a string,
+         *    use controllerId. This avoids string copying in RT code.
+         */
         struct ControllerUserCommand
         {
             bool requestSwitch = false;
-            char targetControllerName[64] = {0};
+            hand_control::merai::ControllerID controllerId = hand_control::merai::ControllerID::NONE;
         };
 
         struct ControllerFeedback
@@ -165,10 +173,11 @@ namespace hand_control
         };
 
         // =======================================
-        // 11) Controller Signals & Feedback
+        // 11) Controller Commands & Feedback
         // =======================================
         struct ControllerUserCommandData
         {
+            // We only store a single command in this example, but you can store more if needed
             std::array<ControllerUserCommand, 1> commands;
         };
 
@@ -194,24 +203,25 @@ namespace hand_control
 
         /**
          * @brief DriveCommandAggregated
-         *  - The Logic side writes a single enumerated drive command as an integer
-         *    (0=NONE,1=ENABLE_ALL,2=DISABLE_ALL, etc.)
+         *  - The Logic side writes a single enumerated drive command
          *  - The Control side reads it and applies the final drive actions
          */
         struct DriveCommandAggregated
         {
-            int driveCommand = 0; 
+            hand_control::merai::DriveCommand driveCommand
+                = hand_control::merai::DriveCommand::NONE;
         };
 
         /**
          * @brief ControllerCommandAggregated
          *  - The Logic side writes whether we want a new controller switch
-         *  - The Control side sees requestSwitch + targetControllerName, performs the switch
+         *  - The Control side sees requestSwitch + which controller ID
          */
         struct ControllerCommandAggregated
         {
             bool requestSwitch = false;
-            char targetControllerName[64] = {0};
+            hand_control::merai::ControllerID targetController
+                = hand_control::merai::ControllerID::NONE;
         };
 
         // =======================================
@@ -236,8 +246,8 @@ namespace hand_control
             DoubleBuffer<ControllerFeedbackData>    controllerFeedbackBuffer;
 
             // Additional aggregator buffers:
-            DoubleBuffer<DriveSummary>               driveSummaryBuffer;      // Control->Logic
-            DoubleBuffer<DriveCommandAggregated>     driveCommandBuffer;      // Logic->Control
+            DoubleBuffer<DriveSummary> driveSummaryBuffer;                // Control->Logic
+            DoubleBuffer<DriveCommandAggregated> driveCommandBuffer;      // Logic->Control
             DoubleBuffer<ControllerCommandAggregated> controllerCommandsAggBuffer; // Logic->Control
         };
     } // namespace merai

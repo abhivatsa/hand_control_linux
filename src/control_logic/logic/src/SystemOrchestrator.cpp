@@ -1,14 +1,17 @@
 #include "SystemOrchestrator.h"
 #include <iostream>
 
+// If needed for clarity:
+#include "merai/Enums.h"
+
 namespace hand_control
 {
     namespace logic
     {
         bool SystemOrchestrator::init()
         {
-            currentState_ = OrchestratorState::INIT;
-            currentDriveCmd_ = DriveCommand::NONE;
+            currentState_        = merai::OrchestratorState::INIT;
+            currentDriveCmd_     = merai::DriveCommand::NONE;
             controllerSwitchWanted_ = false;
             targetControllerName_.clear();
             return true;
@@ -20,7 +23,7 @@ namespace hand_control
                                         const std::string& controllerName)
         {
             // Reset the drive command each cycle to NONE by default
-            currentDriveCmd_ = DriveCommand::NONE;
+            currentDriveCmd_        = merai::DriveCommand::NONE;
             controllerSwitchWanted_ = false;
             targetControllerName_.clear();
 
@@ -29,12 +32,12 @@ namespace hand_control
             {
                 if (faultSeverity == 1)
                 {
-                    currentState_ = OrchestratorState::RECOVERY;
+                    currentState_ = merai::OrchestratorState::RECOVERY;
                     std::cout << "[Orchestrator] Entering RECOVERY (recoverable)\n";
                 }
                 else if (faultSeverity >= 2)
                 {
-                    currentState_ = OrchestratorState::FAULT;
+                    currentState_ = merai::OrchestratorState::FAULT;
                     std::cout << "[Orchestrator] Entering FAULT (unrecoverable)\n";
                 }
             }
@@ -42,83 +45,74 @@ namespace hand_control
             // 2) Switch on current state
             switch (currentState_)
             {
-            case OrchestratorState::INIT:
+            case merai::OrchestratorState::INIT:
                 // Possibly we want to go to HOMING or IDLE
                 // for demonstration, let's enable all drives after INIT
-                // so we can do homing or so
-                currentDriveCmd_ = DriveCommand::ENABLE_ALL;
+                currentDriveCmd_ = merai::DriveCommand::ENABLE_ALL;
                 // if homing needed, we might set currentState_ = HOMING
                 break;
 
-            case OrchestratorState::HOMING:
+            case merai::OrchestratorState::HOMING:
                 // Once homing complete => IDLE
-                // for demonstration, we do nothing
                 break;
 
-            case OrchestratorState::IDLE:
+            case merai::OrchestratorState::IDLE:
                 if (userRequestedActive)
                 {
-                    // Move to ACTIVE => enable drives
-                    currentDriveCmd_ = DriveCommand::ENABLE_ALL;
-                    currentState_ = OrchestratorState::ACTIVE;
+                    currentDriveCmd_ = merai::DriveCommand::ENABLE_ALL;
+                    currentState_    = merai::OrchestratorState::ACTIVE;
                     std::cout << "[Orchestrator] user requested ACTIVE => enabling drives.\n";
                 }
                 break;
 
-            case OrchestratorState::ACTIVE:
-                // If user stops => IDLE, for demonstration do a disable
-                // Or if user wants a controller switch => set wanted
+            case merai::OrchestratorState::ACTIVE:
+                // If user stops => IDLE
                 if (!userRequestedActive)
                 {
-                    // user no longer wants active => go IDLE
-                    currentDriveCmd_ = DriveCommand::DISABLE_ALL;
-                    currentState_ = OrchestratorState::IDLE;
+                    currentDriveCmd_ = merai::DriveCommand::DISABLE_ALL;
+                    currentState_    = merai::OrchestratorState::IDLE;
                     std::cout << "[Orchestrator] user stopped => IDLE, disabling drives.\n";
                 }
 
+                // If user wants a controller switch => set that
                 if (userRequestedControllerSwitch)
                 {
                     controllerSwitchWanted_ = true;
-                    targetControllerName_ = controllerName;
-                    // we do not necessarily exit ACTIVE state,
-                    // we just set that we want a new controller
+                    targetControllerName_   = controllerName;
                     std::cout << "[Orchestrator] user requested controller switch to: "
                               << controllerName << "\n";
                 }
                 break;
 
-            case OrchestratorState::RECOVERY:
+            case merai::OrchestratorState::RECOVERY:
                 // Wait for user or system to fix the issue
-                // if user says done => might go back to IDLE or INIT
                 if (systemReset())
                 {
                     std::cout << "[Orchestrator] Recovery done => returning to IDLE.\n";
-                    currentState_ = OrchestratorState::IDLE;
+                    currentState_ = merai::OrchestratorState::IDLE;
                 }
                 else
                 {
-                    // maybe we do a fault reset
-                    currentDriveCmd_ = DriveCommand::FAULT_RESET;
+                    currentDriveCmd_ = merai::DriveCommand::FAULT_RESET;
                 }
                 break;
 
-            case OrchestratorState::FAULT:
+            case merai::OrchestratorState::FAULT:
                 // remain in FAULT until user reset
                 if (systemReset())
                 {
                     std::cout << "[Orchestrator] System reset => back to INIT.\n";
-                    currentState_ = OrchestratorState::INIT;
+                    currentState_ = merai::OrchestratorState::INIT;
                 }
                 else
                 {
-                    // possibly we do a DISABLE_ALL or keep motors off
-                    currentDriveCmd_ = DriveCommand::DISABLE_ALL;
+                    currentDriveCmd_ = merai::DriveCommand::DISABLE_ALL;
                 }
                 break;
             }
         }
 
-        DriveCommand SystemOrchestrator::getDriveCommand() const
+        merai::DriveCommand SystemOrchestrator::getDriveCommand() const
         {
             return currentDriveCmd_;
         }
@@ -135,22 +129,23 @@ namespace hand_control
 
         void SystemOrchestrator::forceFault()
         {
-            currentState_ = OrchestratorState::FAULT;
-            currentDriveCmd_ = DriveCommand::DISABLE_ALL;
+            currentState_    = merai::OrchestratorState::FAULT;
+            currentDriveCmd_ = merai::DriveCommand::DISABLE_ALL;
             std::cout << "[Orchestrator] Forcing FAULT => disabling drives.\n";
         }
 
         void SystemOrchestrator::forceRecovery()
         {
-            currentState_ = OrchestratorState::RECOVERY;
-            currentDriveCmd_ = DriveCommand::FAULT_RESET;
+            currentState_    = merai::OrchestratorState::RECOVERY;
+            currentDriveCmd_ = merai::DriveCommand::FAULT_RESET;
             std::cout << "[Orchestrator] Forcing RECOVERY => attempt fault reset.\n";
         }
 
         bool SystemOrchestrator::systemReset() const
         {
-            // check aggregator or user input if "reset" is pressed
+            // Example check if aggregator or user input says "reset"
             return false;
         }
-    }
-}
+
+    } // namespace logic
+} // namespace hand_control
