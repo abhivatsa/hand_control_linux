@@ -6,6 +6,7 @@
 #include "merai/RTMemoryLayout.h"
 #include "merai/SharedLogger.h"
 #include "merai/RAII_SharedMemory.h"
+#include <sys/mman.h>
 
 // If parseParameterServer is implemented in ParameterServer.cpp within the same namespace,
 // declare it here with the matching namespace:
@@ -24,9 +25,9 @@ int main(int argc, char *argv[])
     try
     {
         // (Optional) Remove existing shared memory objects to start fresh.
-        // ::shm_unlink("/ParameterServerShm");
-        // ::shm_unlink("/RTDataShm");
-        // ::shm_unlink("/LoggerShm");
+        ::shm_unlink("/ParameterServerShm");
+        ::shm_unlink("/RTDataShm");
+        ::shm_unlink("/LoggerShm");
 
         // Example file paths
         const std::string ecatFile = "../../../config/ethercat_config.json";

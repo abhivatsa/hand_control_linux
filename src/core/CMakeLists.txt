@@ -5,6 +5,7 @@ project(hand_control_core VERSION 1.0.0)
 # 0) Optionally find the hand_control_merai package (if your code uses merai_foundation)
 #
 find_package(hand_control_merai REQUIRED)
+find_package(hand_control_core REQUIRED)
 
 #
 # 1) Combine all sources (math_lib + robotics_lib) into one library
