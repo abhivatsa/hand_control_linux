@@ -6,7 +6,7 @@
 // control/hardware_abstraction/DriveData.h defines hand_control::control::DriveInput, DriveOutput
 #include "control/hardware_abstraction/DriveData.h"
 
-// merai/RTMemoryLayout.h (or a similar header) for hand_control::merai::DriveUserSignals, DriveFeedback
+// merai/RTMemoryLayout.h (or a similar header) for hand_control::merai::DriveControlSignals, DriveFeedback
 #include "merai/RTMemoryLayout.h"
 
 namespace hand_control
@@ -45,19 +45,19 @@ namespace hand_control
             /**
              * @brief update
              *   - Reads driveInputs[i].statusWord -> decode
-             *   - Reads userSignals[i] for faultReset, allowOperation, etc.
+             *   - Reads controlSignals[i] for faultReset, allowOperation, etc.
              *   - Writes controlWord to driveOutputs[i]
              *   - Sets feedback bits (faultActive, operationEnabled, etc.)
              *
              * @param driveInputs    Array of DriveInput
              * @param driveOutputs   Array of DriveOutput
-             * @param userSignals    Array of DriveUserSignals
+             * @param controlSignals Array of DriveControlSignals (e.g. allowOperation, quickStop)
              * @param feedback       Array of DriveFeedback for logic to read
              * @param driveCount     Number of drives
              */
             void update(const hand_control::control::DriveInput* driveInputs,
                         hand_control::control::DriveOutput* driveOutputs,
-                        const hand_control::merai::DriveUserSignals* userSignals,
+                        const hand_control::merai::DriveControlSignals* controlSignals,
                         hand_control::merai::DriveFeedback* feedback,
                         std::size_t driveCount);
 

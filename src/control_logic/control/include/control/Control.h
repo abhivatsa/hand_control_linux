@@ -2,7 +2,6 @@
 
 #include <memory>
 #include <atomic>
-#include <string>
 #include <time.h> // for timespec
 
 // merai / Common headers
@@ -10,7 +9,6 @@
 #include "merai/RTMemoryLayout.h"
 #include "merai/SharedLogger.h"
 #include "merai/RAII_SharedMemory.h"
-// Pull in your global enums (DriveCommand, ControllerID)
 #include "merai/Enums.h"
 
 // Control-layer includes
@@ -29,6 +27,12 @@ namespace hand_control
          * @brief Main control class that attaches to shared memory segments
          *        (ParameterServer, RTMemoryLayout, and Logger) to run
          *        the real-time control loop.
+         *
+         *  - The Logic side writes new controller switch requests to
+         *    'controllerCommandsAggBuffer' in the RTMemoryLayout.
+         *  - The Control side reads that aggregator, calls applyControllerSwitch(...),
+         *    and writes to 'controllerCommandBuffer' so the Manager sees it on update().
+         *  - The Manager uses an ID-based method to find the correct controller.
          */
         class Control
         {
@@ -42,8 +46,8 @@ namespace hand_control
              * Throws std::runtime_error on any SHM attach failure.
              */
             Control(const std::string &paramServerShmName, size_t paramServerShmSize,
-                    const std::string &rtDataShmName, size_t rtDataShmSize,
-                    const std::string &loggerShmName, size_t loggerShmSize);
+                    const std::string &rtDataShmName,      size_t rtDataShmSize,
+                    const std::string &loggerShmName,      size_t loggerShmSize);
 
             ~Control();
 
@@ -51,14 +55,14 @@ namespace hand_control
              * @brief Initializes the control system, including:
              *        - Building a 6-axis model from ParameterServer data
              *        - Initializing hardware abstraction (mock or real)
-             *        - Registering & initializing controllers
+             *        - Registering & initializing controllers (ID-based)
              * @return true if initialization succeeds, false otherwise.
              */
             bool init();
 
             /**
-             * @brief Starts the main (blocking) loop of the control application.
-             *        This typically runs at a fixed period (e.g., 1ms).
+             * @brief Starts the main (blocking) loop of the control application
+             *        (typically runs at 1 ms period).
              */
             void run();
 
@@ -70,14 +74,13 @@ namespace hand_control
 
         private:
             /**
-             * @brief The real-time control loop, typically scheduled with a period
-             *        (e.g., 1ms). Reads hardware, updates states, runs controllers,
-             *        and writes new commands.
+             * @brief The real-time control loop, typically 1 ms. Reads hardware,
+             *        updates states, runs controllers, writes new commands.
              */
             void cyclicTask();
 
             /**
-             * @brief A small helper struct for handling periodic tasks.
+             * @brief Helper struct for scheduling periodic tasks
              */
             struct period_info
             {
@@ -85,10 +88,10 @@ namespace hand_control
                 long period_ns;
             };
 
-            // Periodic scheduling helpers
-            void periodic_task_init(period_info *pinfo, long period_ns);
-            void inc_period(period_info *pinfo);
-            void wait_rest_of_period(period_info *pinfo);
+            // Scheduling helpers
+            void periodic_task_init(period_info* pinfo, long period_ns);
+            void inc_period(period_info* pinfo);
+            void wait_rest_of_period(period_info* pinfo);
 
             // Copy methods for joint and I/O data
             void copyJointStatesToSharedMemory();
@@ -102,50 +105,29 @@ namespace hand_control
             // ==============================
 
             /**
-             * @brief readDriveCommandAggregator
-             *  Reads the enum from driveCommandBuffer
-             */
-            hand_control::merai::DriveCommand readDriveCommandAggregator();
-
-            /**
-             * @brief Aggregated controller command used by readControllerCommandAggregator()
-             *        and applyControllerSwitch().
+             * @brief A local struct for the aggregator read
+             *        (Logic -> Control) with (requestSwitch + targetController).
              */
             struct ControllerCommandAggregated
             {
                 bool requestSwitch = false;
-                // Instead of a string, store the controller ID as an enum
-                hand_control::merai::ControllerID targetController
-                    = hand_control::merai::ControllerID::NONE;
+                hand_control::merai::ControllerID targetController = hand_control::merai::ControllerID::NONE;
             };
 
             /**
              * @brief readControllerCommandAggregator
-             *  Reads from controllerCommandsAggBuffer (requestSwitch + enum ID)
+             *  Reads from controllerCommandsAggBuffer, which Logic writes.
              */
             ControllerCommandAggregated readControllerCommandAggregator();
 
             /**
-             * @brief writeDriveSummaryAggregator
-             *  Writes whether any fault and severity for the logic to read
-             */
-            void writeDriveSummaryAggregator();
-
-            /**
-             * @brief applyDriveCommand
-             *  Interprets the enumerated DriveCommand, sets local signals or user signals buffer
-             */
-            void applyDriveCommand(hand_control::merai::DriveCommand cmd);
-
-            /**
              * @brief applyControllerSwitch
-             *  If requestSwitch is true, fill the controllerUserCmdBuffer or call manager
+             *  If requestSwitch is true, write the new ID to 'controllerCommandBuffer'
+             *  so the Manager sees it next update() cycle.
              */
-            void applyControllerSwitch(const ControllerCommandAggregated &ctrlCmd);
+            void applyControllerSwitch(const ControllerCommandAggregated& ctrlCmd);
 
-            /**
-             * @brief sub-manager updates
-             */
+            // Sub-manager updates
             void updateDriveStateManager();
             void updateControllerManager();
 
@@ -162,15 +144,15 @@ namespace hand_control
 
             // SHM for ParameterServer
             hand_control::merai::RAII_SharedMemory paramServerShm_;
-            const hand_control::merai::ParameterServer *paramServerPtr_ = nullptr;
+            const hand_control::merai::ParameterServer* paramServerPtr_ = nullptr;
 
             // SHM for RTMemoryLayout
             hand_control::merai::RAII_SharedMemory rtDataShm_;
-            hand_control::merai::RTMemoryLayout *rtLayout_ = nullptr;
+            hand_control::merai::RTMemoryLayout* rtLayout_ = nullptr;
 
             // SHM for Logger
             hand_control::merai::RAII_SharedMemory loggerShm_;
-            hand_control::merai::multi_ring_logger_memory *loggerMem_ = nullptr;
+            hand_control::merai::multi_ring_logger_memory* loggerMem_ = nullptr;
 
             // Robot model
             hand_control::robotics::haptic_device::HapticDeviceModel hapticDeviceModel_;

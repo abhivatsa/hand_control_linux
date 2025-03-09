@@ -1,15 +1,8 @@
-#include <iostream>
-#include <stdexcept>
-
+#include <stdexcept> // for std::runtime_error
 #include "control/ControllerManager.h"
-
-// Example specialized controllers
 #include "control/controllers/HomingController.h"
 #include "control/controllers/GravityDampingController.h"
 #include "control/controllers/EStopController.h"
-
-// If needed for merai::ControllerID
-#include "merai/Enums.h"
 
 namespace hand_control
 {
@@ -20,9 +13,12 @@ namespace hand_control
         {
             if (!paramServer_)
             {
-                throw std::runtime_error("[ControllerManager] Null paramServer.");
+                throw std::runtime_error("ControllerManager: Null paramServer pointer.");
             }
             jointCount_ = static_cast<int>(paramServer_->jointCount);
+
+            // By default, idToController_ array is empty (all nullptr)
+            // e.g. [ControllerID::NONE, ControllerID::HOMING, ...] => indexes
         }
 
         ControllerManager::~ControllerManager()
@@ -30,59 +26,75 @@ namespace hand_control
             // cleanup if needed
         }
 
-        bool ControllerManager::registerController(std::shared_ptr<BaseController> controller)
+        bool ControllerManager::registerController(hand_control::merai::ControllerID id,
+                                                  std::shared_ptr<BaseController> controller)
         {
-            if (num_controllers_ >= MAX_CONTROLLERS)
+            if (!controller)
             {
-                std::cerr << "[ControllerManager] Reached max controllers.\n";
                 return false;
             }
-            controllers_[num_controllers_++] = controller;
+
+            // Convert the ID to an index
+            int idx = static_cast<int>(id);
+            // e.g. if idx is out of range or already occupied => fail
+            if (idx < 0 || idx >= static_cast<int>(idToController_.size()))
+            {
+                return false;
+            }
+            if (idToController_[idx] != nullptr)
+            {
+                // Already assigned a controller to that ID
+                return false;
+            }
+
+            idToController_[idx] = controller;
             return true;
         }
 
         bool ControllerManager::init()
         {
             bool success = true;
-            // Initialize all registered controllers
-            for (int i = 0; i < num_controllers_; i++)
+
+            // Initialize all controllers we've assigned in idToController_
+            for (auto& ctrlPtr : idToController_)
             {
-                if (controllers_[i] &&
-                    !controllers_[i]->init(controllers_[i]->name()))
+                if (ctrlPtr)
                 {
-                    success = false;
+                    // If your BaseController needs a name, pass an empty or placeholder
+                    if (!ctrlPtr->init("PlaceholderEnumBasedName"))
+                    {
+                        success = false;
+                    }
                 }
             }
 
-            // Default to the first registered controller if any
-            if (num_controllers_ > 0)
+            // If you want to pick a default active controller (e.g. ID=GRAVITY_COMP),
+            // do so here. Otherwise it remains nullptr until user requests a switch:
+            if (idToController_[static_cast<int>(hand_control::merai::ControllerID::GRAVITY_COMP)])
             {
-                active_controller_ = controllers_[0];
+                active_controller_ = idToController_[static_cast<int>(hand_control::merai::ControllerID::GRAVITY_COMP)];
                 switchState_ = SwitchState::RUNNING;
-                std::cout << "[ControllerManager] Active controller: "
-                          << active_controller_->name() << std::endl;
             }
             return success;
         }
 
         void ControllerManager::update(const hand_control::merai::JointState* states,
                                        hand_control::merai::JointCommand* commands,
-                                       const hand_control::merai::ControllerUserCommand* userCmdArray,
+                                       const hand_control::merai::ControllerCommand* ctrlCmdArray,
                                        hand_control::merai::ControllerFeedback* feedbackArray,
                                        int jointCount,
                                        double dt)
         {
-            // We only have 1 user command in this example
-            const auto& userCmd = userCmdArray[0];
+            // We only have 1 aggregator element in ControllerCommandData
+            const auto& cmd = ctrlCmdArray[0];
 
-            // If the user requests a controller switch, store the ID
-            if (userCmd.requestSwitch)
+            if (cmd.requestSwitch)
             {
-                target_controller_id_ = userCmd.controllerId;
+                target_controller_id_ = cmd.controllerId;
                 switch_pending_.store(true);
             }
 
-            // (1) Handle bridging logic (or skip if bridgingNeeded_ = false)
+            // (1) Handle bridging logic if needed
             processControllerSwitch();
 
             // (2) Run the active controller if we have one
@@ -92,7 +104,7 @@ namespace hand_control
             }
             else
             {
-                // Fallback: hold current position if no controller is active
+                // fallback: hold position if no controller active
                 for (int i = 0; i < jointCount; ++i)
                 {
                     commands[i].position = states[i].position;
@@ -107,7 +119,7 @@ namespace hand_control
 
             feedbackArray[0].bridgingActive   = bridging;
             feedbackArray[0].switchInProgress = switching;
-            feedbackArray[0].controllerFailed = false; // set true if newController_ not found, etc.
+            feedbackArray[0].controllerFailed = false; // if we detect failure below, set true
         }
 
         void ControllerManager::processControllerSwitch()
@@ -122,8 +134,7 @@ namespace hand_control
                     newController_ = findControllerById(target_controller_id_);
                     if (!newController_)
                     {
-                        std::cerr << "[ControllerManager] Controller not found for ID: "
-                                  << static_cast<int>(target_controller_id_) << "\n";
+                        // possibly set feedback aggregator
                         break;
                     }
                     bridgingNeeded_ = requiresBridging(oldController_.get(), newController_.get());
@@ -139,7 +150,6 @@ namespace hand_control
 
                 if (bridgingNeeded_)
                 {
-                    // bridging logic
                     switchState_ = SwitchState::BRIDGING;
                 }
                 else
@@ -149,8 +159,7 @@ namespace hand_control
                 break;
 
             case SwitchState::BRIDGING:
-                // If bridging is needed, do partial transitions
-                // For simplicity, go directly to START_NEW
+                // bridging logic if needed
                 switchState_ = SwitchState::START_NEW;
                 break;
 
@@ -159,8 +168,6 @@ namespace hand_control
                 {
                     newController_->start();
                     active_controller_ = newController_;
-                    std::cout << "[ControllerManager] Switched to "
-                              << active_controller_->name() << "\n";
                 }
                 switchState_ = SwitchState::RUNNING;
                 break;
@@ -173,8 +180,7 @@ namespace hand_control
                     newController_ = findControllerById(target_controller_id_);
                     if (!newController_)
                     {
-                        std::cerr << "[ControllerManager] Controller not found for ID: "
-                                  << static_cast<int>(target_controller_id_) << "\n";
+                        // handle error
                         break;
                     }
                     bridgingNeeded_ = requiresBridging(oldController_.get(), newController_.get());
@@ -186,61 +192,22 @@ namespace hand_control
 
         bool ControllerManager::requiresBridging(BaseController* oldCtrl, BaseController* newCtrl)
         {
-            // Example logic
             if (!oldCtrl || !newCtrl)
             {
                 return false;
             }
-            // e.g., if old is torque-based and new is position-based, bridging might be needed
+            // e.g. if old is torque-based and new is position-based => bridging needed
             return false;
         }
 
-        /**
-         * @brief We assume each BaseController either has a known ID or we keep a 
-         *        mapping from ID to index. For demonstration, we'll do a naive loop
-         *        checking each controller's "id()" if you store it. Otherwise, you could
-         *        do a switch-case or a direct array index if IDs map 1:1 to array positions.
-         */
         std::shared_ptr<BaseController> ControllerManager::findControllerById(hand_control::merai::ControllerID id)
         {
-            // Example: if your controllers store an ID in their derived classes:
-            // 
-            // for (int i = 0; i < num_controllers_; i++)
-            // {
-            //     if (controllers_[i] && controllers_[i]->controllerId() == id)
-            //     {
-            //         return controllers_[i];
-            //     }
-            // }
-            // 
-            // Return nullptr if not found
-
-            // For now, we’ll just do name-based fallback or a simple switch 
-            // if your real code hasn't been fully adapted to ID-based:
-            switch (id)
+            int idx = static_cast<int>(id);
+            if (idx < 0 || idx >= static_cast<int>(idToController_.size()))
             {
-                case hand_control::merai::ControllerID::HOMING:
-                    // find the HomingController in our array, or create it
-                    return findControllerByName("HomingController");
-                case hand_control::merai::ControllerID::GRAVITY_COMP:
-                    return findControllerByName("GravityDampingController");
-                case hand_control::merai::ControllerID::E_STOP:
-                    return findControllerByName("EStopController");
-                default:
-                    return nullptr;
+                return nullptr;
             }
-        }
-
-        std::shared_ptr<BaseController> ControllerManager::findControllerByName(const std::string &name)
-        {
-            for (int i = 0; i < num_controllers_; i++)
-            {
-                if (controllers_[i] && controllers_[i]->name() == name)
-                {
-                    return controllers_[i];
-                }
-            }
-            return nullptr;
+            return idToController_[idx];
         }
 
     } // namespace control

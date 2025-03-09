@@ -84,7 +84,12 @@ namespace hand_control
         // =======================================
         // 5) Drive-Level Signals & Feedback
         // =======================================
-        struct DriveUserSignals
+        /**
+         * @brief Per-drive control signals:
+         *  - The logic layer writes these booleans for each drive.
+         *  - The control layer reads them in real time and sets CiA 402 bits accordingly.
+         */
+        struct DriveControlSignals
         {
             bool faultReset     = false;
             bool allowOperation = false;
@@ -92,6 +97,10 @@ namespace hand_control
             bool forceDisable   = false;
         };
 
+        /**
+         * @brief Minimal per-drive feedback from Control:
+         *  - e.g., faultActive, operationEnabled
+         */
         struct DriveFeedback
         {
             bool faultActive      = false;
@@ -102,11 +111,10 @@ namespace hand_control
         // 6) Controller-Level Commands & Feedback
         // =======================================
         /**
-         * @brief ControllerUserCommand
-         *  - If we want to store an enum (ControllerID) instead of a string,
-         *    use controllerId. This avoids string copying in RT code.
+         * @brief If we store an enum (ControllerID) for controller switching,
+         *        no strings are needed.
          */
-        struct ControllerUserCommand
+        struct ControllerCommand
         {
             bool requestSwitch = false;
             hand_control::merai::ControllerID controllerId = hand_control::merai::ControllerID::NONE;
@@ -162,9 +170,13 @@ namespace hand_control
         // =======================================
         // 10) Aggregated Drive Signals & Feedback
         // =======================================
-        struct DriveUserSignalsData
+        /**
+         * @brief For logic->control: an array of drive control signals,
+         *        one for each drive.
+         */
+        struct DriveControlSignalsData
         {
-            std::array<DriveUserSignals, MAX_SERVO_DRIVES> signals;
+            std::array<DriveControlSignals, MAX_SERVO_DRIVES> signals;
         };
 
         struct DriveFeedbackData
@@ -175,10 +187,9 @@ namespace hand_control
         // =======================================
         // 11) Controller Commands & Feedback
         // =======================================
-        struct ControllerUserCommandData
+        struct ControllerCommandData
         {
-            // We only store a single command in this example, but you can store more if needed
-            std::array<ControllerUserCommand, 1> commands;
+            std::array<ControllerCommand, 1> commands;
         };
 
         struct ControllerFeedbackData
@@ -191,31 +202,9 @@ namespace hand_control
         // =======================================
 
         /**
-         * @brief DriveSummary
-         *  - The Control side writes whether any drive is faulted and how severe
-         *  - The Logic side reads this aggregator to decide next actions
-         */
-        struct DriveSummary
-        {
-            bool anyFaulted     = false;
-            int  faultSeverity  = 0; // 1 => recoverable, 2 => major, etc.
-        };
-
-        /**
-         * @brief DriveCommandAggregated
-         *  - The Logic side writes a single enumerated drive command
-         *  - The Control side reads it and applies the final drive actions
-         */
-        struct DriveCommandAggregated
-        {
-            hand_control::merai::DriveCommand driveCommand
-                = hand_control::merai::DriveCommand::NONE;
-        };
-
-        /**
          * @brief ControllerCommandAggregated
          *  - The Logic side writes whether we want a new controller switch
-         *  - The Control side sees requestSwitch + which controller ID
+         *  - The Control side reads requestSwitch + which controller ID
          */
         struct ControllerCommandAggregated
         {
@@ -238,17 +227,15 @@ namespace hand_control
             DoubleBuffer<IoData>    ioDataBuffer;
 
             // Drive-level signals & feedback
-            DoubleBuffer<DriveUserSignalsData> driveUserSignalsBuffer;
-            DoubleBuffer<DriveFeedbackData>    driveFeedbackBuffer;
+            DoubleBuffer<DriveControlSignalsData> driveControlSignalsBuffer;
+            DoubleBuffer<DriveFeedbackData>       driveFeedbackBuffer;
 
             // Controller user commands & feedback
-            DoubleBuffer<ControllerUserCommandData> controllerUserCmdBuffer;
-            DoubleBuffer<ControllerFeedbackData>    controllerFeedbackBuffer;
+            DoubleBuffer<ControllerCommandData>   controllerCommandBuffer;
+            DoubleBuffer<ControllerFeedbackData>  controllerFeedbackBuffer;
 
-            // Additional aggregator buffers:
-            DoubleBuffer<DriveSummary> driveSummaryBuffer;                // Control->Logic
-            DoubleBuffer<DriveCommandAggregated> driveCommandBuffer;      // Logic->Control
-            DoubleBuffer<ControllerCommandAggregated> controllerCommandsAggBuffer; // Logic->Control
+            // For controller switching aggregator (Logic->Control):
+            DoubleBuffer<ControllerCommandAggregated> controllerCommandsAggBuffer;
         };
     } // namespace merai
 } // namespace hand_control

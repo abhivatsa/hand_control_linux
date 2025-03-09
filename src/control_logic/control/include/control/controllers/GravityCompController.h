@@ -1,12 +1,11 @@
 #pragma once
 
-#include <string>
 #include "control/controllers/BaseController.h"
 
+// If your six-axis model lives here, include it:
 #include "robotics_lib/haptic_device/HapticDeviceModel.h"
 #include "robotics_lib/haptic_device/HapticDeviceDynamics.h"
 #include "robotics_lib/haptic_device/HapticDeviceKinematics.h"
-
 
 namespace hand_control
 {
@@ -27,22 +26,42 @@ namespace hand_control
 
             ~GravityCompController() override = default;
 
-            bool init(const std::string &controllerName) override;
+            /**
+             * @brief init() 
+             *  A parameterless init that ensures no std::string usage.
+             */
+            bool init() override;
+
+            /**
+             * @brief start 
+             *  Called when transitioning to this controller.
+             */
             void start() override;
 
             /**
-             * @brief Update method matching BaseController's pointer-based signature.
-             * @param states   pointer to an array of JointState
-             * @param commands pointer to an array of JointCommand
-             * @param numJoints number of joints
-             * @param dt time step
+             * @brief update 
+             *  The main control loop function. Called each real-time cycle (e.g. 1ms).
+             *
+             * @param states   Pointer to array of JointState
+             * @param commands Pointer to array of JointCommand
+             * @param numJoints Number of joints
+             * @param dt       Timestep in seconds
              */
             void update(const hand_control::merai::JointState *states,
                         hand_control::merai::JointCommand *commands,
                         int numJoints,
                         double dt) override;
 
+            /**
+             * @brief stop 
+             *  Called when transitioning away from this controller to a new one.
+             */
             void stop() override;
+
+            /**
+             * @brief teardown 
+             *  For cleanup if needed.
+             */
             void teardown() override;
 
         private:
@@ -51,12 +70,11 @@ namespace hand_control
 
             /**
              * @brief A local SixAxisDynamics object that uses the same model.
-             *        We'll use it to compute torque via Newton-Euler.
+             *        We'll use it to compute torque via Newton-Euler or similar method.
              */
             hand_control::robotics::haptic_device::HapticDeviceDynamics dynamics_;
 
-            // Example param for torque scaling or other offsets
-            // (optional, could be a gravity scaling factor, friction offset, etc.)
+            // Example param for torque scaling, friction offset, etc. 
             double gravityScale_ = 1.0;
         };
 

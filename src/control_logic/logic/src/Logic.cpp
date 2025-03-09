@@ -3,8 +3,7 @@
 #include <stdexcept>
 #include <chrono>
 #include <thread>
-// Include your updated Enums.h if you need direct access to merai::DriveCommand, etc.
-#include "merai/Enums.h"
+#include "merai/Enums.h"  // for OrchestratorState, ControllerID, etc.
 
 namespace hand_control
 {
@@ -40,7 +39,10 @@ namespace hand_control
             std::cout << "[Logic] Shared memory attached.\n";
         }
 
-        Logic::~Logic() {}
+        Logic::~Logic()
+        {
+            // Cleanup if needed
+        }
 
         bool Logic::init()
         {
@@ -74,39 +76,33 @@ namespace hand_control
 
             while (!stopRequested_.load(std::memory_order_relaxed))
             {
-                // (1) read aggregator from Control: driveSummary
-                bool faultActive = false;
-                int  faultSeverity = 0;
-                readDriveSummaryAggregator(faultActive, faultSeverity);
+                // (1) Possibly read aggregator from control if you want drive feedback, 
+                //     but if you removed DriveSummary, there's nothing to read here.
 
-                // (2) read user aggregator if any (example: from controllerUserCmdBuffer)
-                bool userActive = false;
-                bool userSwitch = false;
-                // If you still store a string in user commands, read it here; 
-                // or if it's an enum, read the enum directly.
-                readUserCommandsAggregator(userActive, userSwitch /*, maybe controllerID */);
+                // (2) Possibly check user input or aggregator to see if user wants active, 
+                //     or a controller switch, etc. 
+                bool userActive   = false;
+                bool userSwitch   = false;
 
-                // (3) orchestrator update
+                // Update your orchestrator logic
                 systemOrchestrator_.update(
-                    faultActive, faultSeverity,
-                    userActive, userSwitch,
-                    /* if you have a textual or enum-based controller from user aggregator, pass it here */
-                    /* e.g., "GRAVITY_COMP" or the actual enum if you've changed the orchestrator accordingly */
+                    /* faultActive= */ false,
+                    /* faultSeverity= */ 0,
+                    userActive,
+                    userSwitch
+                    // etc. If you have more enum or ID for desiredController, pass it here
                 );
 
-                // (4) fetch orchestrator's single drive command & controller switch request
-                // Now the orchestrator returns an enum
-                auto driveCmd        = systemOrchestrator_.getDriveCommand();        // merai::DriveCommand
-                bool wantCtrlSwitch  = systemOrchestrator_.wantsControllerSwitch(); 
-                auto desiredCtrlID   = systemOrchestrator_.desiredControllerID();    // merai::ControllerID
+                // (3) The orchestrator decides how each drive should be controlled.
+                //     We'll write those signals into driveControlSignalsBuffer:
+                writeDriveControlSignalsAggregator();
 
-                // (5) write aggregator => driveCommandBuffer
-                writeDriveCommandAggregator(driveCmd);
+                // (4) Possibly handle a controller switch aggregator
+                bool switchWanted = systemOrchestrator_.wantsControllerSwitch();
+                auto ctrlID       = systemOrchestrator_.desiredControllerId();
+                writeControllerSwitchAggregator(switchWanted, ctrlID);
 
-                // (6) write aggregator => controllerCommandsAggBuffer
-                writeControllerSwitchAggregator(wantCtrlSwitch, desiredCtrlID);
-
-                // (7) wait for next cycle
+                // (5) Wait until next cycle
                 wait_rest_of_period(&pinfo);
             }
 
@@ -116,51 +112,51 @@ namespace hand_control
         // ======================
         // Aggregator Helpers
         // ======================
-        void Logic::readDriveSummaryAggregator(bool& outAnyFaulted, int& outSeverity)
+
+        void Logic::writeDriveControlSignalsAggregator()
         {
-            int frontIdx = rtLayout_->driveSummaryBuffer.frontIndex.load(std::memory_order_acquire);
-            const auto &summary = rtLayout_->driveSummaryBuffer.buffer[frontIdx];
-            outAnyFaulted = summary.anyFaulted;
-            outSeverity   = summary.faultSeverity;
-        }
+            size_t driveCount = paramServerPtr_->driveCount;
 
-        void Logic::readUserCommandsAggregator(bool& outUserActive, bool& outUserSwitch /*, ... */)
-        {
-            // Example of reading from controllerUserCmdBuffer if it's still string-based or partially updated.
-            // If you've changed it to store merai::ControllerID, do so here.
-
-            int frontIdx = rtLayout_->controllerUserCmdBuffer.frontIndex.load(std::memory_order_acquire);
-            const auto &ucBuf = rtLayout_->controllerUserCmdBuffer.buffer[frontIdx];
-
-            outUserSwitch = ucBuf.commands[0].requestSwitch;
-            // outUserActive might come from another aggregator, for now false
-            outUserActive = false;
-
-            // If you still have a string field (targetControllerName) in user commands, you can read it here
-            // or bridging code if needed.
-        }
-
-        // **Updated**: Now we write the drive command aggregator with an enum
-        void Logic::writeDriveCommandAggregator(hand_control::merai::DriveCommand cmd)
-        {
-            int frontIdx = rtLayout_->driveCommandBuffer.frontIndex.load(std::memory_order_acquire);
+            int frontIdx = rtLayout_->driveControlSignalsBuffer.frontIndex.load(std::memory_order_acquire);
             int backIdx  = 1 - frontIdx;
 
-            auto &agg = rtLayout_->driveCommandBuffer.buffer[backIdx];
-            agg.driveCommand = cmd;  // Directly store the enum
+            auto &signalsData = rtLayout_->driveControlSignalsBuffer.buffer[backIdx];
 
-            rtLayout_->driveCommandBuffer.frontIndex.store(backIdx, std::memory_order_release);
+            // Clear / set each drive's flags based on the orchestrator
+            for (size_t i = 0; i < driveCount; ++i)
+            {
+                auto &sig = signalsData.signals[i];
+                sig.faultReset     = false;
+                sig.allowOperation = false;
+                sig.quickStop      = false;
+                sig.forceDisable   = false;
+
+                // e.g. if orchestrator says drive i is healthy & user wants it on
+                if (systemOrchestrator_.shouldEnableDrive(i))
+                    sig.allowOperation = true;
+
+                if (systemOrchestrator_.shouldForceDisableDrive(i))
+                    sig.forceDisable = true;
+
+                if (systemOrchestrator_.shouldQuickStopDrive(i))
+                    sig.quickStop = true;
+
+                if (systemOrchestrator_.shouldFaultResetDrive(i))
+                    sig.faultReset = true;
+            }
+
+            // Publish 
+            rtLayout_->driveControlSignalsBuffer.frontIndex.store(backIdx, std::memory_order_release);
         }
 
-        // **Updated**: Now we write the controller aggregator with an enum
-        void Logic::writeControllerSwitchAggregator(bool switchWanted, hand_control::merai::ControllerID ctrlID)
+        void Logic::writeControllerSwitchAggregator(bool switchWanted, hand_control::merai::ControllerID ctrlId)
         {
             int frontIdx = rtLayout_->controllerCommandsAggBuffer.frontIndex.load(std::memory_order_acquire);
             int backIdx  = 1 - frontIdx;
 
             auto &ctrlAgg = rtLayout_->controllerCommandsAggBuffer.buffer[backIdx];
-            ctrlAgg.requestSwitch   = switchWanted;
-            ctrlAgg.targetController = ctrlID;  // Directly store the enum
+            ctrlAgg.requestSwitch    = switchWanted;
+            ctrlAgg.targetController = ctrlId;
 
             rtLayout_->controllerCommandsAggBuffer.frontIndex.store(backIdx, std::memory_order_release);
         }

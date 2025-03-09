@@ -1,7 +1,6 @@
 #pragma once
 
 #include <atomic>
-#include <string>
 #include <cstddef>
 #include <time.h>
 
@@ -9,10 +8,11 @@
 #include "merai/ParameterServer.h"
 #include "merai/RTMemoryLayout.h"
 #include "merai/RAII_SharedMemory.h"
-#include "merai/Enums.h" // for DriveCommand, ControllerID
+#include "merai/SharedLogger.h"
+#include "merai/Enums.h" // for ControllerID, OrchestratorState, etc.
 
 // Orchestrator (logic layer)
-#include "logic/SystemOrchestrator.h"  // includes OrchestratorState, etc.
+#include "logic/SystemOrchestrator.h"
 
 namespace hand_control
 {
@@ -21,9 +21,12 @@ namespace hand_control
         class Logic
         {
         public:
-            Logic(const std::string& paramServerShmName, std::size_t paramServerShmSize,
-                  const std::string& rtDataShmName,      std::size_t rtDataShmSize,
-                  const std::string& loggerShmName,      std::size_t loggerShmSize);
+            Logic(const std::string& paramServerShmName, 
+                  std::size_t paramServerShmSize,
+                  const std::string& rtDataShmName, 
+                  std::size_t rtDataShmSize,
+                  const std::string& loggerShmName, 
+                  std::size_t loggerShmSize);
 
             ~Logic();
 
@@ -35,7 +38,7 @@ namespace hand_control
 
             /**
              * @brief Runs the main (blocking) loop of the logic application,
-             *        typically 10 ms cycle.
+             *        typically at a 10 ms cycle.
              */
             void run();
 
@@ -46,43 +49,30 @@ namespace hand_control
 
         private:
             /**
-             * @brief The logic loop, typically 10 ms. Reads aggregator from control
-             *        (driveSummary), orchestrates system logic, writes drive commands
-             *        and controller commands back.
+             * @brief The main logic loop (e.g., 10 ms). Reads aggregator data
+             *        if needed, orchestrates system logic, writes per-drive signals
+             *        and controller commands to shared memory.
              */
             void cyclicTask();
 
             /**
-             * @brief readDriveSummaryAggregator
-             *  - Reads aggregator from Control indicating any fault and severity.
+             * @brief writeDriveControlSignalsAggregator
+             *  - Writes per-drive signals (enable, faultReset, etc.) determined by the
+             *    orchestrator into shared memory so the Control side can read them.
              */
-            void readDriveSummaryAggregator(bool& outAnyFaulted, int& outFaultSeverity);
-
-            /**
-             * @brief readUserCommandsAggregator
-             *  - Possibly reads aggregator or user commands to see if
-             *    user wants the robot active or a controller switch.
-             *  - This is just an example; you can customize as needed.
-             */
-            void readUserCommandsAggregator(bool& outUserRequestedActive,
-                                            bool& outUserRequestedSwitch,
-                                            char* outControllerName);
-
-            /**
-             * @brief writeDriveCommandAggregator
-             *  - Writes a single enumerated drive command (merai::DriveCommand) 
-             *    to shared memory for the Control side to read.
-             */
-            void writeDriveCommandAggregator(hand_control::merai::DriveCommand cmd);
+            void writeDriveControlSignalsAggregator();
 
             /**
              * @brief writeControllerSwitchAggregator
-             *  - If the orchestrator wants a new controller, write aggregator to the
-             *    control side, passing an enum (merai::ControllerID).
+             *  - If the orchestrator wants a new controller, write aggregator to
+             *    the control side, specifying which controller ID to switch to.
              */
-            void writeControllerSwitchAggregator(bool switchWanted, hand_control::merai::ControllerID ctrlId);
+            void writeControllerSwitchAggregator(bool switchWanted, 
+                                                 hand_control::merai::ControllerID ctrlId);
 
-            // Periodic scheduling helper structs & methods
+            // --------------------------------------
+            // Periodic scheduling helpers
+            // --------------------------------------
             struct period_info
             {
                 struct timespec next_period;
@@ -105,7 +95,7 @@ namespace hand_control
             merai::RAII_SharedMemory loggerShm_;
             merai::multi_ring_logger_memory* loggerMem_ = nullptr;
 
-            // Our orchestrator (holds the higher-level state machine)
+            // Our orchestrator (manages high-level logic)
             SystemOrchestrator systemOrchestrator_;
         };
     } // namespace logic
