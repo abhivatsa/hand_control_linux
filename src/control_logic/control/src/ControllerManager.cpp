@@ -1,14 +1,14 @@
 #include <stdexcept> // for std::runtime_error
 #include "control/ControllerManager.h"
 #include "control/controllers/HomingController.h"
-#include "control/controllers/GravityDampingController.h"
-#include "control/controllers/EStopController.h"
+#include "control/controllers/GravityCompController.h"
+// #include "control/controllers/EStopController.h"
 
 namespace hand_control
 {
     namespace control
     {
-        ControllerManager::ControllerManager(const hand_control::merai::ParameterServer* paramServer)
+        ControllerManager::ControllerManager(const hand_control::merai::ParameterServer *paramServer)
             : paramServer_(paramServer)
         {
             if (!paramServer_)
@@ -27,7 +27,7 @@ namespace hand_control
         }
 
         bool ControllerManager::registerController(hand_control::merai::ControllerID id,
-                                                  std::shared_ptr<BaseController> controller)
+                                                   std::shared_ptr<BaseController> controller)
         {
             if (!controller)
             {
@@ -55,38 +55,35 @@ namespace hand_control
         {
             bool success = true;
 
-            // Initialize all controllers we've assigned in idToController_
-            for (auto& ctrlPtr : idToController_)
+            // Initialize all registered controllers
+            for (auto &ctrlPtr : idToController_)
             {
                 if (ctrlPtr)
                 {
-                    // If your BaseController needs a name, pass an empty or placeholder
-                    if (!ctrlPtr->init("PlaceholderEnumBasedName"))
+                    if (!ctrlPtr->init())
                     {
                         success = false;
                     }
                 }
             }
 
-            // If you want to pick a default active controller (e.g. ID=GRAVITY_COMP),
-            // do so here. Otherwise it remains nullptr until user requests a switch:
-            if (idToController_[static_cast<int>(hand_control::merai::ControllerID::GRAVITY_COMP)])
-            {
-                active_controller_ = idToController_[static_cast<int>(hand_control::merai::ControllerID::GRAVITY_COMP)];
-                switchState_ = SwitchState::RUNNING;
-            }
+            // Do NOT set any default active controller here;
+            // leave active_controller_ = nullptr
+            active_controller_ = nullptr;
+            switchState_ = SwitchState::IDLE;
+
             return success;
         }
 
-        void ControllerManager::update(const hand_control::merai::JointState* states,
-                                       hand_control::merai::JointCommand* commands,
-                                       const hand_control::merai::ControllerCommand* ctrlCmdArray,
-                                       hand_control::merai::ControllerFeedback* feedbackArray,
+        void ControllerManager::update(const hand_control::merai::JointState *states,
+                                       hand_control::merai::JointCommand *commands,
+                                       const hand_control::merai::ControllerCommand *ctrlCmdArray,
+                                       hand_control::merai::ControllerFeedback *feedbackArray,
                                        int jointCount,
                                        double dt)
         {
             // We only have 1 aggregator element in ControllerCommandData
-            const auto& cmd = ctrlCmdArray[0];
+            const auto &cmd = ctrlCmdArray[0];
 
             if (cmd.requestSwitch)
             {
@@ -109,15 +106,15 @@ namespace hand_control
                 {
                     commands[i].position = states[i].position;
                     commands[i].velocity = 0.0;
-                    commands[i].torque   = 0.0;
+                    commands[i].torque = 0.0;
                 }
             }
 
             // (3) Minimal feedback
-            bool bridging  = (switchState_ == SwitchState::BRIDGING);
+            bool bridging = (switchState_ == SwitchState::BRIDGING);
             bool switching = (switchState_ != SwitchState::RUNNING);
 
-            feedbackArray[0].bridgingActive   = bridging;
+            feedbackArray[0].bridgingActive = bridging;
             feedbackArray[0].switchInProgress = switching;
             feedbackArray[0].controllerFailed = false; // if we detect failure below, set true
         }
@@ -190,7 +187,7 @@ namespace hand_control
             }
         }
 
-        bool ControllerManager::requiresBridging(BaseController* oldCtrl, BaseController* newCtrl)
+        bool ControllerManager::requiresBridging(BaseController *oldCtrl, BaseController *newCtrl)
         {
             if (!oldCtrl || !newCtrl)
             {

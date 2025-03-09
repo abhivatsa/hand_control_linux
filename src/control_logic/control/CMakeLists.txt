@@ -20,7 +20,8 @@ add_library(hand_control_control_lib STATIC
 
     # Controllers
     src/controllers/GravityCompController.cpp
-
+    src/controllers/HomingController.cpp
+    
     # Hardware Abstraction
     src/hardware_abstraction/MockHardwareAbstractionLayer.cpp
     src/hardware_abstraction/RealHardwareAbstractionLayer.cpp
