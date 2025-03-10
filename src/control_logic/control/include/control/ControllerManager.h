@@ -77,7 +77,6 @@ namespace hand_control
                         hand_control::merai::JointCommand*        commands,
                         const hand_control::merai::ControllerCommand* ctrlCmdArray,
                         hand_control::merai::ControllerFeedback*  feedbackArray,
-                        int jointCount,
                         double dt);
 
         private:

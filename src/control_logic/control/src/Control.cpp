@@ -4,7 +4,11 @@
 #include "control/Control.h"
 #include "control/hardware_abstraction/MockHardwareAbstractionLayer.h"
 #include "control/hardware_abstraction/RealHardwareAbstractionLayer.h"
+// Existing Gravity Controller:
 #include "control/controllers/GravityCompController.h"
+// Include your Homing Controller header:
+#include "control/controllers/HomingController.h"
+
 #include "merai/Enums.h"
 
 namespace hand_control
@@ -63,9 +67,9 @@ namespace hand_control
                            rtLayout_, paramServerPtr_, loggerMem_);
             }
 
-            // Create Managers
-            manager_          = std::make_unique<ControllerManager>(paramServerPtr_);
-            driveStateManager_ = std::make_unique<DriveStateManager>();
+            // Create the ControllerManager
+            controllerManager_   = std::make_unique<ControllerManager>(paramServerPtr_);
+            driveStateManager_   = std::make_unique<DriveStateManager>();
         }
 
         // -------------------------------------------------------------------
@@ -81,7 +85,7 @@ namespace hand_control
         // -------------------------------------------------------------------
         bool Control::init()
         {
-            // 1) Build a 6-axis model from ParameterServer
+            // 1) Build a Haptic device model from ParameterServer
             if (!hapticDeviceModel_.loadFromParameterServer(*paramServerPtr_))
             {
                 return false;
@@ -97,20 +101,32 @@ namespace hand_control
             {
                 // Example: GravityCompController => GRAVITY_COMP
                 auto gravityComp = std::make_shared<GravityCompController>(hapticDeviceModel_);
-                if (!manager_->registerController(hand_control::merai::ControllerID::GRAVITY_COMP,
-                                                  gravityComp))
+                if (!controllerManager_->registerController(
+                        hand_control::merai::ControllerID::GRAVITY_COMP,
+                        gravityComp))
+                {
+                    return false;
+                }
+
+                // Example: HomingController => HOMING
+                // You can load these homePositions from the ParameterServer if desired.
+                double homePositions[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+                auto homingCtrl = std::make_shared<HomingController>(homePositions, 6);
+                if (!controllerManager_->registerController(
+                        hand_control::merai::ControllerID::HOMING,
+                        homingCtrl))
                 {
                     return false;
                 }
 
                 // If you have other controllers, register them similarly:
                 // auto eStopCtrl = std::make_shared<EStopController>();
-                // manager_->registerController(hand_control::merai::ControllerID::E_STOP, eStopCtrl);
+                // controllerManager_->registerController(hand_control::merai::ControllerID::E_STOP, eStopCtrl);
                 // ...
             }
 
-            // 4) Init the manager
-            if (!manager_->init())
+            // 4) Init the controllerManager
+            if (!controllerManager_->init())
             {
                 return false;
             }
@@ -149,7 +165,6 @@ namespace hand_control
 
                 // (2) Copy states -> shared memory
                 copyJointStatesToSharedMemory();
-                copyIoStatesToSharedMemory();
 
                 // (3) Read aggregator for new controller switch
                 auto ctrlCmdAgg = readControllerCommandAggregator();
@@ -159,11 +174,10 @@ namespace hand_control
 
                 // (5) Sub-managers
                 updateDriveStateManager();
-                updateControllerManager();
+                updateControllerManager(); // calls controllerManager_->update(...)
 
                 // (6) Copy updated commands -> hardware
                 copyJointCommandsFromSharedMemory();
-                copyIoCommandsFromSharedMemory();
                 hal_->write();
 
                 // (7) Sleep until next cycle
@@ -220,35 +234,6 @@ namespace hand_control
             rtLayout_->jointBuffer.frontIndex.store(backIndex, std::memory_order_release);
         }
 
-        void Control::copyIoStatesToSharedMemory()
-        {
-            int currentFront = rtLayout_->ioDataBuffer.frontIndex.load(std::memory_order_acquire);
-            int backIndex    = 1 - currentFront;
-
-            auto &backIoStates = rtLayout_->ioDataBuffer.buffer[backIndex].states;
-            size_t ioCount     = hal_->getIoCount();
-            auto *halIoStates  = hal_->getIoStatesPtr();
-
-            if (!halIoStates || ioCount == 0)
-            {
-                return;
-            }
-
-            for (size_t i = 0; i < ioCount; i++)
-            {
-                for (int ch = 0; ch < 8; ++ch)
-                {
-                    backIoStates[i].digitalInputs[ch] = halIoStates[i].digitalInputs[ch];
-                }
-                for (int ch = 0; ch < 2; ++ch)
-                {
-                    backIoStates[i].analogInputs[ch] = halIoStates[i].analogInputs[ch];
-                }
-            }
-
-            rtLayout_->ioDataBuffer.frontIndex.store(backIndex, std::memory_order_release);
-        }
-
         void Control::checkSafetyFlags()
         {
             // Possibly read from a separate aggregator or structure
@@ -274,39 +259,14 @@ namespace hand_control
             }
         }
 
-        void Control::copyIoCommandsFromSharedMemory()
-        {
-            int frontIndex = rtLayout_->ioDataBuffer.frontIndex.load(std::memory_order_acquire);
-            auto &ioCmds   = rtLayout_->ioDataBuffer.buffer[frontIndex].commands;
-
-            size_t ioCount     = hal_->getIoCount();
-            auto *halIoCommands= hal_->getIoCommandsPtr();
-
-            if (!halIoCommands || ioCount == 0)
-            {
-                return;
-            }
-
-            for (size_t i = 0; i < ioCount; i++)
-            {
-                for (int ch = 0; ch < 8; ++ch)
-                {
-                    halIoCommands[i].digitalOutputs[ch] = ioCmds[i].digitalOutputs[ch];
-                }
-                for (int ch = 0; ch < 2; ++ch)
-                {
-                    halIoCommands[i].analogOutputs[ch] = ioCmds[i].analogOutputs[ch];
-                }
-            }
-        }
-
         // -------------------------------------------------------------------
         // Aggregator Helpers
         // -------------------------------------------------------------------
         Control::ControllerCommandAggregated Control::readControllerCommandAggregator()
         {
             ControllerCommandAggregated local{};
-            int frontIdx = rtLayout_->controllerCommandsAggBuffer.frontIndex.load(std::memory_order_acquire);
+            int frontIdx =
+                rtLayout_->controllerCommandsAggBuffer.frontIndex.load(std::memory_order_acquire);
             const auto &agg = rtLayout_->controllerCommandsAggBuffer.buffer[frontIdx];
 
             local.requestSwitch    = agg.requestSwitch;
@@ -320,7 +280,8 @@ namespace hand_control
                 return;
 
             // Write aggregator => 'controllerCommandBuffer' for the manager
-            int cFrontIdx = rtLayout_->controllerCommandBuffer.frontIndex.load(std::memory_order_acquire);
+            int cFrontIdx =
+                rtLayout_->controllerCommandBuffer.frontIndex.load(std::memory_order_acquire);
             int cBackIdx  = 1 - cFrontIdx;
             auto &ctrlBuf = rtLayout_->controllerCommandBuffer.buffer[cBackIdx];
 
@@ -330,6 +291,9 @@ namespace hand_control
             rtLayout_->controllerCommandBuffer.frontIndex.store(cBackIdx, std::memory_order_release);
         }
 
+        // -------------------------------------------------------------------
+        // Drive State Manager
+        // -------------------------------------------------------------------
         void Control::updateDriveStateManager()
         {
             int signalsFrontIdx =
@@ -352,6 +316,9 @@ namespace hand_control
                 fdbkBackIdx, std::memory_order_release);
         }
 
+        // -------------------------------------------------------------------
+        // ControllerManager Updates
+        // -------------------------------------------------------------------
         void Control::updateControllerManager()
         {
             // We read the final aggregator => 'controllerCommandBuffer'
@@ -364,12 +331,12 @@ namespace hand_control
                 1 - rtLayout_->controllerFeedbackBuffer.frontIndex.load(std::memory_order_acquire);
             auto &ctrlFdbkBuf = rtLayout_->controllerFeedbackBuffer.buffer[fbkBackIdx];
 
-            manager_->update(
+            // The manager (renamed to controllerManager_) updates the active controller
+            controllerManager_->update(
                 hal_->getJointStatesPtr(),
                 hal_->getJointCommandsPtr(),
                 ctrlCmdBuf.commands.data(),
                 ctrlFdbkBuf.feedback.data(),
-                static_cast<int>(hal_->getJointCount()),
                 0.001 // dt in seconds
             );
 

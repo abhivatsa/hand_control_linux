@@ -103,8 +103,12 @@ namespace hand_control
          */
         struct DriveFeedback
         {
-            bool faultActive      = false;
-            bool operationEnabled = false;
+            bool fault             = false; // bit 3
+            bool switchOnDisabled  = false; // bit 6
+            bool readyToSwitchOn   = false; // bit 0
+            bool switchedOn        = false; // bit 1
+            bool operationEnabled  = false; // bit 2
+            bool quickStop         = false; // bit 5
         };
 
         // =======================================

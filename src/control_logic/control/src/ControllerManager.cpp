@@ -15,7 +15,7 @@ namespace hand_control
             {
                 throw std::runtime_error("ControllerManager: Null paramServer pointer.");
             }
-            jointCount_ = static_cast<int>(paramServer_->jointCount);
+            jointCount_ = static_cast<int>(paramServer_->jointCount_);
 
             // By default, idToController_ array is empty (all nullptr)
             // e.g. [ControllerID::NONE, ControllerID::HOMING, ...] => indexes
@@ -79,7 +79,6 @@ namespace hand_control
                                        hand_control::merai::JointCommand *commands,
                                        const hand_control::merai::ControllerCommand *ctrlCmdArray,
                                        hand_control::merai::ControllerFeedback *feedbackArray,
-                                       int jointCount,
                                        double dt)
         {
             // We only have 1 aggregator element in ControllerCommandData
@@ -97,12 +96,12 @@ namespace hand_control
             // (2) Run the active controller if we have one
             if (active_controller_)
             {
-                active_controller_->update(states, commands, jointCount, dt);
+                active_controller_->update(states, commands, jointCount_, dt);
             }
             else
             {
                 // fallback: hold position if no controller active
-                for (int i = 0; i < jointCount; ++i)
+                for (int i = 0; i < jointCount_; ++i)
                 {
                     commands[i].position = states[i].position;
                     commands[i].velocity = 0.0;

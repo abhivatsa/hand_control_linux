@@ -1,6 +1,5 @@
-#include <iostream> // Optional debug prints
+#include <iostream> 
 #include <stdexcept>
-
 #include "control/DriveStateManager.h"
 
 namespace hand_control
@@ -22,6 +21,7 @@ namespace hand_control
 
         DriveState DriveStateManager::decodeStatusword(uint16_t statusWord)
         {
+            // (Example logic for reference)
             bool fault           = (statusWord & 0x0008) != 0;  // bit 3
             bool switchOnDisabled= (statusWord & 0x0040) != 0;  // bit 6
             bool readyToSwitchOn = (statusWord & 0x0001) != 0;  // bit 0
@@ -71,12 +71,49 @@ namespace hand_control
         {
             for (std::size_t i = 0; i < driveCount; ++i)
             {
-                // Decode CiA 402 state from statusWord
-                DriveState ds = decodeStatusword(driveInputs[i].statusWord);
+                // Decode to a high-level DriveState
+                uint16_t sw = driveInputs[i].statusWord;
+                DriveState ds = decodeStatusword(sw);
 
-                // Read the per-drive booleans (enable, faultReset, etc.)
+                // Clear the feedback booleans for this drive
+                feedback[i].fault            = false;
+                feedback[i].switchOnDisabled = false;
+                feedback[i].readyToSwitchOn  = false;
+                feedback[i].switchedOn       = false;
+                feedback[i].operationEnabled = false;
+                feedback[i].quickStop        = false;
+
+                // Fill feedback based on the enumerated state
+                switch (ds)
+                {
+                case DriveState::Fault:
+                    feedback[i].fault = true;
+                    break;
+                case DriveState::SwitchOnDisabled:
+                    feedback[i].switchOnDisabled = true;
+                    break;
+                case DriveState::NotReadyToSwitchOn:
+                    // Possibly do nothing here, or set a boolean if you want to track it
+                    break;
+                case DriveState::ReadyToSwitchOn:
+                    feedback[i].readyToSwitchOn = true;
+                    break;
+                case DriveState::SwitchedOn:
+                    feedback[i].switchedOn = true;
+                    break;
+                case DriveState::OperationEnabled:
+                    feedback[i].operationEnabled = true;
+                    break;
+                case DriveState::QuickStopActive:
+                    feedback[i].quickStop = true;
+                    break;
+                default:
+                    // unknown or fault reaction active, do nothing special
+                    break;
+                }
+
+                // Decide what controlWord to send, based on DriveState + user signals
                 const auto& sig = controlSignals[i];
-
                 uint16_t controlWord = CW_DISABLE_VOLTAGE; // default
 
                 switch (ds)
@@ -93,7 +130,6 @@ namespace hand_control
                     break;
 
                 case DriveState::SwitchOnDisabled:
-                    // typical CiA 402 -> go from SwitchOnDisabled to ReadyToSwitchOn with SHUTDOWN
                     controlWord = CW_SHUTDOWN;
                     break;
 
@@ -143,7 +179,6 @@ namespace hand_control
                     break;
 
                 case DriveState::FaultReactionActive:
-                    // Reaction in progress, typically do nothing or kill power
                     controlWord = CW_DISABLE_VOLTAGE;
                     break;
 
@@ -153,11 +188,8 @@ namespace hand_control
                 }
 
                 driveOutputs[i].controlWord = controlWord;
-
-                // Minimal feedback
-                feedback[i].faultActive      = (ds == DriveState::Fault);
-                feedback[i].operationEnabled = (ds == DriveState::OperationEnabled);
             }
         }
+
     } // namespace control
 } // namespace hand_control
