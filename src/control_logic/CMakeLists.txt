@@ -9,4 +9,4 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 add_subdirectory(control)
 
 # Add the logic module
-# add_subdirectory(logic)
+add_subdirectory(logic)

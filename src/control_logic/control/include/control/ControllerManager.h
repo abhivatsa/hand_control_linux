@@ -97,7 +97,7 @@ namespace hand_control
 
         private:
             const hand_control::merai::ParameterServer* paramServer_ = nullptr;
-            int jointCount_ = 0;
+            int jointCount = 0;
 
             // We store an array or map from ID -> controller pointer
             // Because MAX_CONTROLLERS=10, we can store them in a small array
