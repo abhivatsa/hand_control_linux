@@ -9,6 +9,9 @@ namespace hand_control
 {
     namespace logic
     {
+        // ----------------------------
+        // Constructor / Destructor
+        // ----------------------------
         Logic::Logic(const std::string& paramServerShmName,
                      std::size_t paramServerShmSize,
                      const std::string& rtDataShmName,
@@ -17,7 +20,9 @@ namespace hand_control
                      std::size_t loggerShmSize)
             : paramServerShm_(paramServerShmName, paramServerShmSize, true),
               rtDataShm_(rtDataShmName, rtDataShmSize, false),
-              loggerShm_(loggerShmName, loggerShmSize, false)
+              loggerShm_(loggerShmName, loggerShmSize, false),
+              // SafetyManager constructor (paramServerPtr_, rtLayout_, ... ) will happen in init()
+              safetyManager_(nullptr, nullptr, /*someHapticModel*/)
         {
             // 1) param server
             paramServerPtr_ = reinterpret_cast<const merai::ParameterServer*>(
@@ -44,14 +49,35 @@ namespace hand_control
             // Cleanup if needed
         }
 
+        // ----------------------------
+        // init()
+        // ----------------------------
         bool Logic::init()
         {
-            // e.g. orchestrator init
+            // 1) Orchestrator init
             if (!systemOrchestrator_.init())
             {
                 std::cerr << "[Logic] SystemOrchestrator init failed.\n";
                 return false;
             }
+
+            // 2) Load Haptic Device Model from paramServer
+            //    - This is new, similar to what Control.cpp does
+            if (!hapticDeviceModel_.loadFromParameterServer(*paramServerPtr_))
+            {
+                std::cerr << "[Logic] HapticDeviceModel load failed.\n";
+                return false;
+            }
+
+            // 3) Reinitialize SafetyManager if it needs the model
+            //    - Example: safetyManager_ constructor
+            safetyManager_ = SafetyManager(paramServerPtr_, rtLayout_, hapticDeviceModel_);
+            if (!safetyManager_.init())
+            {
+                std::cerr << "[Logic] SafetyManager init failed.\n";
+                return false;
+            }
+
             std::cout << "[Logic] init complete.\n";
             return true;
         }
@@ -67,62 +93,87 @@ namespace hand_control
             stopRequested_.store(true, std::memory_order_relaxed);
         }
 
-        // The main loop (10ms example)
+        // -------------------------------------------------
+        // cyclicTask and aggregator I/O remain unchanged
+        // -------------------------------------------------
+
         void Logic::cyclicTask()
         {
             period_info pinfo;
-            // 10 ms = 10,000,000 ns
-            periodic_task_init(&pinfo, 10'000'000L);
+            periodic_task_init(&pinfo, 10'000'000L); // 10 ms cycle
 
             while (!stopRequested_.load(std::memory_order_relaxed))
             {
-                // (1) Possibly read aggregator from control if you want drive feedback, 
-                //     but if you removed DriveSummary, there's nothing to read here.
+                // 1) Read aggregator inputs (user commands, drive feedback, etc.)
+                UserCommandsData userCmds;
+                DriveFeedbackData driveFdbk;
+                ControllerFeedbackData ctrlFdbk;
+                readUserCommandsFromAggregator(userCmds);
+                readDriveFeedbackAggregator(driveFdbk);
+                readControllerFeedbackAggregator(ctrlFdbk);
 
-                // (2) Possibly check user input or aggregator to see if user wants active, 
-                //     or a controller switch, etc. 
-                bool userActive   = false;
-                bool userSwitch   = false;
+                // 2) Run SafetyManager checks
+                bool isFaulted = safetyManager_.update(driveFdbk, userCmds, ctrlFdbk);
 
-                // Update your orchestrator logic
-                systemOrchestrator_.update(
-                    /* faultActive= */ false,
-                    /* faultSeverity= */ 0,
-                    userActive,
-                    userSwitch
-                    // etc. If you have more enum or ID for desiredController, pass it here
-                );
+                // 3) Orchestrator
+                systemOrchestrator_.update(isFaulted, userCmds.desiredMode);
 
-                // (3) The orchestrator decides how each drive should be controlled.
-                //     We'll write those signals into driveControlSignalsBuffer:
+                // 4) Write aggregator outputs
                 writeDriveControlSignalsAggregator();
 
-                // (4) Possibly handle a controller switch aggregator
                 bool switchWanted = systemOrchestrator_.wantsControllerSwitch();
                 auto ctrlID       = systemOrchestrator_.desiredControllerId();
                 writeControllerSwitchAggregator(switchWanted, ctrlID);
 
-                // (5) Wait until next cycle
+                writeUserFeedbackAggregator(isFaulted, systemOrchestrator_.currentState(), userCmds);
+
+                // 5) Check for shutdown
+                if (userCmds.shutdownRequest)
+                {
+                    std::cout << "[Logic] Shutdown requested by user.\n";
+                    break;
+                }
+
+                // 6) Sleep
                 wait_rest_of_period(&pinfo);
             }
 
             std::cout << "[Logic] Exiting main loop.\n";
         }
 
-        // ======================
-        // Aggregator Helpers
-        // ======================
+        void Logic::readUserCommandsFromAggregator(UserCommandsData& out)
+        {
+            int frontIdx = rtLayout_->userCommandsBuffer.frontIndex.load(std::memory_order_acquire);
+            const auto &cmdSlot = rtLayout_->userCommandsBuffer.buffer[frontIdx];
+
+            out.eStop           = cmdSlot.eStop;
+            out.resetFault      = cmdSlot.resetFault;
+            out.shutdownRequest = cmdSlot.shutdownRequest;
+            out.desiredMode     = cmdSlot.desiredMode;
+        }
+
+        void Logic::readDriveFeedbackAggregator(DriveFeedbackData& out)
+        {
+            int frontIdx = rtLayout_->driveFeedbackBuffer.frontIndex.load(std::memory_order_acquire);
+            const auto &dfbSlot = rtLayout_->driveFeedbackBuffer.buffer[frontIdx];
+            // fill out 'out'
+        }
+
+        void Logic::readControllerFeedbackAggregator(ControllerFeedbackData& out)
+        {
+            int frontIdx = rtLayout_->controllerFeedbackBuffer.frontIndex.load(std::memory_order_acquire);
+            const auto &ctrlFdbkSlot = rtLayout_->controllerFeedbackBuffer.buffer[frontIdx];
+            // fill out 'out'
+        }
 
         void Logic::writeDriveControlSignalsAggregator()
         {
             size_t driveCount = paramServerPtr_->driveCount;
-
             int frontIdx = rtLayout_->driveControlSignalsBuffer.frontIndex.load(std::memory_order_acquire);
             int backIdx  = 1 - frontIdx;
 
             auto &signalsData = rtLayout_->driveControlSignalsBuffer.buffer[backIdx];
 
-            // Clear / set each drive's flags based on the orchestrator
             for (size_t i = 0; i < driveCount; ++i)
             {
                 auto &sig = signalsData.signals[i];
@@ -131,25 +182,21 @@ namespace hand_control
                 sig.quickStop      = false;
                 sig.forceDisable   = false;
 
-                // e.g. if orchestrator says drive i is healthy & user wants it on
                 if (systemOrchestrator_.shouldEnableDrive(i))
                     sig.allowOperation = true;
-
                 if (systemOrchestrator_.shouldForceDisableDrive(i))
                     sig.forceDisable = true;
-
                 if (systemOrchestrator_.shouldQuickStopDrive(i))
                     sig.quickStop = true;
-
                 if (systemOrchestrator_.shouldFaultResetDrive(i))
                     sig.faultReset = true;
             }
 
-            // Publish 
             rtLayout_->driveControlSignalsBuffer.frontIndex.store(backIdx, std::memory_order_release);
         }
 
-        void Logic::writeControllerSwitchAggregator(bool switchWanted, hand_control::merai::ControllerID ctrlId)
+        void Logic::writeControllerSwitchAggregator(bool switchWanted,
+                                                    hand_control::merai::ControllerID ctrlId)
         {
             int frontIdx = rtLayout_->controllerCommandsAggBuffer.frontIndex.load(std::memory_order_acquire);
             int backIdx  = 1 - frontIdx;
@@ -161,7 +208,24 @@ namespace hand_control
             rtLayout_->controllerCommandsAggBuffer.frontIndex.store(backIdx, std::memory_order_release);
         }
 
-        // scheduling
+        void Logic::writeUserFeedbackAggregator(bool isFaulted,
+                                                merai::OrchestratorState currentState,
+                                                const UserCommandsData& userCmds)
+        {
+            int ufFrontIdx = rtLayout_->userFeedbackBuffer.frontIndex.load(std::memory_order_acquire);
+            int ufBackIdx  = 1 - ufFrontIdx;
+            auto &ufbk     = rtLayout_->userFeedbackBuffer.buffer[ufBackIdx];
+
+            ufbk.faultActive  = isFaulted;
+            ufbk.currentState = currentState;
+            ufbk.desiredMode  = userCmds.desiredMode;
+
+            rtLayout_->userFeedbackBuffer.frontIndex.store(ufBackIdx, std::memory_order_release);
+        }
+
+        // -------------------------------------------------
+        // Scheduling Helpers
+        // -------------------------------------------------
         void Logic::periodic_task_init(period_info* pinfo, long periodNs)
         {
             clock_gettime(CLOCK_MONOTONIC, &pinfo->next_period);

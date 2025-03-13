@@ -9,10 +9,19 @@
 #include "merai/RTMemoryLayout.h"
 #include "merai/RAII_SharedMemory.h"
 #include "merai/SharedLogger.h"
-#include "merai/Enums.h" // for ControllerID, OrchestratorState, etc.
+#include "merai/Enums.h"
 
 // Orchestrator (logic layer)
 #include "logic/SystemOrchestrator.h"
+
+// The aggregator data structs
+#include "logic/LogicTypes.h"
+
+// Safety Manager
+#include "logic/SafetyManager.h"
+
+// HapticDeviceModel
+#include "robotics_lib/haptic_device/HapticDeviceModel.h"
 
 namespace hand_control
 {
@@ -30,49 +39,26 @@ namespace hand_control
 
             ~Logic();
 
-            /**
-             * @brief Initializes the logic system, including orchestrator init.
-             * @return true if successful
-             */
             bool init();
-
-            /**
-             * @brief Runs the main (blocking) loop of the logic application,
-             *        typically at a 10 ms cycle.
-             */
             void run();
-
-            /**
-             * @brief Signals the logic loop to stop gracefully.
-             */
             void requestStop();
 
         private:
-            /**
-             * @brief The main logic loop (e.g., 10 ms). Reads aggregator data
-             *        if needed, orchestrates system logic, writes per-drive signals
-             *        and controller commands to shared memory.
-             */
             void cyclicTask();
 
-            /**
-             * @brief writeDriveControlSignalsAggregator
-             *  - Writes per-drive signals (enable, faultReset, etc.) determined by the
-             *    orchestrator into shared memory so the Control side can read them.
-             */
+            // Helper aggregator I/O
+            void readUserCommandsFromAggregator(UserCommandsData& out);
+            void readDriveFeedbackAggregator(DriveFeedbackData& out);
+            void readControllerFeedbackAggregator(ControllerFeedbackData& out);
+
             void writeDriveControlSignalsAggregator();
-
-            /**
-             * @brief writeControllerSwitchAggregator
-             *  - If the orchestrator wants a new controller, write aggregator to
-             *    the control side, specifying which controller ID to switch to.
-             */
-            void writeControllerSwitchAggregator(bool switchWanted, 
+            void writeControllerSwitchAggregator(bool switchWanted,
                                                  hand_control::merai::ControllerID ctrlId);
+            void writeUserFeedbackAggregator(bool isFaulted,
+                                             merai::OrchestratorState currentState,
+                                             const UserCommandsData& userCmds);
 
-            // --------------------------------------
-            // Periodic scheduling helpers
-            // --------------------------------------
+            // Periodic scheduling
             struct period_info
             {
                 struct timespec next_period;
@@ -83,9 +69,8 @@ namespace hand_control
             void wait_rest_of_period(period_info* pinfo);
 
         private:
-            std::atomic_bool stopRequested_{false};
+            std::atomic<bool> stopRequested_{false};
 
-            // RAII handles for shared memory
             merai::RAII_SharedMemory paramServerShm_;
             const merai::ParameterServer* paramServerPtr_ = nullptr;
 
@@ -95,8 +80,16 @@ namespace hand_control
             merai::RAII_SharedMemory loggerShm_;
             merai::multi_ring_logger_memory* loggerMem_ = nullptr;
 
-            // Our orchestrator (manages high-level logic)
+            // Orchestrator
             SystemOrchestrator systemOrchestrator_;
+
+            // Our SafetyManager
+            SafetyManager safetyManager_;
+
+            // -------------------------------------------------
+            // NEW: Haptic device model for logic usage
+            // -------------------------------------------------
+            hand_control::robotics::haptic_device::HapticDeviceModel hapticDeviceModel_;
         };
     } // namespace logic
 } // namespace hand_control
