@@ -239,7 +239,7 @@ namespace hand_control
         struct UserFeedback
         {
             bool faultActive = false;
-            hand_control::merai::OrchestratorState currentState = hand_control::merai::OrchestratorState::IDLE;
+            hand_control::merai::AppState currentState = hand_control::merai::AppState::IDLE;
             hand_control::merai::SystemMode desiredMode = hand_control::merai::SystemMode::IDLE;
             // Add more fields (like homingInProgress) if desired
         };

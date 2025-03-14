@@ -1,5 +1,9 @@
 #pragma once
 
+#include <array>
+#include <atomic>
+#include <cstdint>
+
 namespace hand_control
 {
     namespace merai
@@ -7,66 +11,52 @@ namespace hand_control
         // ===========================================
         // Drive-Related Enums
         // ===========================================
-        /**
-         * @brief Defines high-level drive commands
-         * that the Logic layer can issue and the Control layer can interpret.
-         *
-         * For example: NONE=0, ENABLE_ALL=1, etc.
-         */
         enum class DriveCommand : int
         {
             NONE = 0,
-            ENABLE_ALL = 1,
-            DISABLE_ALL = 2,
-            QUICK_STOP = 3,
-            FAULT_RESET = 4,
+            ENABLE_ALL,
+            DISABLE_ALL,
+            QUICK_STOP,
+            FAULT_RESET,
             // Add others as needed
         };
 
-        enum class OrchestratorState : int
+        // ===========================================
+        // Updated AppState (replaces OrchestratorState)
+        // ===========================================
+        enum class AppState : int
         {
-            IDLE = 0, ///< System is powered but inactive
-            HOMING,   ///< System is homing or calibrating
-            TELEOP,   ///< System is under teleoperation
-            FAULT     ///< System is in fault condition
+            INIT = 0,   ///< System is initializing
+            HOMING,     ///< System is homing or calibrating
+            IDLE,       ///< System is powered but inactive
+            ACTIVE,     ///< System is fully active / in run mode
+            FAULT       ///< System is in an unrecoverable/severe fault
         };
 
         /**
          * @brief SystemMode
-         *  - Represents the user's requested mode. The orchestrator decides
-         *    how to map this mode to an actual OrchestratorState, depending
-         *    on fault or other conditions.
+         *  - Represents the user's requested mode. The StateMachine decides
+         *    how to map this mode to an actual AppState, depending on faults, etc.
          */
         enum class SystemMode : int
         {
-            IDLE = 0, ///< User requests system idle
-            HOMING,   ///< User requests homing
-            TELEOP    ///< User requests teleoperation
-            // Add more if needed (e.g. FREE_DRIVE, STOPPED, etc.)
+            HOMING,
+            TELEOP,
+            FAULT_RESET
+            // Add more if needed...
         };
 
         // ===========================================
         // Controller-Related Enums
         // ===========================================
-        /**
-         * @brief Identifiers for each controller you want to run.
-         *
-         * Instead of passing a string like "HomingController" or "GravityCompController",
-         * you can use these IDs in the real-time code.
-         */
         enum class ControllerID : int
         {
             NONE = 0,
-            HOMING = 1,
-            GRAVITY_COMP = 2,
-            E_STOP = 3,
+            HOMING,
+            GRAVITY_COMP,
+            E_STOP,
             // Extend as needed...
         };
 
-        // Add more enum groups as needed, e.g. for error codes or logging levels
-        // ===========================================
-        // Error Codes
-        // enum class ErrorCode : int { ... };
-        // ===========================================
     } // namespace merai
 } // namespace hand_control
