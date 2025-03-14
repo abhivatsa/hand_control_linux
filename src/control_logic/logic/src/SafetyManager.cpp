@@ -133,6 +133,11 @@ namespace hand_control
             }
         }
 
+        bool SafetyManager::HomingStatus(){
+            return true;
+
+        }
+
         void SafetyManager::checkTorqueOrKinematicLimits()
         {
             if (!rtLayout_)

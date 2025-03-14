@@ -4,7 +4,7 @@
 #include <atomic>
 #include <cstdint>
 
-// Include your newly created Enums.h for DriveCommand, ControllerID, etc.
+// Bring in your Enums.h for DriveCommand, DriveStatus, ControllerID, etc.
 #include "merai/Enums.h"
 
 namespace hand_control
@@ -15,10 +15,9 @@ namespace hand_control
         // 1) Maximum constants
         // =======================================
         constexpr int MAX_SERVO_DRIVES = 12;
-        constexpr int MAX_IO_DRIVES = 4;
 
         // =======================================
-        // 2) Basic Fieldbus Structures
+        // 2) Basic Fieldbus Structures (Servo)
         // =======================================
         struct ServoRxPdo
         {
@@ -35,18 +34,6 @@ namespace hand_control
             int32_t positionActual = 0;
             int32_t velocityActual = 0;
             int16_t torqueActual = 0;
-        };
-
-        struct IoRxPdo
-        {
-            std::array<bool, 16> digitalOutputs{};
-            std::array<float, 4> analogOutputs{};
-        };
-
-        struct IoTxPdo
-        {
-            std::array<bool, 16> digitalInputs{};
-            std::array<float, 4> analogInputs{};
         };
 
         // =======================================
@@ -67,57 +54,22 @@ namespace hand_control
         };
 
         // =======================================
-        // 4) High-Level I/O Data
+        // 4) Drive-Level Command & Feedback (Enums)
+        //    (Matches the DriveCommand / DriveStatus)
         // =======================================
-        struct IoCommand
+        struct DriveCommandData
         {
-            std::array<bool, 8> digitalOutputs{};
-            std::array<float, 2> analogOutputs{};
+            std::array<hand_control::merai::DriveCommand, MAX_SERVO_DRIVES> commands;
         };
 
-        struct IoState
+        struct DriveFeedbackData
         {
-            std::array<bool, 8> digitalInputs{};
-            std::array<float, 2> analogInputs{};
-        };
-
-        // =======================================
-        // 5) Drive-Level Signals & Feedback
-        // =======================================
-        /**
-         * @brief Per-drive control signals:
-         *  - The logic layer writes these booleans for each drive.
-         *  - The control layer reads them in real time and sets CiA 402 bits accordingly.
-         */
-        struct DriveControlSignals
-        {
-            bool faultReset = false;
-            bool allowOperation = false;
-            bool quickStop = false;
-            bool forceDisable = false;
-        };
-
-        /**
-         * @brief Minimal per-drive feedback from Control:
-         *  - e.g., faultActive, operationEnabled
-         */
-        struct DriveFeedback
-        {
-            bool fault = false;            // bit 3
-            bool switchOnDisabled = false; // bit 6
-            bool readyToSwitchOn = false;  // bit 0
-            bool switchedOn = false;       // bit 1
-            bool operationEnabled = false; // bit 2
-            bool quickStop = false;        // bit 5
+            std::array<hand_control::merai::DriveStatus, MAX_SERVO_DRIVES> status;
         };
 
         // =======================================
-        // 6) Controller-Level Commands & Feedback
+        // 5) Controller-Level Commands & Feedback
         // =======================================
-        /**
-         * @brief If we store an enum (ControllerID) for controller switching,
-         *        no strings are needed.
-         */
         struct ControllerCommand
         {
             bool requestSwitch = false;
@@ -126,13 +78,12 @@ namespace hand_control
 
         struct ControllerFeedback
         {
-            bool switchInProgress = false;
-            bool bridgingActive = false;
-            bool controllerFailed = false;
+            hand_control::merai::ControllerFeedbackState feedback =
+                hand_control::merai::ControllerFeedbackState::IDLE;
         };
 
         // =======================================
-        // 7) DoubleBuffer Template
+        // 6) DoubleBuffer Template
         // =======================================
         template <typename T>
         struct DoubleBuffer
@@ -142,7 +93,7 @@ namespace hand_control
         };
 
         // =======================================
-        // 8) Aggregated Fieldbus Data
+        // 7) Aggregated Fieldbus Data
         // =======================================
         struct ServoSharedData
         {
@@ -150,14 +101,8 @@ namespace hand_control
             std::array<ServoTxPdo, MAX_SERVO_DRIVES> tx;
         };
 
-        struct IoSharedData
-        {
-            std::array<IoRxPdo, MAX_IO_DRIVES> rx;
-            std::array<IoTxPdo, MAX_IO_DRIVES> tx;
-        };
-
         // =======================================
-        // 9) Aggregated High-Level Data
+        // 8) Aggregated High-Level Data
         // =======================================
         struct JointData
         {
@@ -165,107 +110,68 @@ namespace hand_control
             std::array<JointState, MAX_SERVO_DRIVES> states;
         };
 
-        struct IoData
-        {
-            std::array<IoCommand, MAX_IO_DRIVES> commands;
-            std::array<IoState, MAX_IO_DRIVES> states;
-        };
-
         // =======================================
-        // 10) Aggregated Drive Signals & Feedback
-        // =======================================
-        /**
-         * @brief For logic->control: an array of drive control signals,
-         *        one for each drive.
-         */
-        struct DriveControlSignalsData
-        {
-            std::array<DriveControlSignals, MAX_SERVO_DRIVES> signals;
-        };
-
-        struct DriveFeedbackData
-        {
-            std::array<DriveFeedback, MAX_SERVO_DRIVES> feedback;
-        };
-
-        // =======================================
-        // 11) Controller Commands & Feedback
+        // 9) Aggregated Controller Data
         // =======================================
         struct ControllerCommandData
         {
-            std::array<ControllerCommand, 1> commands;
+            ControllerCommand commands;
         };
 
         struct ControllerFeedbackData
         {
-            std::array<ControllerFeedback, 1> feedback;
+            ControllerFeedback feedback;
         };
 
-        // =======================================
-        // 12) Additional Aggregators for Logic <-> Control
-        // =======================================
-
-        /**
-         * @brief ControllerCommandAggregated
-         *  - The Logic side writes whether we want a new controller switch
-         *  - The Control side reads requestSwitch + which controller ID
-         */
+        // Optionally, if you need a separate struct for partial or combined info:
         struct ControllerCommandAggregated
         {
             bool requestSwitch = false;
             hand_control::merai::ControllerID targetController = hand_control::merai::ControllerID::NONE;
         };
 
-        // 14) Logic <-> User Command & Feedback
-
-        /**
-         * @brief Simple user commands aggregator:
-         *  - Logic reads these to see if user pressed eStop, resetFault, etc.
-         *  - 'desiredMode' could be an enum like IDLE, TELEOP, HOMING, etc.
-         */
+        // =======================================
+        // 10) Logic <-> User Command & Feedback
+        // =======================================
         struct UserCommands
         {
             bool eStop = false;
             bool resetFault = false;
             bool shutdownRequest = false;
-            hand_control::merai::SystemMode desiredMode = hand_control::merai::SystemMode::IDLE; // or however your enum is defined
+            hand_control::merai::UserMode desiredMode = hand_control::merai::UserMode::HOMING;
         };
 
-        /**
-         * @brief Simple user feedback aggregator:
-         *  - Logic writes these so the user process sees the current state,
-         *    whether there's a fault, etc.
-         */
         struct UserFeedback
         {
             bool faultActive = false;
-            hand_control::merai::AppState currentState = hand_control::merai::AppState::IDLE;
-            hand_control::merai::SystemMode desiredMode = hand_control::merai::SystemMode::IDLE;
-            // Add more fields (like homingInProgress) if desired
+            hand_control::merai::AppState currentState = hand_control::merai::AppState::HOMING;
+            hand_control::merai::UserMode desiredMode = hand_control::merai::UserMode::HOMING;
         };
 
         // =======================================
-        // 13) Top-Level Shared Layout
+        // 11) Top-Level Shared Layout
         // =======================================
         struct RTMemoryLayout
         {
-            // Existing fields
+            // Servo fieldbus data
             DoubleBuffer<ServoSharedData> servoBuffer;
-            DoubleBuffer<IoSharedData> ioBuffer;
-            DoubleBuffer<JointData> jointBuffer;
-            DoubleBuffer<IoData> ioDataBuffer;
 
-            DoubleBuffer<DriveControlSignalsData> driveControlSignalsBuffer;
+            // High-level joint data
+            DoubleBuffer<JointData> jointBuffer;
+
+            // Drive-level commands & feedback
+            DoubleBuffer<DriveCommandData> driveCommandBuffer;
             DoubleBuffer<DriveFeedbackData> driveFeedbackBuffer;
 
+            // Controller-level commands & feedback
             DoubleBuffer<ControllerCommandData> controllerCommandBuffer;
             DoubleBuffer<ControllerFeedbackData> controllerFeedbackBuffer;
-
             DoubleBuffer<ControllerCommandAggregated> controllerCommandsAggBuffer;
 
-            // NEW aggregators for user commands & user feedback:
+            // User commands & feedback
             DoubleBuffer<UserCommands> userCommandsBuffer;
             DoubleBuffer<UserFeedback> userFeedbackBuffer;
         };
+
     } // namespace merai
 } // namespace hand_control

@@ -83,6 +83,8 @@ namespace hand_control
              */
             void clearFault();
 
+            bool HomingStatus();
+
         private:
             // ----------------------------------
             // Internal helpers

@@ -11,11 +11,8 @@
 #include "merai/SharedLogger.h"
 #include "merai/Enums.h"
 
-// Orchestrator (logic layer)
-#include "logic/SystemOrchestrator.h"
-
-// The aggregator data structs
-#include "logic/LogicTypes.h"
+// StateMachine (replacing old SystemOrchestrator)
+#include "logic/StateMachine.h"
 
 // Safety Manager
 #include "logic/SafetyManager.h"
@@ -30,11 +27,11 @@ namespace hand_control
         class Logic
         {
         public:
-            Logic(const std::string& paramServerShmName, 
+            Logic(const std::string &paramServerShmName,
                   std::size_t paramServerShmSize,
-                  const std::string& rtDataShmName, 
+                  const std::string &rtDataShmName,
                   std::size_t rtDataShmSize,
-                  const std::string& loggerShmName, 
+                  const std::string &loggerShmName,
                   std::size_t loggerShmSize);
 
             ~Logic();
@@ -46,49 +43,61 @@ namespace hand_control
         private:
             void cyclicTask();
 
-            // Helper aggregator I/O
-            void readUserCommandsFromAggregator(UserCommandsData& out);
-            void readDriveFeedbackAggregator(DriveFeedbackData& out);
-            void readControllerFeedbackAggregator(ControllerFeedbackData& out);
+            // ---------------------------------------------------
+            // Bridge I/O methods (formerly "aggregator" I/O)
+            // ---------------------------------------------------
+            void readUserCommands(hand_control::merai::UserCommands &out);
+            void readDriveFeedback(hand_control::merai::DriveFeedbackData &out);
+            void readControllerFeedback(hand_control::merai::ControllerFeedbackData &out);
 
-            void writeDriveControlSignalsAggregator();
-            void writeControllerSwitchAggregator(bool switchWanted,
-                                                 hand_control::merai::ControllerID ctrlId);
-            void writeUserFeedbackAggregator(bool isFaulted,
-                                             merai::OrchestratorState currentState,
-                                             const UserCommandsData& userCmds);
+            void writeDriveCommands();
+            void writeControllerCommand(bool switchWanted,
+                                               hand_control::merai::ControllerID ctrlId);
+            void writeUserFeedbackToBridge(bool isFaulted,
+                                           merai::AppState currentState,
+                                           const hand_control::merai::UserCommands &userCmds);
 
-            // Periodic scheduling
+            // ---------------------------------------------------
+            // Periodic scheduling helpers
+            // ---------------------------------------------------
             struct period_info
             {
                 struct timespec next_period;
                 long period_ns;
             };
-            void periodic_task_init(period_info* pinfo, long periodNs);
-            void inc_period(period_info* pinfo);
-            void wait_rest_of_period(period_info* pinfo);
+            void periodic_task_init(period_info *pinfo, long periodNs);
+            void inc_period(period_info *pinfo);
+            void wait_rest_of_period(period_info *pinfo);
 
         private:
             std::atomic<bool> stopRequested_{false};
 
+            bool isFaulted;
+            bool isHomingCompleted;
+
+            // Shared Memory for ParameterServer
             merai::RAII_SharedMemory paramServerShm_;
-            const merai::ParameterServer* paramServerPtr_ = nullptr;
+            const merai::ParameterServer *paramServerPtr_ = nullptr;
 
+            // Shared Memory for real-time layout
             merai::RAII_SharedMemory rtDataShm_;
-            merai::RTMemoryLayout* rtLayout_ = nullptr;
+            merai::RTMemoryLayout *rtLayout_ = nullptr;
 
+            // Shared Memory for Logger
             merai::RAII_SharedMemory loggerShm_;
-            merai::multi_ring_logger_memory* loggerMem_ = nullptr;
+            merai::multi_ring_logger_memory *loggerMem_ = nullptr;
 
-            // Orchestrator
-            SystemOrchestrator systemOrchestrator_;
+            // The new "StateMachine" (replacing old "SystemOrchestrator")
+            StateMachine stateMachine_;
 
-            // Our SafetyManager
+            // SafetyManager
             SafetyManager safetyManager_;
 
-            // -------------------------------------------------
-            // NEW: Haptic device model for logic usage
-            // -------------------------------------------------
+            hand_control::merai::UserCommands userCmds;
+            hand_control::merai::DriveFeedbackData driveFdbk;
+            hand_control::merai::ControllerFeedbackData ctrlFdbk;
+
+            // Haptic device model
             hand_control::robotics::haptic_device::HapticDeviceModel hapticDeviceModel_;
         };
     } // namespace logic

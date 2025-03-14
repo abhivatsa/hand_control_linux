@@ -1,7 +1,5 @@
 #pragma once
 
-#include <array>
-#include <atomic>
 #include <cstdint>
 
 namespace hand_control
@@ -9,38 +7,22 @@ namespace hand_control
     namespace merai
     {
         // ===========================================
-        // Drive-Related Enums
-        // ===========================================
-        enum class DriveCommand : int
-        {
-            NONE = 0,
-            ENABLE_ALL,
-            DISABLE_ALL,
-            QUICK_STOP,
-            FAULT_RESET,
-            // Add others as needed
-        };
-
-        // ===========================================
-        // Updated AppState (replaces OrchestratorState)
+        // AppState
         // ===========================================
         enum class AppState : int
         {
             INIT = 0,   ///< System is initializing
             HOMING,     ///< System is homing or calibrating
-            IDLE,       ///< System is powered but inactive
             ACTIVE,     ///< System is fully active / in run mode
             FAULT       ///< System is in an unrecoverable/severe fault
         };
 
-        /**
-         * @brief SystemMode
-         *  - Represents the user's requested mode. The StateMachine decides
-         *    how to map this mode to an actual AppState, depending on faults, etc.
-         */
-        enum class SystemMode : int
+        // ===========================================
+        // UserMode
+        // ===========================================
+        enum class UserMode : int
         {
-            HOMING,
+            HOMING = 0,
             TELEOP,
             FAULT_RESET
             // Add more if needed...
@@ -54,8 +36,45 @@ namespace hand_control
             NONE = 0,
             HOMING,
             GRAVITY_COMP,
-            E_STOP,
+            E_STOP
             // Extend as needed...
+        };
+
+        // ===========================================
+        // Drive Command (one at a time)
+        // ===========================================
+        enum class DriveCommand : uint8_t
+        {
+            NONE = 0,
+            FAULT_RESET,
+            ALLOW_OPERATION,
+            FORCE_DISABLE,
+            SWITCH_ON
+        };
+
+        // ===========================================
+        // Drive Status (one exclusive state)
+        // ===========================================
+        enum class DriveStatus : uint8_t
+        {
+            NOT_READY_TO_SWITCH_ON = 0,
+            READY_TO_SWITCH_ON,
+            SWITCHED_ON,
+            OPERATION_ENABLED,
+            FAULT,
+            QUICK_STOP,
+            SWITCH_ON_DISABLED
+        };
+
+        // ===========================================
+        // Controller Feedback State
+        // ===========================================
+        enum class ControllerFeedbackState : uint8_t
+        {
+            IDLE = 0,
+            SWITCH_IN_PROGRESS,
+            SWITCH_COMPLETED,
+            SWITCH_FAILED
         };
 
     } // namespace merai

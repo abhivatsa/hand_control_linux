@@ -1,6 +1,7 @@
 #pragma once
 
 #include "merai/Enums.h"
+#include "merai/RTMemoryLayout.h"
 
 namespace hand_control
 {
@@ -28,11 +29,7 @@ namespace hand_control
              *  - Perform state transitions
              *  - Possibly set per-drive signals or an all-drive command (if you choose)
              */
-            void update(bool faultActive,
-                        int faultSeverity,
-                        bool userRequestedActive,
-                        bool userRequestedControllerSwitch,
-                        hand_control::merai::ControllerID desiredControllerId);
+            void update(bool faultActive, bool isHomingCompleted, hand_control::merai::UserCommands userCmds);
 
             /**
              * @brief wantsControllerSwitch
@@ -50,7 +47,6 @@ namespace hand_control
              * @brief Force the StateMachine into FAULT or RECOVERY directly.
              */
             void forceFault();
-            void forceRecovery();
 
         private:
             bool systemReset() const;
