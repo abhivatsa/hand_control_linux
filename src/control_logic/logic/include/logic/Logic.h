@@ -12,6 +12,7 @@
 #include "merai/Enums.h"
 
 // StateMachine (replacing old SystemOrchestrator)
+// Note: This header now defines StateManagerOutput.
 #include "logic/StateMachine.h"
 
 // Safety Manager
@@ -48,14 +49,11 @@ namespace hand_control
             // ---------------------------------------------------
             void readUserCommands(hand_control::merai::UserCommands &out);
             void readDriveFeedback(hand_control::merai::DriveFeedbackData &out);
-            void readControllerFeedback(hand_control::merai::ControllerFeedbackData &out);
+            void readControllerFeedback(hand_control::merai::ControllerFeedback &out);
 
-            void writeDriveCommands();
-            void writeControllerCommand(bool switchWanted,
-                                               hand_control::merai::ControllerID ctrlId);
-            void writeUserFeedbackToBridge(bool isFaulted,
-                                           merai::AppState currentState,
-                                           const hand_control::merai::UserCommands &userCmds);
+            void writeDriveCommands(hand_control::merai::DriveCommandData &in);
+            void writeControllerCommand(hand_control::merai::ControllerCommand &in);
+            void writeUserFeedback(hand_control::merai::AppState currentState);
 
             // ---------------------------------------------------
             // Periodic scheduling helpers
@@ -76,18 +74,18 @@ namespace hand_control
             bool isHomingCompleted;
 
             // Shared Memory for ParameterServer
-            merai::RAII_SharedMemory paramServerShm_;
-            const merai::ParameterServer *paramServerPtr_ = nullptr;
+            hand_control::merai::RAII_SharedMemory paramServerShm_;
+            const hand_control::merai::ParameterServer *paramServerPtr_ = nullptr;
 
             // Shared Memory for real-time layout
-            merai::RAII_SharedMemory rtDataShm_;
-            merai::RTMemoryLayout *rtLayout_ = nullptr;
+            hand_control::merai::RAII_SharedMemory rtDataShm_;
+            hand_control::merai::RTMemoryLayout *rtLayout_ = nullptr;
 
             // Shared Memory for Logger
-            merai::RAII_SharedMemory loggerShm_;
-            merai::multi_ring_logger_memory *loggerMem_ = nullptr;
+            hand_control::merai::RAII_SharedMemory loggerShm_;
+            hand_control::merai::multi_ring_logger_memory *loggerMem_ = nullptr;
 
-            // The new "StateMachine" (replacing old "SystemOrchestrator")
+            // The new StateMachine (replacing old SystemOrchestrator)
             StateMachine stateMachine_;
 
             // SafetyManager
@@ -95,7 +93,7 @@ namespace hand_control
 
             hand_control::merai::UserCommands userCmds;
             hand_control::merai::DriveFeedbackData driveFdbk;
-            hand_control::merai::ControllerFeedbackData ctrlFdbk;
+            hand_control::merai::ControllerFeedback ctrlFdbk;
 
             // Haptic device model
             hand_control::robotics::haptic_device::HapticDeviceModel hapticDeviceModel_;

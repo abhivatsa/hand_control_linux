@@ -7,9 +7,16 @@ namespace hand_control
 {
     namespace logic
     {
+        // Output struct from StateMachine update that bundles all commands and status.
+        struct StateManagerOutput {
+            hand_control::merai::DriveCommandData driveCmd;
+            hand_control::merai::ControllerCommand ctrlCmd;
+            merai::AppState appState;
+        };
+
         /**
          * @brief StateMachine (formerly SystemOrchestrator)
-         *  - Manages high-level state transitions (INIT, HOMING, IDLE, ACTIVE, RECOVERY, FAULT)
+         *  - Manages high-level state transitions (INIT, HOMING, ACTIVE, FAULT)
          *  - Optionally sets drive signals or controller switches
          *  - Replaces references to "SystemOrchestrator"
          */
@@ -17,48 +24,26 @@ namespace hand_control
         {
         public:
             /**
-             * @brief init 
-             *  - Initializes internal flags, sets default state to INIT, etc.
+             * @brief Initializes internal flags and sets default state to INIT.
              */
             bool init();
 
             /**
-             * @brief update the StateMachine:
-             *  - Check if there's a fault (faultActive, severity)
-             *  - Check user requests (start, stop, or controller switch)
-             *  - Perform state transitions
-             *  - Possibly set per-drive signals or an all-drive command (if you choose)
+             * @brief Updates the state machine:
+             *  - Checks for faults and user requests,
+             *  - Performs state transitions,
+             *  - Computes drive and controller commands.
+             *
+             * @param faultActive True if a fault is detected.
+             * @param isHomingCompleted True if homing has been completed.
+             * @param userCmds The latest user commands.
+             * @return StateManagerOutput struct containing drive command, controller command, and current application state.
              */
-            void update(bool faultActive, bool isHomingCompleted, hand_control::merai::UserCommands userCmds);
-
-            /**
-             * @brief wantsControllerSwitch
-             *  Returns true if the user has requested a switch (set inside update).
-             */
-            bool wantsControllerSwitch() const;
-
-            /**
-             * @brief desiredControllerId
-             *  The ID of the next desired controller if a switch is requested.
-             */
-            hand_control::merai::ControllerID desiredControllerId() const;
-
-            /**
-             * @brief Force the StateMachine into FAULT or RECOVERY directly.
-             */
-            void forceFault();
+            StateManagerOutput update(bool faultActive, bool isHomingCompleted, hand_control::merai::UserCommands userCmds);
 
         private:
-            bool systemReset() const;
-
-            // The current state of the system
+            // The current application state
             hand_control::merai::AppState currentState_ = hand_control::merai::AppState::INIT;
-
-            // If a user wants a new controller switch
-            bool controllerSwitchWanted_ = false;
-
-            // The ID of the next desired controller if a switch is requested
-            hand_control::merai::ControllerID targetControllerId_ = hand_control::merai::ControllerID::NONE;
         };
     } // namespace logic
 } // namespace hand_control

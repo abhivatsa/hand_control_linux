@@ -23,8 +23,8 @@ add_library(hand_control_control_lib STATIC
     src/controllers/HomingController.cpp
     
     # Hardware Abstraction
-    src/hardware_abstraction/MockHardwareAbstractionLayer.cpp
-    src/hardware_abstraction/RealHardwareAbstractionLayer.cpp
+    src/hardware_abstraction/SimHAL.cpp
+    src/hardware_abstraction/RealHAL.cpp
 )
 
 #

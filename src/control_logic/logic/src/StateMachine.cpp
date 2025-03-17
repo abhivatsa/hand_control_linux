@@ -8,72 +8,78 @@ namespace hand_control
         bool StateMachine::init()
         {
             currentState_ = merai::AppState::INIT;
-            controllerSwitchWanted_ = false;
-            targetControllerId_ = merai::ControllerID::NONE;
-
-            // If you have arrays for drive signals, e.g.:
-            // for (size_t i = 0; i < MAX_SERVO_DRIVES; ++i) {
-            //     enableDrive_[i] = false;
-            //     forceDisable_[i] = false;
-            // }
-
             return true;
         }
 
-        void StateMachine::update(bool faultActive, bool isHomingCompleted, hand_control::merai::UserCommands userCmds)
+        StateManagerOutput StateMachine::update(bool faultActive, bool isHomingCompleted, hand_control::merai::UserCommands userCmds)
         {
+            StateManagerOutput output;
+
             // 1) Handle faults first
             if (faultActive)
             {
                 currentState_ = merai::AppState::FAULT;
                 std::cout << "[StateMachine] Entering FAULT (unrecoverable)\n";
             }
-
-            // 2) State transitions
-            switch (currentState_)
+            else
             {
-            case merai::AppState::INIT:
-
-                if (!faultActive)
+                // 2) State transitions based on current state and homing status
+                switch (currentState_)
                 {
-                    currentState_ = merai::AppState::HOMING;
-                }
-                else
-                {
-                    currentState_ = merai::AppState::FAULT;
-                }
-                break;
-
-            case merai::AppState::HOMING:
-                if (!faultActive)
-                {
-                    if (isHomingCompleted)
+                case merai::AppState::INIT:
+                    if (!faultActive)
                     {
-                        currentState_ = merai::AppState::ACTIVE;
+                        currentState_ = merai::AppState::HOMING;
                     }
-                }
-                else
-                {
-                    currentState_ = merai::AppState::FAULT;
-                }
-                break;
+                    else
+                    {
+                        currentState_ = merai::AppState::FAULT;
+                    }
+                    break;
 
-            case merai::AppState::ACTIVE:
-                if (faultActive)
-                {
-                    currentState_ = merai::AppState::FAULT;
-                }
-                break;
+                case merai::AppState::HOMING:
+                    if (!faultActive)
+                    {
+                        if (isHomingCompleted)
+                        {
+                            currentState_ = merai::AppState::ACTIVE;
+                        }
+                    }
+                    else
+                    {
+                        currentState_ = merai::AppState::FAULT;
+                    }
+                    break;
 
-            case merai::AppState::FAULT:
-                // remain in FAULT until user resets
-                if (userCmds.resetFault)
-                {
-                    currentState_ = merai::AppState::INIT;
+                case merai::AppState::ACTIVE:
+                    if (faultActive)
+                    {
+                        currentState_ = merai::AppState::FAULT;
+                    }
+                    break;
+
+                case merai::AppState::FAULT:
+                    // Remain in FAULT until the user resets the fault.
+                    if (userCmds.resetFault)
+                    {
+                        currentState_ = merai::AppState::INIT;
+                    }
+                    break;
+
+                default:
+                    break;
                 }
-                break;
             }
-        }
 
+            // 3) Set the output app state
+            output.appState = currentState_;
+
+            // 4) Compute drive and controller commands.
+            //    Replace the default construction with your actual command logic as needed.
+            output.driveCmd = hand_control::merai::DriveCommand{};
+            output.ctrlCmd  = hand_control::merai::ControllerCommand{};
+
+            return output;
+        }
     } // namespace logic
 } // namespace hand_control

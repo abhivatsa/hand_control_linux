@@ -7,7 +7,6 @@
 
 #include "fieldbus/EthercatMaster.h"
 #include "fieldbus/drives/ServoDrive.h"
-#include "fieldbus/drives/IoDrive.h"
 
 namespace hand_control
 {
@@ -183,17 +182,6 @@ namespace hand_control
                 if (driveType == "servo")
                 {
                     drives_[i] = std::make_unique<ServoDrive>(
-                        driveCfg,
-                        sc,
-                        domain_,
-                        rtLayout_,
-                        i,
-                        loggerMem_
-                    );
-                }
-                else if (driveType == "io")
-                {
-                    drives_[i] = std::make_unique<IoDrive>(
                         driveCfg,
                         sc,
                         domain_,

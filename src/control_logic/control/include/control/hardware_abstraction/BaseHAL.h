@@ -2,20 +2,19 @@
 
 #include <cstddef>  // for size_t
 #include "merai/RTMemoryLayout.h"   // hand_control::merai::JointState, JointCommand, IoState, IoCommand
-#include "control/hardware_abstraction/DriveData.h"  // hand_control::control::DriveInput, DriveOutput
 
 namespace hand_control
 {
     namespace control
     {
         /**
-         * @brief The IHardwareAbstractionLayer interface defines a generic contract
+         * @brief The BaseHAL interface defines a generic contract
          *        for initializing, reading from, and writing commands to hardware (or simulated hardware).
          */
-        class IHardwareAbstractionLayer
+        class BaseHAL
         {
         public:
-            virtual ~IHardwareAbstractionLayer() = default;
+            virtual ~BaseHAL() = default;
 
             /**
              * @brief Initialize hardware or simulation layer.
@@ -54,40 +53,36 @@ namespace hand_control
             virtual size_t getJointCount() const = 0;
 
             // --------------------------------------------------
-            // Optional: I/O data handling methods
+            // Drive data: Simulated or Real Drive I/O
             // --------------------------------------------------
-            virtual hand_control::merai::IoState* getIoStatesPtr()
-            {
-                return nullptr;
-            }
 
-            virtual hand_control::merai::IoCommand* getIoCommandsPtr()
-            {
-                return nullptr;
-            }
+            /**
+             * @brief Accessor for the local array of drive input controls.
+             * @return Pointer to the array of drive input control data.
+             */
+            virtual hand_control::merai::ServoTxControl* getDriveInputControlPtr() = 0;
 
-            virtual size_t getIoCount() const
-            {
-                return 0;
-            }
+            /**
+             * @brief Accessor for the local array of drive output controls.
+             * @return Pointer to the array of drive output control data.
+             */
+            virtual hand_control::merai::ServoRxControl* getDriveOutputControlPtr() = 0;
+
+            /**
+             * @brief Get the number of drives the hardware layer manages.
+             * @return The count of drives.
+             */
+            virtual size_t getDriveCount() const = 0;
 
             // --------------------------------------------------
-            // Optional: Drive data for CiA 402 logic
+            // Joint I/O access
             // --------------------------------------------------
-            virtual hand_control::control::DriveInput* getDriveInputsPtr()
-            {
-                return nullptr;
-            }
 
-            virtual hand_control::control::DriveOutput* getDriveOutputsPtr()
-            {
-                return nullptr;
-            }
-
-            virtual size_t getDriveCount() const
-            {
-                return 0;
-            }
+            /**
+             * @brief Accessor for the local array of joint I/O.
+             * @return Pointer to array of JointIO structures.
+             */
+            virtual hand_control::merai::JointIO* getJointIOPtr() = 0;
         };
     } // namespace control
 } // namespace hand_control

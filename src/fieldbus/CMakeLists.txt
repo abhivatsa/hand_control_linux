@@ -13,7 +13,6 @@ find_package(hand_control_merai REQUIRED)
 # ----------------------------------------------------------------------------
 add_library(hand_control_fieldbus_lib STATIC
     src/EthercatMaster.cpp
-    src/drives/IoDrive.cpp
     src/drives/ServoDrive.cpp
     # Add more .cpp files as needed
 )

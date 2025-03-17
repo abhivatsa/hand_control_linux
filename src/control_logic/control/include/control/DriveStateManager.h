@@ -2,70 +2,42 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 
-// control/hardware_abstraction/DriveData.h defines hand_control::control::DriveInput, DriveOutput
-#include "control/hardware_abstraction/DriveData.h"
-
-// merai/RTMemoryLayout.h (or a similar header) for hand_control::merai::DriveControlSignals, DriveFeedback
-#include "merai/RTMemoryLayout.h"
+#include "merai/RTMemoryLayout.h"  // hand_control::merai::DriveStatus, DriveCommand, etc.
 
 namespace hand_control
 {
     namespace control
     {
         /**
-         * @brief Enumerated states used internally by the manager
-         *        to interpret statusWord (CiA 402).
-         */
-        enum class DriveState
-        {
-            Fault,
-            SwitchOnDisabled,
-            NotReadyToSwitchOn,
-            ReadyToSwitchOn,
-            SwitchedOn,
-            OperationEnabled,
-            QuickStopActive,
-            FaultReactionActive,
-            Unknown
-        };
-
-        /**
          * @brief The DriveStateManager handles CiA 402 transitions
          *        by decoding the statusWord and writing controlWord.
-         *        It also sets minimal feedback bits for logic to read.
+         *        It also sets a minimal DriveStatus for logic to read.
          */
         class DriveStateManager
         {
         public:
-            DriveStateManager() = default;
+            // Pass the drive data arrays and driveCount during construction
+            DriveStateManager(
+                std::array<hand_control::merai::ServoRxControl, hand_control::merai::MAX_SERVO_DRIVES>& driveOutputControl,
+                std::array<hand_control::merai::ServoTxControl, hand_control::merai::MAX_SERVO_DRIVES>& driveInputControl,
+                std::size_t driveCount);
 
             bool init();
 
-            /**
-             * @brief update
-             *   - Reads driveInputs[i].statusWord -> decode
-             *   - Reads controlSignals[i] for faultReset, allowOperation, etc.
-             *   - Writes controlWord to driveOutputs[i]
-             *   - Sets feedback bits (faultActive, operationEnabled, etc.)
-             *
-             * @param driveInputs    Array of DriveInput
-             * @param driveOutputs   Array of DriveOutput
-             * @param controlSignals Array of DriveControlSignals (e.g. allowOperation, quickStop)
-             * @param feedback       Array of DriveFeedback for logic to read
-             * @param driveCount     Number of drives
-             */
-            void update(const hand_control::control::DriveInput* driveInputs,
-                        hand_control::control::DriveOutput* driveOutputs,
-                        const hand_control::merai::DriveControlSignals* controlSignals,
-                        hand_control::merai::DriveFeedback* feedback,
-                        std::size_t driveCount);
+            // Updated to take DriveCommand as input and update DriveStatus as output
+            void update(const hand_control::merai::DriveCommand* driveCommands, hand_control::merai::DriveStatus* driveStatus);
 
         private:
-            /**
-             * @brief decodeStatusword interprets the bits of statusWord to find the drive's CiA 402 state.
-             */
-            DriveState decodeStatusword(uint16_t statusWord);
+            // Direct references to the drive input and output control data
+            std::array<hand_control::merai::ServoRxControl, hand_control::merai::MAX_SERVO_DRIVES>& driveOutputControl_;
+            std::array<hand_control::merai::ServoTxControl, hand_control::merai::MAX_SERVO_DRIVES>& driveInputControl_;
+
+            std::size_t driveCount_; // Drive count, initialized during constructor
+
+            // Helper method to decode statusWord to DriveStatus
+            hand_control::merai::DriveStatus decodeStatusword(uint16_t statusWord);
         };
     } // namespace control
 } // namespace hand_control

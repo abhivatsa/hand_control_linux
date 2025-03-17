@@ -14,7 +14,7 @@ find_package(hand_control_merai REQUIRED)
 #
 add_library(hand_control_logic_lib STATIC
     src/Logic.cpp
-    src/SystemOrchestrator.cpp
+    src/StateMachine.cpp
     src/SafetyManager.cpp
     src/ErrorManager.cpp
     # Add other .cpp if needed, e.g. LogicTypes.cpp

@@ -2,14 +2,14 @@
 #include <stdexcept>
 #include <cmath>  // for M_PI
 
-#include "control/hardware_abstraction/RealHardwareAbstractionLayer.h"
+#include "control/hardware_abstraction/RealHAL.h"
 
 namespace hand_control
 {
     namespace control
     {
 
-        RealHardwareAbstractionLayer::RealHardwareAbstractionLayer(
+        RealHAL::RealHAL(
             hand_control::merai::RTMemoryLayout*           rtLayout,
             const hand_control::merai::ParameterServer*    paramServerPtr,
             hand_control::merai::multi_ring_logger_memory* loggerMem
@@ -28,7 +28,7 @@ namespace hand_control
             }
         }
 
-        bool RealHardwareAbstractionLayer::init()
+        bool RealHAL::init()
         {
             std::cout << "[RealHAL] init() called.\n";
 
@@ -61,7 +61,7 @@ namespace hand_control
             return true;
         }
 
-        bool RealHardwareAbstractionLayer::read()
+        bool RealHAL::read()
         {
             if (!rtLayout_)
             {
@@ -90,7 +90,7 @@ namespace hand_control
             return true;
         }
 
-        bool RealHardwareAbstractionLayer::write()
+        bool RealHAL::write()
         {
             if (!rtLayout_)
             {
@@ -119,9 +119,9 @@ namespace hand_control
             return true;
         }
 
-        bool RealHardwareAbstractionLayer::mapServoTxToDriveInputs(
+        bool RealHAL::mapServoTxToDriveInputs(
             const std::array<hand_control::merai::ServoTxPdo,
-                             hand_control::merai::MAX_SERVO_DRIVES>& servoTxArray)
+                             hand_control::merai::MAX_DRIVES>& servoTxArray)
         {
             for (int i = 0; i < driveCount_; ++i)
             {
@@ -129,14 +129,13 @@ namespace hand_control
                 localDriveInputs_[i].positionRaw  = servoTxArray[i].positionActual;
                 localDriveInputs_[i].velocityRaw  = servoTxArray[i].velocityActual;
                 localDriveInputs_[i].torqueRaw    = servoTxArray[i].torqueActual;
-                // If servoTx has modeOfOperation display, you could read it too
 
-                std::cout<<"pos raw "<<i<<" : "<<servoTxArray[i].positionActual<<std::endl;
+                std::cout << "pos raw " << i << " : " << servoTxArray[i].positionActual << std::endl;
             }
             return true;
         }
 
-        bool RealHardwareAbstractionLayer::convertDriveInputsToJointStates()
+        bool RealHAL::convertDriveInputsToJointStates()
         {
             for (int i = 0; i < driveCount_; ++i)
             {
@@ -145,21 +144,17 @@ namespace hand_control
                 auto& jstate = localJointStates_[i];
 
                 // Example conversions:
-                // You might define an "encoder_counts" or something in p if your JSON includes it.
-                // For now, let's do a simple example that uses gear_ratio, axis_direction, position_offset:
                 double gearRatio    = p.gear_ratio;        // from JointConfig
                 int axisDir         = p.axis_direction;    // ±1
                 double offset       = p.position_offset;   // e.g. zero offset in your JSON
 
                 // Example position conversion from raw counts:
-                // We'll assume 1 count => 0.001 rad for demonstration.
-                double posRad = static_cast<double>(input.positionRaw) * 0.001;
+                double posRad = static_cast<double>(input.positionRaw) * 0.001;  // Assume 1 count => 0.001 rad
                 posRad *= gearRatio * static_cast<double>(axisDir);
                 posRad += offset;
 
                 // Example velocity conversion from raw counts:
-                // We'll assume 1 count => 0.0001 rad/s
-                double velRad = static_cast<double>(input.velocityRaw) * 0.0001;
+                double velRad = static_cast<double>(input.velocityRaw) * 0.0001;  // Assume 1 count => 0.0001 rad/s
                 velRad *= gearRatio * static_cast<double>(axisDir);
 
                 // Example torque from raw => we assume 1 raw => 0.01 Nm
@@ -173,7 +168,7 @@ namespace hand_control
             return true;
         }
 
-        bool RealHardwareAbstractionLayer::convertJointCommandsToDriveOutputs()
+        bool RealHAL::convertJointCommandsToDriveOutputs()
         {
             for (int i = 0; i < driveCount_; ++i)
             {
@@ -186,8 +181,6 @@ namespace hand_control
                 double offset     = p.position_offset;
 
                 // Inverse of your read() conversion logic:
-                // E.g., if 1 raw => 0.001 rad, then 1 rad => 1000 raw
-                // If we want to set position in rad, multiply by 1000, etc.
                 double desiredPos = cmd.position - offset;
                 desiredPos /= static_cast<double>(axisDir);
                 desiredPos /= gearRatio;
@@ -211,9 +204,9 @@ namespace hand_control
             return true;
         }
 
-        bool RealHardwareAbstractionLayer::mapDriveOutputsToServoRx(
+        bool RealHAL::mapDriveOutputsToServoRx(
             std::array<hand_control::merai::ServoRxPdo,
-                       hand_control::merai::MAX_SERVO_DRIVES>& servoRxArray)
+                       hand_control::merai::MAX_DRIVES>& servoRxArray)
         {
             for (int i = 0; i < driveCount_; ++i)
             {
