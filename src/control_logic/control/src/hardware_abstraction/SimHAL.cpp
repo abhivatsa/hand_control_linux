@@ -72,17 +72,17 @@ namespace hand_control
 
         void SimHAL::simulateDriveStateTransitions()
         {
-            // Simulate state transitions for each drive based on its control word or mode.
-            for (int i = 0; i < driveCount_; ++i)
-            {
-                // Example: If controlWord is 0x000F, enable operation (simulate status)
-                if (DriveInputControl_[i].controlWord == 0x000F)
-                {
-                    DriveOutputControl_[i].statusWord |= 0x01; // Simulate "operation enabled" status
-                }
+            // // Simulate state transitions for each drive based on its control word or mode.
+            // for (int i = 0; i < driveCount_; ++i)
+            // {
+            //     // Example: If controlWord is 0x000F, enable operation (simulate status)
+            //     if (DriveInputControl_[i].controlWord == 0x000F)
+            //     {
+            //         DriveOutputControl_[i].statusWord |= 0x01; // Simulate "operation enabled" status
+            //     }
 
-                // You can add more complex logic here based on control bits or internal states
-            }
+            //     // You can add more complex logic here based on control bits or internal states
+            // }
         }
 
         void SimHAL::simulateJointIOChanges()

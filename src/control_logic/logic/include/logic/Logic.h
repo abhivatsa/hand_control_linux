@@ -12,7 +12,6 @@
 #include "merai/Enums.h"
 
 // StateMachine (replacing old SystemOrchestrator)
-// Note: This header now defines StateManagerOutput.
 #include "logic/StateMachine.h"
 
 // Safety Manager
@@ -25,6 +24,10 @@ namespace hand_control
 {
     namespace logic
     {
+        /**
+         * @brief The Logic class orchestrates high-level logic, bridging user commands,
+         *        drive feedback, controller feedback, and a state machine, plus safety checks.
+         */
         class Logic
         {
         public:
@@ -37,15 +40,39 @@ namespace hand_control
 
             ~Logic();
 
+            /**
+             * @brief init
+             *  - Initializes the state machine
+             *  - Loads the HapticDeviceModel from paramServer
+             *  - Re-initializes the SafetyManager with pointers
+             *  - Returns true if all steps succeed
+             */
             bool init();
+
+            /**
+             * @brief run
+             *  - Starts the main cyclicTask loop
+             */
             void run();
+
+            /**
+             * @brief requestStop
+             *  - Signals the run() loop to exit gracefully
+             */
             void requestStop();
 
         private:
+            /**
+             * @brief cyclicTask
+             *  - Real-time loop running every ~10 ms
+             *  - Reads aggregator data from shared memory
+             *  - Runs safety checks & state machine
+             *  - Writes commands & user feedback
+             */
             void cyclicTask();
 
             // ---------------------------------------------------
-            // Bridge I/O methods (formerly "aggregator" I/O)
+            // Bridge / Aggregator I/O methods
             // ---------------------------------------------------
             void readUserCommands(hand_control::merai::UserCommands &out);
             void readDriveFeedback(hand_control::merai::DriveFeedbackData &out);
@@ -70,8 +97,9 @@ namespace hand_control
         private:
             std::atomic<bool> stopRequested_{false};
 
-            bool isFaulted;
-            bool isHomingCompleted;
+            // In-cycle flags
+            bool isFaulted = false;
+            bool isHomingCompleted = false;
 
             // Shared Memory for ParameterServer
             hand_control::merai::RAII_SharedMemory paramServerShm_;
@@ -85,12 +113,13 @@ namespace hand_control
             hand_control::merai::RAII_SharedMemory loggerShm_;
             hand_control::merai::multi_ring_logger_memory *loggerMem_ = nullptr;
 
-            // The new StateMachine (replacing old SystemOrchestrator)
+            // StateMachine (replacing old SystemOrchestrator)
             StateMachine stateMachine_;
 
             // SafetyManager
             SafetyManager safetyManager_;
 
+            // Temp aggregator structures
             hand_control::merai::UserCommands userCmds;
             hand_control::merai::DriveFeedbackData driveFdbk;
             hand_control::merai::ControllerFeedback ctrlFdbk;
@@ -98,5 +127,6 @@ namespace hand_control
             // Haptic device model
             hand_control::robotics::haptic_device::HapticDeviceModel hapticDeviceModel_;
         };
+
     } // namespace logic
 } // namespace hand_control

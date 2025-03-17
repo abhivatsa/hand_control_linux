@@ -2,7 +2,7 @@
 #include <time.h>
 
 #include "control/Control.h"
-#include "control/hardware_abstraction/SimHAL.h"  // Changed to SimHAL
+#include "control/hardware_abstraction/SimHAL.h" // Changed to SimHAL
 #include "control/hardware_abstraction/RealHAL.h"
 #include "control/controllers/GravityCompController.h"
 #include "control/controllers/HomingController.h"
@@ -47,12 +47,17 @@ namespace hand_control
                 hal_ = std::make_unique<RealHAL>(rtLayout_, paramServerPtr_, loggerMem_);
             }
 
-            // Initialize the DriveStateManager with the correct drive inputs and outputs
+            // IMPORTANT: Use accessor methods to retrieve pointers
             driveStateManager_ = std::make_unique<DriveStateManager>(
-                hal_->DriveOutputControl_, hal_->DriveInputControl_, hal_->getDriveCount());
+                hal_->getDriveOutputControlPtr(),
+                hal_->getDriveInputControlPtr(),
+                hal_->getDriveCount());
 
-            // Initialize Controller Manager
-            controllerManager_ = std::make_unique<ControllerManager>(paramServerPtr_);
+            controllerManager_ = std::make_unique<ControllerManager>(
+                paramServerPtr_,
+                hal_->getJointStatesPtr(),
+                hal_->getJointCommandsPtr(),
+                hal_->getJointCount());
         }
 
         Control::~Control()
@@ -70,24 +75,37 @@ namespace hand_control
                 return false;
 
             // 3) Initialize managers with pointers
-            if (!driveStateManager_->init())  // No need to pass drive inputs/outputs, handled in constructor
+            if (!driveStateManager_->init()) // No need to pass drive inputs/outputs, already done in constructor
                 return false;
 
-            if (!controllerManager_->init(hal_->getJointStatesPtr(), hal_->getJointCommandsPtr()))
+            if (!controllerManager_->init())
                 return false;
 
-            // 4) Register controllers
-            auto gravityComp = std::make_shared<GravityCompController>(hapticDeviceModel_);
+            // 4) Register controllers with correct constructor signatures
+
+            // GravityCompController now expects:
+            //   (const HapticDeviceModel&, JointState*, JointCommand*, std::size_t)
+            auto gravityComp = std::make_shared<GravityCompController>(
+                hapticDeviceModel_,
+                hal_->getJointStatesPtr(),
+                hal_->getJointCommandsPtr(),
+                hal_->getJointCount());
             if (!controllerManager_->registerController(merai::ControllerID::GRAVITY_COMP, gravityComp))
                 return false;
 
+            // HomingController now expects:
+            //   (const double* homePositions, int numJoints, JointState*, JointCommand*)
             double homePositions[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
-            auto homingCtrl = std::make_shared<HomingController>(homePositions, 6);
+            auto homingCtrl = std::make_shared<HomingController>(
+                homePositions,
+                6,
+                hal_->getJointStatesPtr(),
+                hal_->getJointCommandsPtr());
             if (!controllerManager_->registerController(merai::ControllerID::HOMING, homingCtrl))
                 return false;
 
             // 5) Finalize manager setup
-            if (!controllerManager_->init())  // No need to pass additional pointers
+            if (!controllerManager_->init()) // Possibly re-initializing or finalizing sub-controllers
                 return false;
 
             return true;
@@ -120,7 +138,7 @@ namespace hand_control
 
                 // 3. Drive state & control updates
                 driveStateManager_->update(driveCmd.commands.data(), driveFdbk.status.data());
-                ctrlFdbk = controllerManager_->update(ctrlCmd.commands.data(), 0.001);
+                controllerManager_->update(ctrlCmd, ctrlFdbk, 0.001);
 
                 // 4. Process outputs
                 copyJointCommandsFromSharedMemory();

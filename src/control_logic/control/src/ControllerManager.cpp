@@ -1,29 +1,29 @@
 #include <stdexcept> // for std::runtime_error
 #include "control/ControllerManager.h"
-#include "control/controllers/HomingController.h"
-#include "control/controllers/GravityCompController.h"
-// #include "control/controllers/EStopController.h"
 
 namespace hand_control
 {
     namespace control
     {
-        ControllerManager::ControllerManager(const hand_control::merai::ParameterServer *paramServer)
-            : paramServer_(paramServer)
+        ControllerManager::ControllerManager(
+            const hand_control::merai::ParameterServer* paramServerPtr,
+            hand_control::merai::JointState* jointStatesPtr,
+            hand_control::merai::JointCommand* jointCommandsPtr,
+            std::size_t jointCount)
+            : paramServerPtr_(paramServerPtr),
+              jointStatesPtr_(jointStatesPtr),
+              jointCommandsPtr_(jointCommandsPtr),
+              jointCount_(jointCount)
         {
-            if (!paramServer_)
+            if (!paramServerPtr_)
             {
                 throw std::runtime_error("ControllerManager: Null paramServer pointer.");
             }
-            jointCount = static_cast<int>(paramServer_->jointCount);
-
-            // By default, idToController_ array is empty (all nullptr)
-            // e.g. [ControllerID::NONE, ControllerID::HOMING, ...] => indexes
         }
 
         ControllerManager::~ControllerManager()
         {
-            // cleanup if needed
+            // Cleanup if needed
         }
 
         bool ControllerManager::registerController(hand_control::merai::ControllerID id,
@@ -34,13 +34,14 @@ namespace hand_control
                 return false;
             }
 
-            // Convert the ID to an index
+            // Convert the ID to an index for the array
             int idx = static_cast<int>(id);
-            // e.g. if idx is out of range or already occupied => fail
             if (idx < 0 || idx >= static_cast<int>(idToController_.size()))
             {
+                // out of range
                 return false;
             }
+
             if (idToController_[idx] != nullptr)
             {
                 // Already assigned a controller to that ID
@@ -53,69 +54,69 @@ namespace hand_control
 
         bool ControllerManager::init()
         {
+            // Validate pointers
+            if (!paramServerPtr_ || !jointStatesPtr_ || !jointCommandsPtr_ || jointCount_ == 0)
+            {
+                return false;
+            }
+
             bool success = true;
 
             // Initialize all registered controllers
-            for (auto &ctrlPtr : idToController_)
+            for (auto& ctrlPtr : idToController_)
             {
-                if (ctrlPtr)
+                if (ctrlPtr && !ctrlPtr->init())
                 {
-                    if (!ctrlPtr->init())
-                    {
-                        success = false;
-                    }
+                    success = false;
                 }
             }
 
-            // Do NOT set any default active controller here;
-            // leave active_controller_ = nullptr
+            // By default, we can stay with no active controller => fallback
             active_controller_ = nullptr;
             switchState_ = SwitchState::IDLE;
 
             return success;
         }
 
-        void ControllerManager::update(const hand_control::merai::JointState *states,
-                                       hand_control::merai::JointCommand *commands,
-                                       const hand_control::merai::ControllerCommand *ctrlCmdArray,
-                                       hand_control::merai::ControllerFeedback *feedbackArray,
+        void ControllerManager::update(const hand_control::merai::ControllerCommand &cmd,
+                                       hand_control::merai::ControllerFeedback &feedback,
                                        double dt)
         {
-            // We only have 1 aggregator element in ControllerCommandData
-            const auto &cmd = ctrlCmdArray[0];
-
+            // If user requests a switch
             if (cmd.requestSwitch)
             {
                 target_controller_id_ = cmd.controllerId;
                 switch_pending_.store(true);
             }
 
-            // (1) Handle bridging logic if needed
+            // (1) Handle bridging or switching logic
             processControllerSwitch();
 
-            // (2) Run the active controller if we have one
+            // (2) Run the active controller (Approach B => controller->update(dt))
             if (active_controller_)
             {
-                active_controller_->update(states, commands, jointCount, dt);
+                active_controller_->update(dt);
             }
             else
             {
-                // fallback: hold position if no controller active
-                for (int i = 0; i < jointCount; ++i)
+                // Fallback: hold position if no controller is active
+                for (std::size_t i = 0; i < jointCount_; ++i)
                 {
-                    commands[i].position = states[i].position;
-                    commands[i].velocity = 0.0;
-                    commands[i].torque = 0.0;
+                    jointCommandsPtr_[i].position = jointStatesPtr_[i].position;
+                    jointCommandsPtr_[i].velocity = 0.0;
+                    jointCommandsPtr_[i].torque   = 0.0;
                 }
             }
 
-            // (3) Minimal feedback
-            bool bridging = (switchState_ == SwitchState::BRIDGING);
-            bool switching = (switchState_ != SwitchState::RUNNING);
+            // (3) Fill out the feedback struct
+            bool bridging   = (switchState_ == SwitchState::BRIDGING);
+            bool switching  = (switchState_ != SwitchState::RUNNING);
 
-            feedbackArray[0].bridgingActive = bridging;
-            feedbackArray[0].switchInProgress = switching;
-            feedbackArray[0].controllerFailed = false; // if we detect failure below, set true
+            feedback.feedbackState = hand_control::merai::ControllerFeedbackState::SWITCH_IN_PROGRESS;
+
+            // feedback.feedbackState.bridgingActive   = bridging;
+            // feedback.switchInProgress = switching;
+            // feedback.controllerFailed = false; // Set true if you detect an error
         }
 
         void ControllerManager::processControllerSwitch()
@@ -130,7 +131,7 @@ namespace hand_control
                     newController_ = findControllerById(target_controller_id_);
                     if (!newController_)
                     {
-                        // possibly set feedback aggregator
+                        // handle error: e.g., invalid ID
                         break;
                     }
                     bridgingNeeded_ = requiresBridging(oldController_.get(), newController_.get());
@@ -143,7 +144,6 @@ namespace hand_control
                 {
                     oldController_->stop();
                 }
-
                 if (bridgingNeeded_)
                 {
                     switchState_ = SwitchState::BRIDGING;
@@ -186,13 +186,13 @@ namespace hand_control
             }
         }
 
-        bool ControllerManager::requiresBridging(BaseController *oldCtrl, BaseController *newCtrl)
+        bool ControllerManager::requiresBridging(BaseController* oldCtrl, BaseController* newCtrl)
         {
             if (!oldCtrl || !newCtrl)
             {
                 return false;
             }
-            // e.g. if old is torque-based and new is position-based => bridging needed
+            // e.g., if old is torque-based and new is position-based => bridging needed
             return false;
         }
 

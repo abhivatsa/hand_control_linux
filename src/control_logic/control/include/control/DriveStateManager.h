@@ -2,42 +2,39 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <array>
 
-#include "merai/RTMemoryLayout.h"  // hand_control::merai::DriveStatus, DriveCommand, etc.
+// merai includes
+#include "merai/RTMemoryLayout.h" // for DriveCommand, DriveStatus, etc.
 
 namespace hand_control
 {
     namespace control
     {
-        /**
-         * @brief The DriveStateManager handles CiA 402 transitions
-         *        by decoding the statusWord and writing controlWord.
-         *        It also sets a minimal DriveStatus for logic to read.
-         */
         class DriveStateManager
         {
         public:
-            // Pass the drive data arrays and driveCount during construction
-            DriveStateManager(
-                std::array<hand_control::merai::ServoRxControl, hand_control::merai::MAX_SERVO_DRIVES>& driveOutputControl,
-                std::array<hand_control::merai::ServoTxControl, hand_control::merai::MAX_SERVO_DRIVES>& driveInputControl,
-                std::size_t driveCount);
+            /**
+             * @brief Constructor taking pointers to the drive output and drive input arrays.
+             */
+            DriveStateManager(hand_control::merai::ServoRxControl* driveOutputControlPtr,
+                              hand_control::merai::ServoTxControl* driveInputControlPtr,
+                              std::size_t driveCount);
 
             bool init();
 
-            // Updated to take DriveCommand as input and update DriveStatus as output
-            void update(const hand_control::merai::DriveCommand* driveCommands, hand_control::merai::DriveStatus* driveStatus);
+            void update(const hand_control::merai::DriveCommand* driveCommands,
+                        hand_control::merai::DriveStatus* driveStatus);
 
         private:
-            // Direct references to the drive input and output control data
-            std::array<hand_control::merai::ServoRxControl, hand_control::merai::MAX_SERVO_DRIVES>& driveOutputControl_;
-            std::array<hand_control::merai::ServoTxControl, hand_control::merai::MAX_SERVO_DRIVES>& driveInputControl_;
+            // Pointers to the arrays returned by HAL
+            hand_control::merai::ServoRxControl* driveOutputControlPtr_ = nullptr;
+            hand_control::merai::ServoTxControl* driveInputControlPtr_ = nullptr;
 
-            std::size_t driveCount_; // Drive count, initialized during constructor
+            std::size_t driveCount_ = 0;
 
-            // Helper method to decode statusWord to DriveStatus
+            // Helper function if you want to decode statusWord
             hand_control::merai::DriveStatus decodeStatusword(uint16_t statusWord);
         };
+
     } // namespace control
 } // namespace hand_control

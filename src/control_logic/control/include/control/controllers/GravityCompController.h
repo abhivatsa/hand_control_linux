@@ -1,81 +1,83 @@
 #pragma once
 
 #include "control/controllers/BaseController.h"
-
-// If your six-axis model lives here, include it:
 #include "robotics_lib/haptic_device/HapticDeviceModel.h"
 #include "robotics_lib/haptic_device/HapticDeviceDynamics.h"
-#include "robotics_lib/haptic_device/HapticDeviceKinematics.h"
+#include "math_lib/Vector.h"
 
 namespace hand_control
 {
     namespace control
     {
-
         /**
-         * @brief A simple controller for gravity compensation, referencing the 6-axis robot model.
+         * @brief GravityCompController
+         *        A controller that applies torques based on inverse dynamics
+         *        to compensate for gravity (and possibly friction).
          */
         class GravityCompController : public BaseController
         {
         public:
             /**
-             * @brief Construct with a reference to the six-axis model.
-             *        No dynamic memory used. The model must outlive this controller.
+             * @brief Constructor that stores references to the device model,
+             *        as well as pointers to the joint states/commands arrays.
+             *
+             * @param model        A device model describing kinematics/dynamics.
+             * @param statesPtr    Pointer to array of JointState (size = numJoints).
+             * @param commandsPtr  Pointer to array of JointCommand (size = numJoints).
+             * @param numJoints    Number of joints this controller operates on.
              */
-            explicit GravityCompController(const hand_control::robotics::haptic_device::HapticDeviceModel &model);
-
-            ~GravityCompController() override = default;
+            GravityCompController(
+                const hand_control::robotics::haptic_device::HapticDeviceModel &model,
+                hand_control::merai::JointState *statesPtr,
+                hand_control::merai::JointCommand *commandsPtr,
+                std::size_t numJoints);
 
             /**
-             * @brief init() 
-             *  A parameterless init that ensures no std::string usage.
+             * @brief init
+             *   - Checks pointers, sets internal state to INIT.
              */
             bool init() override;
 
             /**
-             * @brief start 
-             *  Called when transitioning to this controller.
+             * @brief start
+             *   - Transitions from INIT or STOPPED to RUNNING.
              */
             void start() override;
 
             /**
-             * @brief update 
-             *  The main control loop function. Called each real-time cycle (e.g. 1ms).
-             *
-             * @param states   Pointer to array of JointState
-             * @param commands Pointer to array of JointCommand
-             * @param numJoints Number of joints
-             * @param dt       Timestep in seconds
+             * @brief update
+             *   - Called each control cycle (e.g. 1kHz).
+             *   - Reads joint states from statesPtr_, writes torque commands to commandsPtr_.
+             *   - Uses inverse dynamics for gravity compensation.
+             * 
+             * @param dt  Timestep in seconds, e.g. 0.001.
              */
-            void update(const hand_control::merai::JointState *states,
-                        hand_control::merai::JointCommand *commands,
-                        int numJoints,
-                        double dt) override;
+            void update(double dt) override;
 
             /**
-             * @brief stop 
-             *  Called when transitioning away from this controller to a new one.
+             * @brief stop
+             *   - Transitions from RUNNING to STOPPED.
              */
             void stop() override;
 
             /**
-             * @brief teardown 
-             *  For cleanup if needed.
+             * @brief teardown
+             *   - Final cleanup; sets state to UNINIT.
              */
             void teardown() override;
 
         private:
-            // Reference to the 6-axis robot model (loaded at init time).
-            const hand_control::robotics::haptic_device::HapticDeviceModel &model_;
+            // Pointers to joint data (in SI units)
+            hand_control::merai::JointState  *statesPtr_   = nullptr;
+            hand_control::merai::JointCommand* commandsPtr_ = nullptr;
+            std::size_t numJoints_ = 0;
 
-            /**
-             * @brief A local SixAxisDynamics object that uses the same model.
-             *        We'll use it to compute torque via Newton-Euler or similar method.
-             */
+            // The device model and dynamics object
+            const hand_control::robotics::haptic_device::HapticDeviceModel &model_;
             hand_control::robotics::haptic_device::HapticDeviceDynamics dynamics_;
 
-            // Example param for torque scaling, friction offset, etc. 
-            double gravityScale_ = 1.0;
+            // Controller parameter(s)
+            double gravityScale_ = 1.0; // scale factor for torque compensation
         };
 
     } // namespace control

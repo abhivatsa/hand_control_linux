@@ -9,8 +9,10 @@ namespace hand_control
     {
         /**
          * @brief A simple controller that moves all joints from their current position
-         *        to a fixed "home" position. Uses a trapezoidal position trajectory
-         *        (accelerate, cruise, decelerate) to reach the home point.
+         *        to a fixed "home" position using a trapezoidal position trajectory.
+         *
+         * Approach B: we store pointers to the joint states & commands in the constructor,
+         * then read/write them in update(double dt).
          */
         class HomingController : public BaseController
         {
@@ -21,8 +23,13 @@ namespace hand_control
              * @brief Constructor.
              * @param homePositions Array of joint positions to serve as the homing target.
              * @param numJoints     Number of active joints (<= MAX_JOINTS).
+             * @param statesPtr     Pointer to array of JointState.
+             * @param commandsPtr   Pointer to array of JointCommand.
              */
-            HomingController(const double* homePositions, int numJoints);
+            HomingController(const double* homePositions,
+                             int numJoints,
+                             hand_control::merai::JointState* statesPtr,
+                             hand_control::merai::JointCommand* commandsPtr);
 
             ~HomingController() override = default;
 
@@ -44,15 +51,9 @@ namespace hand_control
              *  Called each real-time cycle. If homing is active, step the trapezoidal trajectory
              *  until it finishes. Once finished, hold final position.
              *
-             * @param states    Pointer to array of JointState
-             * @param commands  Pointer to array of JointCommand
-             * @param numJoints Number of joints
-             * @param dt        Timestep in seconds
+             * @param dt Timestep in seconds.
              */
-            void update(const hand_control::merai::JointState* states,
-                        hand_control::merai::JointCommand* commands,
-                        int numJoints,
-                        double dt) override;
+            void update(double dt) override;
 
             /**
              * @brief stop
@@ -69,20 +70,21 @@ namespace hand_control
         private:
             /**
              * @brief Plan the trapezoidal trajectory to move from current positions -> homePositions_.
-             * @param currentPos Current joint positions
+             * @param currentPos Array of current joint positions.
              */
             void planTrajectory(const double* currentPos);
 
             /**
              * @brief Helper to hold position when the trajectory is inactive.
-             * @param states   JointState array
-             * @param commands JointCommand array
              */
-            void holdPosition(const hand_control::merai::JointState* states,
-                              hand_control::merai::JointCommand* commands);
+            void holdPosition();
 
         private:
+            // Store references to the joint data
+            hand_control::merai::JointState*  statesPtr_   = nullptr;
+            hand_control::merai::JointCommand* commandsPtr_ = nullptr;
             int numJoints_{0};
+
             double homePositions_[MAX_JOINTS];  ///< The target homing position for each joint
             double iniPositions_[MAX_JOINTS];   ///< Positions at the start of homing
             double jointAcc_[MAX_JOINTS];       ///< Computed trapezoid acceleration (sign included)

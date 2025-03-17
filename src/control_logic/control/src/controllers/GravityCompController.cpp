@@ -1,95 +1,107 @@
 #include "control/controllers/GravityCompController.h"
-// #include <iostream> // If you want to remove all console output from RT code, comment or remove this
 
 namespace hand_control
 {
     namespace control
     {
-
         GravityCompController::GravityCompController(
-            const hand_control::robotics::haptic_device::HapticDeviceModel &model)
-            : model_(model), dynamics_(model) // Construct the HapticDeviceDynamics with the same model
+            const hand_control::robotics::haptic_device::HapticDeviceModel &model,
+            hand_control::merai::JointState *statesPtr,
+            hand_control::merai::JointCommand *commandsPtr,
+            std::size_t numJoints)
+            : model_(model),
+              dynamics_(model),
+              statesPtr_(statesPtr),
+              commandsPtr_(commandsPtr),
+              numJoints_(numJoints)
         {
-            // No dynamic allocations here
+            // Constructor only stores pointers and parameters. No heavy logic here.
         }
 
         bool GravityCompController::init()
         {
-            // No string usage. Just set state to INIT.
-            // If you need some other param loads, do them here as well.
+            // Validate pointers and set initial state
+            if (!statesPtr_ || !commandsPtr_ || numJoints_ == 0)
+            {
+                return false; // or handle error
+            }
+
             state_ = ControllerState::INIT;
             return true;
         }
 
         void GravityCompController::start()
         {
+            // Transition to RUNNING if allowed
             if (state_ == ControllerState::INIT || state_ == ControllerState::STOPPED)
             {
-                // If you want to log or debug, use a static message or integer code, not strings
-                // e.g. "GC start" or do nothing in strict RT
                 state_ = ControllerState::RUNNING;
             }
         }
 
-        void GravityCompController::update(const hand_control::merai::JointState *states,
-                                           hand_control::merai::JointCommand *commands,
-                                           int numJoints,
-                                           double /*dt*/)
+        void GravityCompController::update(double dt)
         {
+            // Only compute torques if RUNNING
             if (state_ != ControllerState::RUNNING)
             {
                 return;
             }
 
-            // 1) Convert from arrays to some math vector
-            //    (assuming numJoints == 6 for a 6-axis device; adapt if needed)
+            // We'll assume a 6-DOF device, but if numJoints_ can vary, adapt the logic
+            // For safety, limit dof to 6 if your math library uses 6-element vectors
+            const int dof = static_cast<int>(numJoints_);
+            if (dof > 6)
+            {
+                // Or handle an error, or adapt your math vectors to match dof
+            }
+
+            // Prepare vectors for inverse dynamics
             hand_control::math::Vector<6> jointAngles, jointVel, jointAcc;
             jointAngles.setZero();
             jointVel.setZero();
-            jointAcc.setZero();  // for pure gravity comp, we can set acceleration=0
+            jointAcc.setZero();  // for pure gravity comp, assume no acceleration
 
-            for (int i = 0; i < numJoints; ++i)
+            // 1) Read joint positions & velocities into your math vectors
+            for (int i = 0; i < dof; ++i)
             {
-                jointAngles[i] = states[i].position;
-                jointVel[i]    = states[i].velocity; // if velocity-based friction is considered
+                jointAngles[i] = statesPtr_[i].position;
+                jointVel[i]    = statesPtr_[i].velocity;
             }
 
             // 2) Compute inverse dynamics
             hand_control::math::Vector<6> outTorques;
             outTorques.setZero();
 
-            int ret = dynamics_.computeInverseDynamics(
-                jointAngles, jointVel, jointAcc, outTorques);
-
+            int ret = dynamics_.computeInverseDynamics(jointAngles, jointVel, jointAcc, outTorques);
             if (ret != 0)
             {
-                // fallback: zero torques if an error code was returned
-                for (int i = 0; i < numJoints; i++)
+                // fallback: zero torques if an error code
+                for (int i = 0; i < dof; ++i)
                 {
-                    commands[i].torque = 0.0;
+                    commandsPtr_[i].torque = 0.0;
                 }
                 return;
             }
 
-            // 3) Copy torques back with optional scaling
-            for (int i = 0; i < numJoints; ++i)
+            // 3) Write torques to commands array
+            for (int i = 0; i < dof; ++i)
             {
-                commands[i].torque = gravityScale_ * outTorques[i];
+                commandsPtr_[i].torque = gravityScale_ * outTorques[i];
             }
         }
 
         void GravityCompController::stop()
         {
+            // Transition to STOPPED if running
             if (state_ == ControllerState::RUNNING)
             {
-                // optional logging w/o strings or do nothing
                 state_ = ControllerState::STOPPED;
             }
         }
 
         void GravityCompController::teardown()
         {
-            // optional logging w/o strings or do nothing
+            // Cleanup if needed
             state_ = ControllerState::UNINIT;
         }
 

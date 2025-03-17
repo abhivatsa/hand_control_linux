@@ -3,7 +3,7 @@
 #include <stdexcept>
 #include <chrono>
 #include <thread>
-#include "merai/Enums.h" // for AppState, ControllerID, etc.
+#include "merai/Enums.h" // for AppState, ControllerFeedbackState, etc.
 
 namespace hand_control
 {
@@ -21,7 +21,9 @@ namespace hand_control
             : paramServerShm_(paramServerShmName, paramServerShmSize, true),
               rtDataShm_(rtDataShmName, rtDataShmSize, false),
               loggerShm_(loggerShmName, loggerShmSize, false),
-              safetyManager_(nullptr, nullptr, /*someHapticModel*/)
+              // Temporarily construct SafetyManager with placeholders.
+              // We'll reassign it in init().
+              safetyManager_(nullptr, nullptr, hapticDeviceModel_)
         {
             // 1) Attach to ParameterServer shared memory
             paramServerPtr_ = reinterpret_cast<const merai::ParameterServer *>(paramServerShm_.getPtr());
@@ -65,7 +67,7 @@ namespace hand_control
                 return false;
             }
 
-            // 3) Reinitialize SafetyManager with all required pointers/models
+            // 3) Reinitialize SafetyManager with real pointers/models
             safetyManager_ = SafetyManager(paramServerPtr_, rtLayout_, hapticDeviceModel_);
             if (!safetyManager_.init())
             {
@@ -97,40 +99,41 @@ namespace hand_control
         void Logic::cyclicTask()
         {
             period_info pinfo;
-            periodic_task_init(&pinfo, 10'000'000L); // 10 ms cycle
+            // Example: 10 ms period (100 Hz)
+            periodic_task_init(&pinfo, 10'000'000L);
 
             while (!stopRequested_.load(std::memory_order_relaxed))
             {
-                // 1) Read from bridge
+                // 1) Read aggregator inputs
                 readUserCommands(userCmds);
                 readDriveFeedback(driveFdbk);
                 readControllerFeedback(ctrlFdbk);
 
-                // 2) Run SafetyManager checks
+                // 2) Safety checks
                 isFaulted = safetyManager_.update(driveFdbk, userCmds, ctrlFdbk);
                 isHomingCompleted = safetyManager_.HomingStatus();
 
-                // 3) StateMachine update: returns a bundled output struct
+                // 3) StateMachine update => output commands
                 StateManagerOutput stateOutput = stateMachine_.update(isFaulted, isHomingCompleted, userCmds);
 
-                // 4) Write commands if not in a switching state
-                if (!(ctrlFdbk.feedback == hand_control::merai::ControllerFeedbackState::SWITCH_IN_PROGRESS))
+                // 4) If controller is not switching, write drive & controller commands
+                if (ctrlFdbk.feedbackState != merai::ControllerFeedbackState::SWITCH_IN_PROGRESS)
                 {
                     writeDriveCommands(stateOutput.driveCmd);
                     writeControllerCommand(stateOutput.ctrlCmd);
                 }
 
-                // 5) Update user feedback
+                // 5) Update user feedback with the current application state
                 writeUserFeedback(stateOutput.appState);
 
-                // 6) Check for user shutdown request
+                // 6) Check if user requested shutdown
                 if (userCmds.shutdownRequest)
                 {
                     std::cout << "[Logic] Shutdown requested by user.\n";
                     break;
                 }
 
-                // 7) Sleep until next period
+                // 7) Wait the remainder of the 10 ms period
                 wait_rest_of_period(&pinfo);
             }
 
@@ -143,39 +146,37 @@ namespace hand_control
         void Logic::readUserCommands(hand_control::merai::UserCommands &out)
         {
             int frontIdx = rtLayout_->userCommandsBuffer.frontIndex.load(std::memory_order_acquire);
-            const auto &cmdSlot = rtLayout_->userCommandsBuffer.buffer[frontIdx];
-            out = cmdSlot;
+            out = rtLayout_->userCommandsBuffer.buffer[frontIdx];
         }
 
         void Logic::readDriveFeedback(hand_control::merai::DriveFeedbackData &out)
         {
             int frontIdx = rtLayout_->driveFeedbackBuffer.frontIndex.load(std::memory_order_acquire);
-            const auto &driveFeedback = rtLayout_->driveFeedbackBuffer.buffer[frontIdx];
-            out = driveFeedback;
+            out = rtLayout_->driveFeedbackBuffer.buffer[frontIdx];
         }
 
         void Logic::readControllerFeedback(hand_control::merai::ControllerFeedback &out)
         {
             int frontIdx = rtLayout_->controllerFeedbackBuffer.frontIndex.load(std::memory_order_acquire);
-            const auto &controllerFeedback = rtLayout_->controllerFeedbackBuffer.buffer[frontIdx];
-            out = controllerFeedback;
+            out = rtLayout_->controllerFeedbackBuffer.buffer[frontIdx];
         }
 
         void Logic::writeDriveCommands(hand_control::merai::DriveCommandData &in)
         {
-            size_t driveCount = paramServerPtr_->driveCount;
             int frontIdx = rtLayout_->driveCommandBuffer.frontIndex.load(std::memory_order_acquire);
             int backIdx = 1 - frontIdx;
 
-            auto &commandData = rtLayout_->driveCommandBuffer.buffer[backIdx];
+            auto &dest = rtLayout_->driveCommandBuffer.buffer[backIdx];
+            // Copy commands
+            std::size_t driveCount = paramServerPtr_->driveCount; 
+            if (driveCount > merai::MAX_SERVO_DRIVES) 
+                driveCount = merai::MAX_SERVO_DRIVES;
 
-            // Copy commands from the input structure to the shared memory buffer
-            for (size_t i = 0; i < driveCount; ++i)
+            for (std::size_t i = 0; i < driveCount; ++i)
             {
-                commandData.commands[i] = in.commands[i];
+                dest.commands[i] = in.commands[i];
             }
 
-            // Flip the buffer
             rtLayout_->driveCommandBuffer.frontIndex.store(backIdx, std::memory_order_release);
         }
 
@@ -184,21 +185,19 @@ namespace hand_control
             int frontIdx = rtLayout_->controllerCommandBuffer.frontIndex.load(std::memory_order_acquire);
             int backIdx = 1 - frontIdx;
 
-            auto &ctrlCmd = rtLayout_->controllerCommandBuffer.buffer[backIdx];
-            ctrlCmd = in;
-
+            rtLayout_->controllerCommandBuffer.buffer[backIdx] = in;
             rtLayout_->controllerCommandBuffer.frontIndex.store(backIdx, std::memory_order_release);
         }
 
         void Logic::writeUserFeedback(hand_control::merai::AppState currentState)
         {
-            int ufFrontIdx = rtLayout_->userFeedbackBuffer.frontIndex.load(std::memory_order_acquire);
-            int ufBackIdx = 1 - ufFrontIdx;
+            int frontIdx = rtLayout_->userFeedbackBuffer.frontIndex.load(std::memory_order_acquire);
+            int backIdx = 1 - frontIdx;
 
-            auto &ufbk = rtLayout_->userFeedbackBuffer.buffer[ufBackIdx];
+            auto &ufbk = rtLayout_->userFeedbackBuffer.buffer[backIdx];
             ufbk.currentState = currentState;
 
-            rtLayout_->userFeedbackBuffer.frontIndex.store(ufBackIdx, std::memory_order_release);
+            rtLayout_->userFeedbackBuffer.frontIndex.store(backIdx, std::memory_order_release);
         }
 
         // -------------------------------------------------

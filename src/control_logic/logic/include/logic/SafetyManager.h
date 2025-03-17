@@ -3,7 +3,7 @@
 #include <cstddef> // for size_t
 #include <cstdint>
 
-// Include the Haptic Device model & math libs
+// Haptic device includes
 #include "robotics_lib/haptic_device/HapticDeviceModel.h"
 #include "robotics_lib/haptic_device/HapticDeviceKinematics.h"
 #include "robotics_lib/haptic_device/HapticDeviceDynamics.h"
@@ -11,10 +11,11 @@
 // Shared memory structures
 #include "merai/ParameterServer.h"
 #include "merai/RTMemoryLayout.h"
-#include "merai/Enums.h" // for SystemMode, OrchestratorState, etc.
+#include "merai/Enums.h"
 
-// Aggregator Data
-#include "logic/Logic.h" // or wherever UserCommandsData, DriveFeedbackData, ControllerFeedbackData are defined
+// The data structures from RTMemoryLayout
+// e.g., DriveFeedbackData, UserCommands, ControllerFeedback
+// which hold status arrays, eStop flags, etc.
 
 namespace hand_control
 {
@@ -22,14 +23,14 @@ namespace hand_control
     {
         /**
          * @brief A manager that checks system safety conditions each cycle (eStop, joint limits,
-         *        motion constraints, and more). If a fault occurs, sets an internal flag.
+         *        motion constraints, etc.). If a fault occurs, sets an internal flag.
          */
         class SafetyManager
         {
         public:
             /**
              * @brief Construct a SafetyManager referencing the parameter server, the RTMemoryLayout,
-             *        and the haptic device model. 
+             *        and the haptic device model.
              *
              * @param paramServerPtr  For reading joint limits, gear ratios, etc.
              * @param rtLayout        For accessing aggregator data if needed (joint states, etc.).
@@ -51,19 +52,19 @@ namespace hand_control
 
             /**
              * @brief update()
-             *  - Checks aggregator data for user eStop, drive faults, controller errors, 
+             *  - Checks aggregator data for user eStop, drive faults, controller errors,
              *    joint position limits, torque limits, etc.
              *  - If any condition fails, sets faulted_ = true.
              *  - If userCmds.resetFault is set, tries to clear the fault (if safe).
              *
-             * @param driveFdbk   The drive feedback aggregator data (drive faults, etc.).
-             * @param userCmds    The user commands aggregator data (eStop, resetFault, shutdown, etc.).
-             * @param ctrlFdbk    The controller feedback aggregator data (e.g. if a controller signals error).
+             * @param driveFdbk   The drive feedback aggregator data (drive status).
+             * @param userCmds    The user commands aggregator data (eStop, resetFault, etc.).
+             * @param ctrlFdbk    The controller feedback aggregator data (controller state).
              * @return bool       True if the system is currently faulted, false otherwise.
              */
-            bool update(const hand_control::merai::DriveFeedbackData&    driveFdbk,
-                        const hand_control::merai::UserCommands&         userCmds,
-                        const hand_control::merai::ControllerFeedbackData& ctrlFdbk);
+            bool update(const hand_control::merai::DriveFeedbackData& driveFdbk,
+                        const hand_control::merai::UserCommands&      userCmds,
+                        const hand_control::merai::ControllerFeedback& ctrlFdbk);
 
             /**
              * @brief isFaulted()
@@ -83,6 +84,10 @@ namespace hand_control
              */
             void clearFault();
 
+            /**
+             * @brief HomingStatus()
+             *  - Example placeholder method if you want to track homing done, etc.
+             */
             bool HomingStatus();
 
         private:
@@ -99,8 +104,8 @@ namespace hand_control
 
             /**
              * @brief checkTorqueOrKinematicLimits()
-             *  - Optionally use HapticDeviceKinematics / HapticDeviceDynamics to check if 
-             *    torques or positions violate any limit. E.g., inverse dynamics > max torque limit,
+             *  - Optionally use kinematics_ / dynamics_ to check if torques or positions 
+             *    violate any limit. E.g., inverse dynamics > max torque limit,
              *    or kinematic singularity detection, etc.
              */
             void checkTorqueOrKinematicLimits();
@@ -126,8 +131,6 @@ namespace hand_control
             // Example min/max joint angle arrays
             double jointMin_[MAX_JOINTS];
             double jointMax_[MAX_JOINTS];
-
-            // Possibly other threshold arrays: torqueLimit_, velocityLimit_, etc.
         };
 
     } // namespace logic

@@ -169,7 +169,7 @@ namespace hand_control
         // Structure for receiving controller feedback.
         struct ControllerFeedback
         {
-            hand_control::merai::ControllerFeedbackState feedback = hand_control::merai::ControllerFeedbackState::IDLE;
+            hand_control::merai::ControllerFeedbackState feedbackState = hand_control::merai::ControllerFeedbackState::IDLE;
         };
 
         //====================================================

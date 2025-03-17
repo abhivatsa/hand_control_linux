@@ -6,25 +6,16 @@
 #include <cmath>
 
 // merai includes
-#include "merai/RTMemoryLayout.h"  // hand_control::merai::RTMemoryLayout, etc.
-#include "merai/ParameterServer.h" // hand_control::merai::ParameterServer
-#include "merai/SharedLogger.h"    // hand_control::merai::multi_ring_logger_memory
+#include "merai/RTMemoryLayout.h"  
+#include "merai/ParameterServer.h" 
+#include "merai/SharedLogger.h"    
 
-// control-layer includes
-#include "control/hardware_abstraction/BaseHAL.h"  // BaseHAL interface
+#include "control/hardware_abstraction/BaseHAL.h"
 
 namespace hand_control
 {
     namespace control
     {
-
-        /**
-         * @brief RealHAL
-         *
-         * Connects to EtherCAT (rx/tx), reads joint config from ParameterServer (with 'joints' array),
-         * and exposes position/velocity/torque in SI units. This version directly uses
-         * ServoTxControl / ServoRxControl for drive-level control bits, removing the old DriveInput/DriveOutput.
-         */
         class RealHAL : public BaseHAL
         {
         public:
@@ -93,9 +84,13 @@ namespace hand_control
             std::array<hand_control::merai::ServoRxControl, hand_control::merai::MAX_DRIVES> DriveOutputControl_;
 
             // Joint data in SI
-            std::array<hand_control::merai::JointState, hand_control::merai::MAX_DRIVES> localJointStates_;
+            std::array<hand_control::merai::JointState,   hand_control::merai::MAX_DRIVES> localJointStates_;
             std::array<hand_control::merai::JointCommand, hand_control::merai::MAX_DRIVES> localJointCommands_;
-            std::array<hand_control::merai::JointIO, hand_control::merai::MAX_DRIVES> localJointIOs_;
+            std::array<hand_control::merai::JointIO,      hand_control::merai::MAX_DRIVES> localJointIOs_;
+
+            // **Local copy of each joint's config** (gear ratio, offset, etc.).
+            // Adjust the type to match your paramServer->joints[i] type.
+            std::array<hand_control::merai::JointConfig, hand_control::merai::MAX_DRIVES> localJointConfigs_;
 
         private:
             // Private helpers for reading/writing EtherCAT data

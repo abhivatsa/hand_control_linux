@@ -15,13 +15,12 @@ namespace hand_control
         };
 
         /**
-         * @brief BaseController is an interface for all controllers, providing
-         *        lifecycle methods (init, start, stop, etc.) and an update step.
+         * @brief BaseController is an abstract interface for controllers,
+         *        providing lifecycle methods (init, start, stop, teardown)
+         *        and a simplified update(dt) call.
          *
-         * If JointState / JointCommand are defined in, say, hand_control::merai,
-         * we reference them fully. Adjust as needed if they live elsewhere.
-         *
-         * This version removes all std::string usage to avoid dynamic allocations.
+         * Derived classes that use "Approach B" will store pointers to
+         * JointState, JointCommand, etc. in their constructor or init().
          */
         class BaseController
         {
@@ -30,39 +29,40 @@ namespace hand_control
 
             /**
              * @brief init
-             *  A parameterless init for real-time safe code (no string usage).
+             *  Called once before the controller is used. Typically used to
+             *  validate pointers, load parameters, etc.
+             *  Must return true if initialization succeeds, false otherwise.
              */
             virtual bool init() = 0;
 
             /**
              * @brief start
              *  Called when transitioning from another controller to this one.
+             *  Typically sets internal state_ to RUNNING if in INIT or STOPPED.
              */
             virtual void start() = 0;
 
             /**
              * @brief update
              *  Main loop function, typically called each real-time cycle (e.g., 1ms).
+             *  The derived class is expected to have references/pointers to the
+             *  needed joint data from the constructor or init() stage, so we only
+             *  need dt here.
              *
-             * @param states    Pointer to array of JointState
-             * @param commands  Pointer to array of JointCommand
-             * @param numJoints Number of joints
-             * @param dt        Timestep in seconds
+             * @param dt Timestep in seconds (e.g. 0.001 for 1 kHz).
              */
-            virtual void update(const hand_control::merai::JointState* states,
-                                hand_control::merai::JointCommand* commands,
-                                int numJoints,
-                                double dt) = 0;
+            virtual void update(double dt) = 0;
 
             /**
              * @brief stop
              *  Called when switching away from this controller to a new one.
+             *  Typically sets internal state_ to STOPPED if running.
              */
             virtual void stop() = 0;
 
             /**
              * @brief teardown
-             *  Called if the controller is being permanently removed or for cleanup.
+             *  Called if the controller is being permanently removed or for final cleanup.
              */
             virtual void teardown() = 0;
 
