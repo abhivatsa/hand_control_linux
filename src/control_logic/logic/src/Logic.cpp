@@ -3,15 +3,12 @@
 #include <stdexcept>
 #include <chrono>
 #include <thread>
-#include "merai/Enums.h" // for AppState, ControllerFeedbackState, etc.
+#include "merai/Enums.h" // for AppState, ControllerID, etc.
 
 namespace hand_control
 {
     namespace logic
     {
-        // ----------------------------
-        // Constructor / Destructor
-        // ----------------------------
         Logic::Logic(const std::string &paramServerShmName,
                      std::size_t paramServerShmSize,
                      const std::string &rtDataShmName,
@@ -20,10 +17,7 @@ namespace hand_control
                      std::size_t loggerShmSize)
             : paramServerShm_(paramServerShmName, paramServerShmSize, true),
               rtDataShm_(rtDataShmName, rtDataShmSize, false),
-              loggerShm_(loggerShmName, loggerShmSize, false),
-              // Temporarily construct SafetyManager with placeholders.
-              // We'll reassign it in init().
-              safetyManager_(nullptr, nullptr, hapticDeviceModel_)
+              loggerShm_(loggerShmName, loggerShmSize, false)
         {
             // 1) Attach to ParameterServer shared memory
             paramServerPtr_ = reinterpret_cast<const merai::ParameterServer *>(paramServerShm_.getPtr());
@@ -48,9 +42,6 @@ namespace hand_control
             // Cleanup if needed
         }
 
-        // ----------------------------
-        // init()
-        // ----------------------------
         bool Logic::init()
         {
             // 1) Initialize the StateMachine
@@ -67,9 +58,14 @@ namespace hand_control
                 return false;
             }
 
-            // 3) Reinitialize SafetyManager with real pointers/models
-            safetyManager_ = SafetyManager(paramServerPtr_, rtLayout_, hapticDeviceModel_);
-            if (!safetyManager_.init())
+            // 3) Create a new SafetyManager in a unique_ptr
+            safetyManager_ = std::make_unique<SafetyManager>(
+                paramServerPtr_,
+                rtLayout_,
+                hapticDeviceModel_
+            );
+            
+            if (!safetyManager_->init())
             {
                 std::cerr << "[Logic] SafetyManager init failed.\n";
                 return false;
@@ -79,9 +75,6 @@ namespace hand_control
             return true;
         }
 
-        // -------------------------------------------------
-        // main run() & requestStop()
-        // -------------------------------------------------
         void Logic::run()
         {
             std::cout << "[Logic] Entering main loop.\n";
@@ -93,13 +86,10 @@ namespace hand_control
             stopRequested_.store(true, std::memory_order_relaxed);
         }
 
-        // -------------------------------------------------
-        // Main cycle
-        // -------------------------------------------------
         void Logic::cyclicTask()
         {
             period_info pinfo;
-            // Example: 10 ms period (100 Hz)
+            // Example: run at 10 ms cycle
             periodic_task_init(&pinfo, 10'000'000L);
 
             while (!stopRequested_.load(std::memory_order_relaxed))
@@ -110,13 +100,13 @@ namespace hand_control
                 readControllerFeedback(ctrlFdbk);
 
                 // 2) Safety checks
-                isFaulted = safetyManager_.update(driveFdbk, userCmds, ctrlFdbk);
-                isHomingCompleted = safetyManager_.HomingStatus();
+                isFaulted        = safetyManager_->update(driveFdbk, userCmds, ctrlFdbk);
+                isHomingCompleted= safetyManager_->HomingStatus();
 
                 // 3) StateMachine update => output commands
                 StateManagerOutput stateOutput = stateMachine_.update(isFaulted, isHomingCompleted, userCmds);
 
-                // 4) If controller is not switching, write drive & controller commands
+                // 4) If controller not switching, write drive & controller commands
                 if (ctrlFdbk.feedbackState != merai::ControllerFeedbackState::SWITCH_IN_PROGRESS)
                 {
                     writeDriveCommands(stateOutput.driveCmd);
@@ -133,7 +123,7 @@ namespace hand_control
                     break;
                 }
 
-                // 7) Wait the remainder of the 10 ms period
+                // 7) Sleep for remainder of period
                 wait_rest_of_period(&pinfo);
             }
 
@@ -167,7 +157,6 @@ namespace hand_control
             int backIdx = 1 - frontIdx;
 
             auto &dest = rtLayout_->driveCommandBuffer.buffer[backIdx];
-            // Copy commands
             std::size_t driveCount = paramServerPtr_->driveCount; 
             if (driveCount > merai::MAX_SERVO_DRIVES) 
                 driveCount = merai::MAX_SERVO_DRIVES;

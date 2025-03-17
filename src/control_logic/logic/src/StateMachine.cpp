@@ -76,7 +76,7 @@ namespace hand_control
 
             // 4) Compute drive and controller commands.
             //    Replace the default construction with your actual command logic as needed.
-            output.driveCmd = hand_control::merai::DriveCommand{};
+            output.driveCmd = hand_control::merai::DriveCommandData{};
             output.ctrlCmd  = hand_control::merai::ControllerCommand{};
 
             return output;

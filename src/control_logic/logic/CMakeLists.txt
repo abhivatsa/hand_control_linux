@@ -16,7 +16,7 @@ add_library(hand_control_logic_lib STATIC
     src/Logic.cpp
     src/StateMachine.cpp
     src/SafetyManager.cpp
-    src/ErrorManager.cpp
+    # src/ErrorManager.cpp
     # Add other .cpp if needed, e.g. LogicTypes.cpp
 )
 

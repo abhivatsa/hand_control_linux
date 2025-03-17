@@ -36,8 +36,8 @@ namespace hand_control
             for (std::size_t i = 0; i < driveCount_; ++i)
             {
                 // Assume paramServer->joints[i] has fields: joint_limit_min, joint_limit_max
-                jointMin_[i] = paramServerPtr_->joints[i].joint_limit_min; 
-                jointMax_[i] = paramServerPtr_->joints[i].joint_limit_max;
+                jointMin_[i] = paramServerPtr_->joints[i].limits.position.min; 
+                jointMax_[i] = paramServerPtr_->joints[i].limits.position.max;
             }
             // For any unused joints
             for (std::size_t i = driveCount_; i < MAX_JOINTS; ++i)
@@ -86,12 +86,12 @@ namespace hand_control
                     }
                 }
 
-                // (3) Possibly check if ctrlFdbk indicates an error
-                // If you have an enum like ControllerFeedbackState::ERROR or FAILED
-                if (ctrlFdbk.feedbackState == hand_control::merai::ControllerFeedbackState::ERROR)
-                {
-                    forceFault();
-                }
+                // // (3) Possibly check if ctrlFdbk indicates an error
+                // // If you have an enum like ControllerFeedbackState::ERROR or FAILED
+                // if (ctrlFdbk.feedbackState == hand_control::merai::ControllerFeedbackState::ERROR)
+                // {
+                //     forceFault();
+                // }
 
                 // (4) Check joint limits
                 checkJointLimits();
