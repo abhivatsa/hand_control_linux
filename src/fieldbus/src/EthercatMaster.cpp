@@ -55,12 +55,7 @@ namespace hand_control
                 );
             }
 
-            hand_control::merai::log_info(
-                loggerMem_,
-                "Fieldbus",
-                100,
-                "EthercatMaster: Shared memories mapped"
-            );
+            hand_control::merai::log_info( loggerMem_, "Fieldbus", 100, "EthercatMaster: Shared memories mapped" );
         }
 
         EthercatMaster::~EthercatMaster()
@@ -72,12 +67,7 @@ namespace hand_control
                 master_ = nullptr;
             }
 
-            hand_control::merai::log_info(
-                loggerMem_,
-                "Fieldbus",
-                999,
-                "EthercatMaster destructor called"
-            );
+            log_info( loggerMem_, "Fieldbus", 999, "EthercatMaster destructor called" );
         }
 
         bool EthercatMaster::initializeMaster()
@@ -85,12 +75,7 @@ namespace hand_control
             if (!configPtr_)
             {
                 std::cerr << "[Error] No valid ParameterServer pointer.\n";
-                hand_control::merai::log_error(
-                    loggerMem_,
-                    "Fieldbus",
-                    101,
-                    "No valid ParameterServer pointer"
-                );
+                hand_control::merai::log_error( loggerMem_, "Fieldbus", 101, "No valid ParameterServer pointer" );
                 return false;
             }
 
@@ -101,12 +86,7 @@ namespace hand_control
             if (!master_)
             {
                 std::cerr << "[Error] Failed to retrieve EtherCAT Master.\n";
-                hand_control::merai::log_error(
-                    loggerMem_,
-                    "Fieldbus",
-                    102,
-                    "Failed to retrieve EtherCAT Master"
-                );
+                hand_control::merai::log_error( loggerMem_, "Fieldbus", 102, "Failed to retrieve EtherCAT Master" );
                 return false;
             }
 
@@ -114,11 +94,7 @@ namespace hand_control
             if (!domain_)
             {
                 std::cerr << "[Error] Failed to create EtherCAT domain.\n";
-                hand_control::merai::log_error(
-                    loggerMem_,
-                    "Fieldbus",
-                    103,
-                    "Failed to create EtherCAT domain"
+                hand_control::merai::log_error( loggerMem_, "Fieldbus", 103, "Failed to create EtherCAT domain"
                 );
                 return false;
             }
@@ -128,24 +104,14 @@ namespace hand_control
             if (configPtr_->driveCount <= 0)
             {
                 std::cerr << "[Error] No drives found in ParameterServer.\n";
-                hand_control::merai::log_error(
-                    loggerMem_,
-                    "Fieldbus",
-                    104,
-                    "No drives found in ParameterServer"
-                );
+                hand_control::merai::log_error( loggerMem_, "Fieldbus", 104, "No drives found in ParameterServer" );
                 return false;
             }
 
             int driveCount = configPtr_->driveCount;
             if (driveCount > hand_control::merai::MAX_SERVO_DRIVES)
             {
-                hand_control::merai::log_warn(
-                    loggerMem_,
-                    "Fieldbus",
-                    105,
-                    "driveCount exceeds MAX_SERVO_DRIVES, ignoring extras"
-                );
+                hand_control::merai::log_warn( loggerMem_, "Fieldbus", 105, "driveCount exceeds MAX_SERVO_DRIVES, ignoring extras" );
                 driveCount = hand_control::merai::MAX_SERVO_DRIVES;
             }
 
@@ -169,12 +135,7 @@ namespace hand_control
                               << ", vendor_id=0x" << std::hex << vendor_id
                               << ", product_code=0x" << product_code << std::dec << "\n";
 
-                    hand_control::merai::log_error(
-                        loggerMem_,
-                        "Fieldbus",
-                        106,
-                        "Failed to get slave config for a drive"
-                    );
+                    hand_control::merai::log_error( loggerMem_, "Fieldbus", 106, "Failed to get slave config for a drive" );
                     return false;
                 }
 
@@ -193,12 +154,7 @@ namespace hand_control
                 else
                 {
                     std::cerr << "[Error] Unknown drive type: " << driveType << "\n";
-                    hand_control::merai::log_error(
-                        loggerMem_,
-                        "Fieldbus",
-                        107,
-                        ("Unknown drive type: " + driveType).c_str()
-                    );
+                    hand_control::merai::log_error( loggerMem_, "Fieldbus", 107, ("Unknown drive type: " + driveType).c_str());
                     return false;
                 }
             }
@@ -216,24 +172,14 @@ namespace hand_control
                     if (!drive->configurePdos())
                     {
                         std::cerr << "[Error] Failed to configure PDOs.\n";
-                        hand_control::merai::log_error(
-                            loggerMem_,
-                            "Fieldbus",
-                            108,
-                            "Failed to configure PDOs"
-                        );
+                        hand_control::merai::log_error( loggerMem_, "Fieldbus", 108, "Failed to configure PDOs" );
                         return false;
                     }
                 }
             }
 
             std::cout << "[Info] EthercatMaster: Initialization complete.\n";
-            hand_control::merai::log_info(
-                loggerMem_,
-                "Fieldbus",
-                109,
-                "EthercatMaster initialization complete"
-            );
+            hand_control::merai::log_info( loggerMem_, "Fieldbus", 109, "EthercatMaster initialization complete" );
             return true;
         }
 
@@ -242,12 +188,7 @@ namespace hand_control
             if (ecrt_master_activate(master_))
             {
                 std::cerr << "[Error] activating EtherCAT master. Aborting.\n";
-                hand_control::merai::log_error(
-                    loggerMem_,
-                    "Fieldbus",
-                    110,
-                    "Failed to activate EtherCAT master"
-                );
+                hand_control::merai::log_error( loggerMem_, "Fieldbus", 110, "Failed to activate EtherCAT master" );
                 return;
             }
 
@@ -255,40 +196,20 @@ namespace hand_control
             if (!domainPd_)
             {
                 std::cerr << "[Error] Failed to get domain data pointer.\n";
-                hand_control::merai::log_error(
-                    loggerMem_,
-                    "Fieldbus",
-                    111,
-                    "Failed to get domain data pointer"
-                );
+                hand_control::merai::log_error( loggerMem_, "Fieldbus", 111, "Failed to get domain data pointer" );
                 return;
             }
 
             running_ = true;
-            hand_control::merai::log_info(
-                loggerMem_,
-                "Fieldbus",
-                112,
-                "Entering EthercatMaster cyclicTask"
-            );
+            hand_control::merai::log_info( loggerMem_, "Fieldbus", 112, "Entering EthercatMaster cyclicTask");
             cyclicTask();
-            hand_control::merai::log_info(
-                loggerMem_,
-                "Fieldbus",
-                113,
-                "Exiting EthercatMaster cyclicTask"
-            );
+            hand_control::merai::log_info( loggerMem_, "Fieldbus", 113, "Exiting EthercatMaster cyclicTask");
         }
 
         void EthercatMaster::stop()
         {
             running_ = false;
-            hand_control::merai::log_warn(
-                loggerMem_,
-                "Fieldbus",
-                200,
-                "EthercatMaster stop() called, stopping RT loop"
-            );
+            hand_control::merai::log_warn( loggerMem_, "Fieldbus", 200, "EthercatMaster stop() called, stopping RT loop");
         }
 
         void EthercatMaster::cyclicTask()
@@ -301,12 +222,7 @@ namespace hand_control
                 if (ecrt_master_receive(master_) < 0)
                 {
                     std::cerr << "[ERROR] ecrt_master_receive() failed. Breaking.\n";
-                    hand_control::merai::log_error(
-                        loggerMem_,
-                        "Fieldbus",
-                        201,
-                        "ecrt_master_receive() failed"
-                    );
+                    hand_control::merai::log_error( loggerMem_, "Fieldbus", 201, "ecrt_master_receive() failed" );
                     break;
                 }
                 ecrt_domain_process(domain_);
@@ -314,12 +230,7 @@ namespace hand_control
                 if (!domainPd_)
                 {
                     std::cerr << "[ERROR] domainPd_ invalid. Breaking.\n";
-                    hand_control::merai::log_error(
-                        loggerMem_,
-                        "Fieldbus",
-                        202,
-                        "domainPd_ invalid in cyclicTask"
-                    );
+                    hand_control::merai::log_error(loggerMem_, "Fieldbus", 202, "domainPd_ invalid in cyclicTask");
                     break;
                 }
 
@@ -334,22 +245,12 @@ namespace hand_control
 
                 if (!checkDomainState())
                 {
-                    hand_control::merai::log_error(
-                        loggerMem_,
-                        "Fieldbus",
-                        203,
-                        "Domain check failed, stopping loop"
-                    );
+                    hand_control::merai::log_error( loggerMem_, "Fieldbus", 203, "Domain check failed, stopping loop");
                     break;
                 }
                 if (!checkMasterState())
                 {
-                    hand_control::merai::log_error(
-                        loggerMem_,
-                        "Fieldbus",
-                        204,
-                        "Master check failed, stopping loop"
-                    );
+                    hand_control::merai::log_error( loggerMem_, "Fieldbus", 204, "Master check failed, stopping loop");
                     break;
                 }
 
@@ -366,24 +267,14 @@ namespace hand_control
                 if (ecrt_domain_queue(domain_) < 0)
                 {
                     std::cerr << "[ERROR] ecrt_domain_queue() failed.\n";
-                    hand_control::merai::log_error(
-                        loggerMem_,
-                        "Fieldbus",
-                        205,
-                        "ecrt_domain_queue() failed"
-                    );
+                    hand_control::merai::log_error( loggerMem_, "Fieldbus", 205, "ecrt_domain_queue() failed");
                     break;
                 }
                 // Send master data
                 if (ecrt_master_send(master_) < 0)
                 {
                     std::cerr << "[ERROR] ecrt_master_send() failed.\n";
-                    hand_control::merai::log_error(
-                        loggerMem_,
-                        "Fieldbus",
-                        206,
-                        "ecrt_master_send() failed"
-                    );
+                    hand_control::merai::log_error( loggerMem_, "Fieldbus", 206, "ecrt_master_send() failed");
                     break;
                 }
 

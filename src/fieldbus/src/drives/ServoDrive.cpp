@@ -27,12 +27,7 @@ namespace hand_control
         {
             if (loggerMem_)
             {
-                hand_control::merai::log_debug(
-                    loggerMem_,
-                    "ServoDrive",
-                    100,
-                    "Constructed ServoDrive instance"
-                );
+                log_debug( loggerMem_, "ServoDrive", 3100, "Constructed ServoDrive instance" );
             }
         }
 
@@ -40,12 +35,7 @@ namespace hand_control
         {
             if (loggerMem_)
             {
-                hand_control::merai::log_info(
-                    loggerMem_,
-                    "ServoDrive",
-                    110,
-                    "Initializing ServoDrive"
-                );
+                log_debug( loggerMem_, "ServoDrive", 3101, "Initializing ServoDrive" );
             }
 
             // Zero out local caches
@@ -64,12 +54,7 @@ namespace hand_control
 
             if (loggerMem_)
             {
-                hand_control::merai::log_info(
-                    loggerMem_,
-                    "ServoDrive",
-                    111,
-                    "ServoDrive initialized"
-                );
+                log_debug( loggerMem_, "ServoDrive", 3102, "ServoDrive Initialized" );
             }
         }
 
@@ -77,15 +62,11 @@ namespace hand_control
         {
             if (driveCfg_.syncManagerCount == 0)
             {
-                std::cerr << "[ServoDrive] No sync managers found in DriveConfig.\n";
+                // std::cerr << "[ServoDrive] No sync managers found in DriveConfig.\n";
+
                 if (loggerMem_)
                 {
-                    hand_control::merai::log_error(
-                        loggerMem_,
-                        "ServoDrive",
-                        120,
-                        "No sync managers found in DriveConfig"
-                    );
+                    log_error( loggerMem_, "ServoDrive", 3401, "No sync managers found in DriveConfig" );
                 }
                 return false;
             }
@@ -103,11 +84,21 @@ namespace hand_control
 
                 if (ecrt_slave_config_sync_manager(slaveConfig_, smId, direction, wdMode))
                 {
-                    std::cerr << "ServoDrive: Failed to configure SM " << smId << "\n";
+                    // std::cerr << "ServoDrive: Failed to configure SM " << smId << "\n";
+                    if (loggerMem_){
+                        log_error( loggerMem_, "ServoDrive", 3402, "Failed to configure SM" );
+                    }
                     return false;
                 }
 
-                ecrt_slave_config_pdo_assign_clear(slaveConfig_, smId);
+                // Added log msg to the function
+                if (ecrt_slave_config_pdo_assign_clear(slaveConfig_, smId))
+                {
+                    if (loggerMem_){
+                        log_info( loggerMem_, "ServoDrive", 3202, "Slave config PDO assignment not clear");
+                    }
+                    return false;
+                }
 
                 // Add each PDO assignment
                 for (int assignIdx = 0; assignIdx < sm.assignmentCount; ++assignIdx)
@@ -115,12 +106,22 @@ namespace hand_control
                     uint16_t assignmentAddr = hexStringToUint(sm.pdo_assignments[assignIdx].c_str());
                     if (ecrt_slave_config_pdo_assign_add(slaveConfig_, smId, assignmentAddr))
                     {
-                        std::cerr << "ServoDrive: Failed to add PDO assignment 0x"
-                                  << std::hex << assignmentAddr
-                                  << " to SM " << smId << std::dec << "\n";
+                        // std::cerr << "ServoDrive: Failed to add PDO assignment 0x"
+                        //           << std::hex << assignmentAddr
+                        //           << " to SM " << smId << std::dec << "\n";
+                        log_error( loggerMem_, "ServoDrive", 3404, "Failed to add PDO assignment");
                         return false;
                     }
-                    ecrt_slave_config_pdo_mapping_clear(slaveConfig_, assignmentAddr);
+
+                    // Added log msg to the function
+                    if (ecrt_slave_config_pdo_mapping_clear(slaveConfig_, assignmentAddr)) 
+                    {
+                        if (loggerMem_)
+                        {
+                            log_info( loggerMem_, "ServoDrive", 3203, "Slave config PDO mapping not clear" );
+                        }
+                        return false;
+                    }
                 }
 
                 // Add PDO entry mappings
@@ -143,11 +144,12 @@ namespace hand_control
                                 subIdx,
                                 bitLen))
                         {
-                            std::cerr << "ServoDrive: Failed mapping PDO 0x"
-                                      << std::hex << pdoAddress
-                                      << ", index=0x" << index
-                                      << ", subIndex=" << std::dec << (int)subIdx
-                                      << ", bits=" << (int)bitLen << "\n";
+                            // std::cerr << "ServoDrive: Failed mapping PDO 0x"
+                            //           << std::hex << pdoAddress
+                            //           << ", index=0x" << index
+                            //           << ", subIndex=" << std::dec << (int)subIdx
+                            //           << ", bits=" << (int)bitLen << "\n";
+                            log_error( loggerMem_, "ServoDrive", 3403, "Failed mapping PDOs");
                             return false;
                         }
                     }
@@ -157,18 +159,14 @@ namespace hand_control
             // Register offsets in domain
             if (!registerPdoEntries())
             {
-                std::cerr << "ServoDrive: Failed to register PDO entries.\n";
+                // std::cerr << "ServoDrive: Failed to register PDO entries.\n";
+                log_warn( loggerMem_, "ServoDrive", 3300, "Failed to register PDO entries." );
                 return false;
             }
 
             if (loggerMem_)
             {
-                hand_control::merai::log_info(
-                    loggerMem_,
-                    "ServoDrive",
-                    125,
-                    "ServoDrive PDOs configured successfully"
-                );
+                log_info( loggerMem_, "ServoDrive", 125, "ServoDrive PDOs configured successfully" );
             }
             return true;
         }
@@ -195,7 +193,8 @@ namespace hand_control
                     {
                         if (idx >= MAX_ENTRIES)
                         {
-                            std::cerr << "ServoDrive: Too many PDO entries. Increase MAX_ENTRIES.\n";
+                            // std::cerr << "ServoDrive: Too many PDO entries. Increase MAX_ENTRIES.\n";
+                            log_warn( loggerMem_, "ServoDrive", 3301, "Too many PDO entries. Increase MAX_ENTRIES");
                             return false;
                         }
                         const auto &pme = mg.entries[eIndex];
@@ -205,8 +204,9 @@ namespace hand_control
                         void *offsetPtr = getOffsetPointerByIndex(objIndex);
                         if (!offsetPtr)
                         {
-                            std::cerr << "[ServoDrive] Unsupported object_index=0x"
-                                      << std::hex << objIndex << std::dec << "\n";
+                            // std::cerr << "[ServoDrive] Unsupported object_index=0x"
+                            //           << std::hex << objIndex << std::dec << "\n";
+                            log_error( loggerMem_, "ServoDrive", 3405, "Unsupported object_index");
                             return false;
                         }
 
@@ -227,7 +227,11 @@ namespace hand_control
 
             if (ecrt_domain_reg_pdo_entry_list(domain_, domainRegs))
             {
-                std::cerr << "ServoDrive: PDO entry registration failed.\n";
+                // std::cerr << "ServoDrive: PDO entry registration failed.\n";
+                if (loggerMem_) 
+                {
+                    log_warn(loggerMem_, "ServoDrive", 3302, "PDO entry registration failed.");
+                }
                 return false;
             }
             return true;
