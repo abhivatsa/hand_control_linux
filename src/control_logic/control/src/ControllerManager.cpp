@@ -1,23 +1,32 @@
-#include <stdexcept> // for std::runtime_error
+#include <stdexcept>    // for std::runtime_error
+#include <iostream>     // for std::cerr, std::endl
 #include "control/ControllerManager.h"
+#include "control/controllers/BaseController.h"
 
 namespace hand_control
 {
     namespace control
     {
+        using namespace hand_control::merai;
+
         ControllerManager::ControllerManager(
-            const hand_control::merai::ParameterServer* paramServerPtr,
-            hand_control::merai::JointState* jointStatesPtr,
-            hand_control::merai::JointCommand* jointCommandsPtr,
-            std::size_t jointCount)
+            const ParameterServer* paramServerPtr,
+            JointMotionFeedback*   motionFeedbackPtr,
+            JointMotionCommand*    motionCommandPtr,
+            std::size_t            jointCount
+        )
             : paramServerPtr_(paramServerPtr),
-              jointStatesPtr_(jointStatesPtr),
-              jointCommandsPtr_(jointCommandsPtr),
+              motionFeedbackPtr_(motionFeedbackPtr),
+              motionCommandPtr_(motionCommandPtr),
               jointCount_(jointCount)
         {
             if (!paramServerPtr_)
             {
                 throw std::runtime_error("ControllerManager: Null paramServer pointer.");
+            }
+            if (!motionFeedbackPtr_ || !motionCommandPtr_ || jointCount_ == 0)
+            {
+                throw std::runtime_error("ControllerManager: Invalid joint pointers or jointCount.");
             }
         }
 
@@ -26,8 +35,7 @@ namespace hand_control
             // Cleanup if needed
         }
 
-        bool ControllerManager::registerController(hand_control::merai::ControllerID id,
-                                                   std::shared_ptr<BaseController> controller)
+        bool ControllerManager::registerController(ControllerID id, std::shared_ptr<BaseController> controller)
         {
             if (!controller)
             {
@@ -55,7 +63,7 @@ namespace hand_control
         bool ControllerManager::init()
         {
             // Validate pointers
-            if (!paramServerPtr_ || !jointStatesPtr_ || !jointCommandsPtr_ || jointCount_ == 0)
+            if (!paramServerPtr_ || !motionFeedbackPtr_ || !motionCommandPtr_ || jointCount_ == 0)
             {
                 return false;
             }
@@ -73,13 +81,13 @@ namespace hand_control
 
             // By default, we can stay with no active controller => fallback
             active_controller_ = nullptr;
-            switchState_ = SwitchState::IDLE;
+            switchState_        = SwitchState::IDLE;
 
             return success;
         }
 
-        void ControllerManager::update(const hand_control::merai::ControllerCommand &cmd,
-                                       hand_control::merai::ControllerFeedback &feedback,
+        void ControllerManager::update(const ControllerCommand &cmd,
+                                       ControllerFeedback &feedback,
                                        double dt)
         {
             // If user requests a switch
@@ -99,24 +107,27 @@ namespace hand_control
             }
             else
             {
-                // Fallback: hold position if no controller is active
+                // Fallback: hold current position if no controller is active
                 for (std::size_t i = 0; i < jointCount_; ++i)
                 {
-                    jointCommandsPtr_[i].position = jointStatesPtr_[i].position;
-                    jointCommandsPtr_[i].velocity = 0.0;
-                    jointCommandsPtr_[i].torque   = 0.0;
+                    // Copy actual position from the motion feedback into the motion command
+                    // so the joint doesn't move
+                    motionCommandPtr_[i].targetPosition =
+                        motionFeedbackPtr_[i].positionActual;
+
+                    // Zero out torque if you're in position control by default
+                    motionCommandPtr_[i].targetTorque = 0.0;
+                    // If you want to specify modeOfOperation, set it here:
+                    // motionCommandPtr_[i].modeOfOperation = ...
                 }
             }
 
             // (3) Fill out the feedback struct
-            bool bridging   = (switchState_ == SwitchState::BRIDGING);
-            bool switching  = (switchState_ != SwitchState::RUNNING);
+            bool bridging  = (switchState_ == SwitchState::BRIDGING);
+            bool switching = (switchState_ != SwitchState::RUNNING);
 
-            feedback.feedbackState = hand_control::merai::ControllerFeedbackState::SWITCH_IN_PROGRESS;
-
-            // feedback.feedbackState.bridgingActive   = bridging;
-            // feedback.switchInProgress = switching;
-            // feedback.controllerFailed = false; // Set true if you detect an error
+            feedback.feedbackState = ControllerFeedbackState::SWITCH_IN_PROGRESS;
+            // e.g. you can track bridging / switching states in more detail if you want
         }
 
         void ControllerManager::processControllerSwitch()
@@ -135,7 +146,7 @@ namespace hand_control
                         break;
                     }
                     bridgingNeeded_ = requiresBridging(oldController_.get(), newController_.get());
-                    switchState_ = SwitchState::STOP_OLD;
+                    switchState_    = SwitchState::STOP_OLD;
                 }
                 break;
 
@@ -180,7 +191,7 @@ namespace hand_control
                         break;
                     }
                     bridgingNeeded_ = requiresBridging(oldController_.get(), newController_.get());
-                    switchState_ = SwitchState::STOP_OLD;
+                    switchState_    = SwitchState::STOP_OLD;
                 }
                 break;
             }
@@ -196,7 +207,7 @@ namespace hand_control
             return false;
         }
 
-        std::shared_ptr<BaseController> ControllerManager::findControllerById(hand_control::merai::ControllerID id)
+        std::shared_ptr<BaseController> ControllerManager::findControllerById(ControllerID id)
         {
             int idx = static_cast<int>(id);
             if (idx < 0 || idx >= static_cast<int>(idToController_.size()))
@@ -205,6 +216,5 @@ namespace hand_control
             }
             return idToController_[idx];
         }
-
     } // namespace control
 } // namespace hand_control

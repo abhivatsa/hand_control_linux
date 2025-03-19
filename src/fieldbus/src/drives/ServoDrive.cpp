@@ -53,12 +53,14 @@ namespace hand_control
             servoTx_.motion.positionActual = 0;
             servoTx_.motion.velocityActual = 0;
             servoTx_.motion.torqueActual   = 0;
+            servoTx_.io.digitalInputs = 0;
+            servoTx_.io.analogInput   = 0;
+            
 
             servoRx_.ctrl.controlWord    = 0;
-            servoRx_.ctrl.modeOfOperation= 0;
+            servoRx_.motion.modeOfOperation= 0;
             servoRx_.motion.targetTorque    = 0;
             servoRx_.motion.targetPosition  = 0;
-            servoRx_.motion.targetVelocity  = 0;
 
             if (loggerMem_)
             {
@@ -247,6 +249,11 @@ namespace hand_control
                 EC_READ_S32(domainPd + servoOffsets_.velocity_actual_value);
             servoTx_.motion.torqueActual =
                 EC_READ_S16(domainPd + servoOffsets_.torque_actual_value);
+            servoTx_.io.digitalInputs =
+                EC_READ_U32(domainPd + servoOffsets_.digital_input_value);
+            servoTx_.io.analogInput =
+                EC_READ_U16(domainPd + servoOffsets_.analog_input_value);
+
 
             // Copy to rtLayout => servoBuffer.tx
             if (rtLayout_)
@@ -258,6 +265,8 @@ namespace hand_control
                 txPdo.motion.positionActual    = servoTx_.motion.positionActual;
                 txPdo.motion.velocityActual    = servoTx_.motion.velocityActual;
                 txPdo.motion.torqueActual      = servoTx_.motion.torqueActual;
+                txPdo.io.digitalInputs    = servoTx_.io.digitalInputs;
+                txPdo.io.analogInput      = servoTx_.io.analogInput;
             }
             return true;
         }
@@ -276,24 +285,20 @@ namespace hand_control
                 auto &rxPdo  = rtLayout_->servoBuffer.buffer[frontIdx].rx[driveIndex_];
 
                 servoRx_.ctrl.controlWord       = rxPdo.ctrl.controlWord;
-                servoRx_.ctrl.modeOfOperation   = rxPdo.ctrl.modeOfOperation;
+                servoRx_.motion.modeOfOperation   = rxPdo.motion.modeOfOperation;
                 servoRx_.motion.targetTorque    = rxPdo.motion.targetTorque;
                 servoRx_.motion.targetPosition  = rxPdo.motion.targetPosition;
-                servoRx_.motion.targetVelocity  = rxPdo.motion.targetVelocity;
             }
 
             // Write into EtherCAT domain memory
             EC_WRITE_U16(domainPd + servoOffsets_.controlword,
                          servoRx_.ctrl.controlWord);
             EC_WRITE_S8(domainPd + servoOffsets_.modes_of_operation,
-                        servoRx_.ctrl.modeOfOperation);
+                        servoRx_.motion.modeOfOperation);
             EC_WRITE_S16(domainPd + servoOffsets_.target_torque,
                          servoRx_.motion.targetTorque);
             EC_WRITE_S32(domainPd + servoOffsets_.target_position,
                          servoRx_.motion.targetPosition);
-            EC_WRITE_S32(domainPd + servoOffsets_.target_velocity,
-                         servoRx_.motion.targetVelocity);
-
             return true;
         }
 
@@ -317,7 +322,9 @@ namespace hand_control
             case 0x6064: return &servoOffsets_.position_actual_value;
             case 0x606C: return &servoOffsets_.velocity_actual_value;
             case 0x6077: return &servoOffsets_.torque_actual_value;
-
+            case 0x2600: return &servoOffsets_.digital_input_value;
+            case 0x2081: return &servoOffsets_.analog_input_value;
+            
             // Possibly 0x6061 => mode_of_operation_display
 
             // Outputs (Rx side):
@@ -325,7 +332,6 @@ namespace hand_control
             case 0x6060: return &servoOffsets_.modes_of_operation;
             case 0x607A: return &servoOffsets_.target_position;
             case 0x6071: return &servoOffsets_.target_torque;
-            case 0x60FF: return &servoOffsets_.target_velocity;
 
             default:
                 return nullptr;

@@ -26,11 +26,11 @@ namespace hand_control
         /**
          * @brief Manages multiple controllers, allowing for real-time switching.
          *        Uses a mapping from ControllerID -> specific controller pointer.
-         * 
-         * In Approach B:
-         *   - Each controller stores its own joint pointers internally.
-         *   - We only call `controller->update(dt)` each cycle.
-         *   - Manager keeps joint pointers for fallback logic (no active controller).
+         *
+         * In the current approach:
+         *   - Each controller stores its own joint pointers (if needed).
+         *   - We only call `controller->update(dt)` each cycle if it's active.
+         *   - Manager keeps a pointer to the joint data for fallback logic (no active controller).
          */
         class ControllerManager
         {
@@ -38,15 +38,17 @@ namespace hand_control
             /**
              * @brief Constructor
              *
-             * @param paramServerPtr   Pointer to ParameterServer for config.
-             * @param jointStatesPtr   Pointer to array of JointState (from HAL).
-             * @param jointCommandsPtr Pointer to array of JointCommand (from HAL).
-             * @param jointCount       Number of joints.
+             * @param paramServerPtr    Pointer to ParameterServer for config (must not be null).
+             * @param motionFeedbackPtr Pointer to array of JointMotionFeedback (from HAL).
+             * @param motionCommandPtr  Pointer to array of JointMotionCommand (from HAL).
+             * @param jointCount        Number of joints.
              */
-            ControllerManager(const hand_control::merai::ParameterServer* paramServerPtr,
-                              hand_control::merai::JointState* jointStatesPtr,
-                              hand_control::merai::JointCommand* jointCommandsPtr,
-                              std::size_t jointCount);
+            ControllerManager(
+                const hand_control::merai::ParameterServer* paramServerPtr,
+                hand_control::merai::JointMotionFeedback*    motionFeedbackPtr,
+                hand_control::merai::JointMotionCommand*     motionCommandPtr,
+                std::size_t                                  jointCount
+            );
 
             ~ControllerManager();
 
@@ -84,10 +86,11 @@ namespace hand_control
             std::shared_ptr<BaseController> findControllerById(hand_control::merai::ControllerID id);
 
         private:
-            // References to external config and fallback data
             const hand_control::merai::ParameterServer* paramServerPtr_ = nullptr;
-            hand_control::merai::JointState* jointStatesPtr_ = nullptr;
-            hand_control::merai::JointCommand* jointCommandsPtr_ = nullptr;
+
+            // Pointers to the motion-level data from HAL
+            hand_control::merai::JointMotionFeedback* motionFeedbackPtr_ = nullptr;
+            hand_control::merai::JointMotionCommand*  motionCommandPtr_  = nullptr;
             std::size_t jointCount_ = 0;
 
             // Mapping from ControllerID to controller
@@ -101,6 +104,7 @@ namespace hand_control
             SwitchState switchState_{SwitchState::IDLE};
             bool bridgingNeeded_{false};
 
+            // The old and new controllers used during a switch
             std::shared_ptr<BaseController> oldController_{nullptr};
             std::shared_ptr<BaseController> newController_{nullptr};
 

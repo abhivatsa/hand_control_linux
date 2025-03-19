@@ -134,11 +134,11 @@ namespace hand_control
             }
             // We read from the jointBuffer (states) to see if any joint is out of range
             int frontIdx = rtLayout_->jointBuffer.frontIndex.load(std::memory_order_acquire);
-            auto &jointStates = rtLayout_->jointBuffer.buffer[frontIdx].states;
+            auto &jointFeedback = rtLayout_->jointBuffer.buffer[frontIdx].feedback;
 
             for (std::size_t i = 0; i < driveCount_; ++i)
             {
-                double pos = jointStates[i].position;
+                double pos = jointFeedback[i].motion.positionActual;
                 if (pos < jointMin_[i] || pos > jointMax_[i])
                 {
                     forceFault();
@@ -156,7 +156,12 @@ namespace hand_control
 
             // For example, read joint states to see if torque > threshold
             int frontIdx = rtLayout_->jointBuffer.frontIndex.load(std::memory_order_acquire);
-            auto &jointStates = rtLayout_->jointBuffer.buffer[frontIdx].states;
+            auto &jointFeedback = rtLayout_->jointBuffer.buffer[frontIdx].feedback;
+
+            for (int i = 0; i < driveCount_; i++)
+            {
+                
+            }
 
             // Example torque check if paramServer has max torque
             /*

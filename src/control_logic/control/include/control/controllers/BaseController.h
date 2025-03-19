@@ -1,7 +1,5 @@
 #pragma once
 
-#include "merai/RTMemoryLayout.h" // for JointState, JointCommand
-
 namespace hand_control
 {
     namespace control
@@ -19,8 +17,9 @@ namespace hand_control
          *        providing lifecycle methods (init, start, stop, teardown)
          *        and a simplified update(dt) call.
          *
-         * Derived classes that use "Approach B" will store pointers to
-         * JointState, JointCommand, etc. in their constructor or init().
+         * In “Approach B,” derived controllers store pointers to the needed
+         * data structures (e.g., JointFeedbackData, JointCommandData) and
+         * read/write in their update() method.
          */
         class BaseController
         {

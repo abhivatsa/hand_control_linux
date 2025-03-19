@@ -4,7 +4,7 @@
 // For convenience, bring in the CiA-402 control word definitions
 namespace
 {
-    // Control word definitions
+    // Control word definitions (CiA 402)
     constexpr uint16_t CW_FAULT_RESET       = 0x0080;
     constexpr uint16_t CW_SHUTDOWN          = 0x0006;
     constexpr uint16_t CW_SWITCH_ON         = 0x0007;
@@ -18,25 +18,30 @@ namespace hand_control
     namespace control
     {
         DriveStateManager::DriveStateManager(
-            hand_control::merai::ServoRxControl* driveOutputControlPtr,
-            hand_control::merai::ServoTxControl* driveInputControlPtr,
+            hand_control::merai::JointControlCommand* jointCommandPtr,
+            hand_control::merai::JointControlFeedback* jointFeedbackPtr,
             std::size_t driveCount)
-            : driveOutputControlPtr_(driveOutputControlPtr),
-              driveInputControlPtr_(driveInputControlPtr),
+            : jointCommandPtr_(jointCommandPtr),
+              jointFeedbackPtr_(jointFeedbackPtr),
               driveCount_(driveCount)
         {
         }
 
         bool DriveStateManager::init()
         {
-            // Initialization logic, if any
-            // e.g., check that pointers are not null, set defaults, etc.
-            return (driveOutputControlPtr_ && driveInputControlPtr_);
+            // Check pointers
+            if (!jointCommandPtr_ || !jointFeedbackPtr_ || driveCount_ == 0)
+            {
+                std::cerr << "[DriveStateManager] Invalid pointers or drive count.\n";
+                return false;
+            }
+            return true;
         }
 
-        hand_control::merai::DriveStatus DriveStateManager::decodeStatusword(uint16_t statusWord)
+        hand_control::merai::DriveStatus 
+        DriveStateManager::decodeStatusword(uint16_t statusWord)
         {
-            // Based on CiA 402 bit definitions:
+            // Based on CiA 402 bit definitions
             bool fault            = (statusWord & 0x0008) != 0;  // bit 3
             bool switchOnDisabled = (statusWord & 0x0040) != 0;  // bit 6
             bool readyToSwitchOn  = (statusWord & 0x0001) != 0;  // bit 0
@@ -67,73 +72,73 @@ namespace hand_control
         void DriveStateManager::update(const hand_control::merai::DriveCommand* driveCommands,
                                        hand_control::merai::DriveStatus* driveStatus)
         {
-            if (!driveOutputControlPtr_ || !driveInputControlPtr_ || !driveCommands || !driveStatus)
+            if (!jointCommandPtr_ || !jointFeedbackPtr_ || !driveCommands || !driveStatus)
             {
-                // In production code, handle null pointers (log error, etc.)
+                // Handle null pointers
                 return;
             }
 
             for (std::size_t i = 0; i < driveCount_; ++i)
             {
-                // Decode the status word for each drive
-                uint16_t sw = driveInputControlPtr_[i].statusWord;
+                // 1) Decode the status word (CiA-402) from JointControlFeedback
+                uint16_t sw = jointFeedbackPtr_[i].statusWord;
                 driveStatus[i] = decodeStatusword(sw);
 
-                // Decide what control word to send based on the drive status + command
+                // 2) Decide on the new control word based on drive status + input command
                 hand_control::merai::DriveCommand cmd = driveCommands[i];
                 uint16_t controlWord = CW_DISABLE_VOLTAGE; // default
 
                 switch (driveStatus[i])
                 {
-                    case hand_control::merai::DriveStatus::FAULT:
-                        if (cmd == hand_control::merai::DriveCommand::FAULT_RESET)
-                            controlWord = CW_FAULT_RESET;
-                        else
-                            controlWord = CW_DISABLE_VOLTAGE;
-                        break;
-
-                    case hand_control::merai::DriveStatus::SWITCH_ON_DISABLED:
-                        controlWord = CW_SHUTDOWN;
-                        break;
-
-                    case hand_control::merai::DriveStatus::NOT_READY_TO_SWITCH_ON:
+                case hand_control::merai::DriveStatus::FAULT:
+                    if (cmd == hand_control::merai::DriveCommand::FAULT_RESET)
+                        controlWord = CW_FAULT_RESET;
+                    else
                         controlWord = CW_DISABLE_VOLTAGE;
-                        break;
+                    break;
 
-                    case hand_control::merai::DriveStatus::READY_TO_SWITCH_ON:
+                case hand_control::merai::DriveStatus::SWITCH_ON_DISABLED:
+                    controlWord = CW_SHUTDOWN;
+                    break;
+
+                case hand_control::merai::DriveStatus::NOT_READY_TO_SWITCH_ON:
+                    controlWord = CW_DISABLE_VOLTAGE;
+                    break;
+
+                case hand_control::merai::DriveStatus::READY_TO_SWITCH_ON:
+                    controlWord = CW_SWITCH_ON;
+                    break;
+
+                case hand_control::merai::DriveStatus::SWITCHED_ON:
+                    if (cmd == hand_control::merai::DriveCommand::ALLOW_OPERATION)
+                        controlWord = CW_ENABLE_OPERATION;
+                    else
                         controlWord = CW_SWITCH_ON;
-                        break;
+                    break;
 
-                    case hand_control::merai::DriveStatus::SWITCHED_ON:
-                        if (cmd == hand_control::merai::DriveCommand::ALLOW_OPERATION)
-                            controlWord = CW_ENABLE_OPERATION;
-                        else
-                            controlWord = CW_SWITCH_ON;
-                        break;
+                case hand_control::merai::DriveStatus::OPERATION_ENABLED:
+                    if (cmd == hand_control::merai::DriveCommand::ALLOW_OPERATION)
+                        controlWord = CW_ENABLE_OPERATION;
+                    else if (cmd == hand_control::merai::DriveCommand::FORCE_DISABLE)
+                        controlWord = CW_SWITCH_ON;
+                    else
+                        controlWord = CW_ENABLE_OPERATION;
+                    break;
 
-                    case hand_control::merai::DriveStatus::OPERATION_ENABLED:
-                        if (cmd == hand_control::merai::DriveCommand::ALLOW_OPERATION)
-                            controlWord = CW_ENABLE_OPERATION;
-                        else if (cmd == hand_control::merai::DriveCommand::FORCE_DISABLE)
-                            controlWord = CW_SWITCH_ON;
-                        else
-                            controlWord = CW_ENABLE_OPERATION;
-                        break;
+                case hand_control::merai::DriveStatus::QUICK_STOP:
+                    if (cmd == hand_control::merai::DriveCommand::ALLOW_OPERATION)
+                        controlWord = CW_SWITCH_ON;
+                    else
+                        controlWord = CW_QUICK_STOP;
+                    break;
 
-                    case hand_control::merai::DriveStatus::QUICK_STOP:
-                        if (cmd == hand_control::merai::DriveCommand::ALLOW_OPERATION)
-                            controlWord = CW_SWITCH_ON;
-                        else
-                            controlWord = CW_QUICK_STOP;
-                        break;
-
-                    default:
-                        controlWord = CW_DISABLE_VOLTAGE;
-                        break;
+                default:
+                    controlWord = CW_DISABLE_VOLTAGE;
+                    break;
                 }
 
-                // Write controlWord to the corresponding output control
-                driveOutputControlPtr_[i].controlWord = controlWord;
+                // 3) Write the computed control word into JointControlCommand
+                jointCommandPtr_[i].controlWord = controlWord;
             }
         }
 

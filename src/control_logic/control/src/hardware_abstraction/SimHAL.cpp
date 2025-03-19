@@ -1,5 +1,5 @@
 #include <iostream>
-#include <cmath>  // for std::sin, etc.
+#include <cmath>
 
 #include "control/hardware_abstraction/SimHAL.h"
 
@@ -28,35 +28,41 @@ namespace hand_control
 
         bool SimHAL::init()
         {
-            // Setup driveCount_ from paramServerPtr_
-            driveCount_ = paramServerPtr_->driveCount;
-            if (driveCount_ > hand_control::merai::MAX_DRIVES)
+            // 1) Determine how many drives from paramServerPtr_
+            if (paramServerPtr_)
             {
-                driveCount_ = hand_control::merai::MAX_DRIVES;
+                driveCount_ = paramServerPtr_->driveCount;
+            }
+            // Cap at MAX_SERVO_DRIVES
+            if (driveCount_ > hand_control::merai::MAX_SERVO_DRIVES)
+            {
+                driveCount_ = hand_control::merai::MAX_SERVO_DRIVES;
             }
 
-            // Zero out local arrays for joint data and drive control
+            // 2) Clear local arrays
             for (int i = 0; i < driveCount_; ++i)
             {
-                localJointStates_[i].position = 0.0;
-                localJointStates_[i].velocity = 0.0;
-                localJointStates_[i].torque   = 0.0;
+                // Control commands / feedback
+                localJointControlCommand_[i]  = {};
+                localJointControlFeedback_[i] = {};
 
-                localJointCommands_[i].position = 0.0;
-                localJointCommands_[i].velocity = 0.0;
-                localJointCommands_[i].torque   = 0.0;
+                // Motion commands / feedback
+                localJointMotionCommand_[i]   = {};
+                localJointMotionFeedback_[i]  = {};
+
+                // I/O
+                localJointFeedbackIO_[i]      = {};
             }
 
+            std::cout << "[SimHAL] init() complete. driveCount_ = " << driveCount_ << "\n";
             return true;
         }
 
         bool SimHAL::read()
         {
-            // 1) Simulate servo drive states in SI if desired
-            // (e.g., simulate sensor feedback or drive state transitions)
+            // In a real system, you'd fetch servo Tx data from shared memory here.
+            // In simulation, we can just generate or update these feedback values as needed.
             simulateDriveStateTransitions();
-
-            // 2) Simulate I/O changes (e.g., toggle digital inputs, sine wave analog values, etc.)
             simulateJointIOChanges();
 
             return true;
@@ -64,41 +70,56 @@ namespace hand_control
 
         bool SimHAL::write()
         {
-            // 1) Accept new commands from localJointCommands_ / localDriveOutputs_
-            // 2) Store these for the next cycle or simulation step
-            // (e.g., simulate writing control commands to hardware)
+            // In a real system, you'd convert local joint commands to servo Rx data.
+            // In simulation, we simply note that new commands have arrived, and possibly
+            // use them to update the next read cycle's feedback.
+
+            // For instance, if you wanted to simulate motion:
+            //   - read localJointMotionCommand_ (like targetPosition)
+            //   - update localJointMotionFeedback_ to reflect a new position each cycle
+            //   - or simply store the commands for future read() usage
+
             return true;
         }
 
         void SimHAL::simulateDriveStateTransitions()
         {
-            // // Simulate state transitions for each drive based on its control word or mode.
-            // for (int i = 0; i < driveCount_; ++i)
-            // {
-            //     // Example: If controlWord is 0x000F, enable operation (simulate status)
-            //     if (DriveInputControl_[i].controlWord == 0x000F)
-            //     {
-            //         DriveOutputControl_[i].statusWord |= 0x01; // Simulate "operation enabled" status
-            //     }
+            // Example: If a control word is set in localJointControlCommand_, update localJointControlFeedback_.
+            for (int i = 0; i < driveCount_; ++i)
+            {
+                // If controlWord is non-zero, we might say it's "enabled"
+                if (localJointControlCommand_[i].controlWord != 0)
+                {
+                    // e.g., set statusWord to some "enabled" bit
+                    localJointControlFeedback_[i].statusWord = 0x0001;
+                }
+                else
+                {
+                    localJointControlFeedback_[i].statusWord = 0x0000;
+                }
 
-            //     // You can add more complex logic here based on control bits or internal states
-            // }
+                // You could also interpret "modeOfOperation" from localJointMotionCommand_ and simulate
+                // different behaviors in localJointMotionFeedback_.
+            }
         }
 
         void SimHAL::simulateJointIOChanges()
         {
-            // Example: Simulate digital and analog I/O signals for joints
+            // Example: Toggle digital input states or simulate analog input changes.
             for (int i = 0; i < driveCount_; ++i)
             {
-                // Toggle digital input
-                localJointIOs_[i].digitalInputA = !localJointIOs_[i].digitalInputA;
+                // For demonstration, just alternate the digitalInputClutch flag each cycle
+                localJointFeedbackIO_[i].digitalInputClutch = 
+                    !localJointFeedbackIO_[i].digitalInputClutch;
 
-                // Generate a sine wave analog input (e.g., simulating a sensor value)
-                localJointIOs_[i].analogInput = std::sin(i * 0.1); // Simple sine wave pattern
+                // Simulate an analog input with a sine wave (for demonstration)
+                double angle = static_cast<double>(i) * 0.5;  // or use a time-based increment
+                localJointFeedbackIO_[i].analogInputPinch = std::sin(angle);
 
-                // Optionally, simulate outputs based on joint commands
-                localJointIOs_[i].digitalOutputA = localJointCommands_[i].torque > 0.5;  // Example output logic
+                // Possibly read localJointMotionCommand_[i] and do something with it
+                // to produce a feedback effect in localJointMotionFeedback_[i].
             }
         }
+
     } // namespace control
 } // namespace hand_control

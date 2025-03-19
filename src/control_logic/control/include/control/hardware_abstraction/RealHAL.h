@@ -6,9 +6,9 @@
 #include <cmath>
 
 // merai includes
-#include "merai/RTMemoryLayout.h"  
-#include "merai/ParameterServer.h" 
-#include "merai/SharedLogger.h"    
+#include "merai/RTMemoryLayout.h"
+#include "merai/ParameterServer.h"
+#include "merai/SharedLogger.h"
 
 #include "control/hardware_abstraction/BaseHAL.h"
 
@@ -20,84 +20,129 @@ namespace hand_control
         {
         public:
             RealHAL(
-                hand_control::merai::RTMemoryLayout *rtLayout,
-                const hand_control::merai::ParameterServer *paramServerPtr,
-                hand_control::merai::multi_ring_logger_memory *loggerMem);
+                hand_control::merai::RTMemoryLayout*           rtLayout,
+                const hand_control::merai::ParameterServer*    paramServerPtr,
+                hand_control::merai::multi_ring_logger_memory* loggerMem);
 
             ~RealHAL() override = default;
 
-            // --------------------------------------------------------------------
+            // --------------------------------------------------
             // Implementing BaseHAL
-            // --------------------------------------------------------------------
+            // --------------------------------------------------
             bool init() override;
             bool read() override;
             bool write() override;
 
-            // Joint data
-            hand_control::merai::JointState* getJointStatesPtr() override
+            // ---------------------------
+            // Control-level data access
+            // ---------------------------
+            hand_control::merai::JointControlCommand* getJointControlCommandPtr() override
             {
-                return localJointStates_.data();
+                return localJointControlCommand_.data();
             }
 
-            hand_control::merai::JointCommand* getJointCommandsPtr() override
+            hand_control::merai::JointControlFeedback* getJointControlFeedbackPtr() override
             {
-                return localJointCommands_.data();
+                return localJointControlFeedback_.data();
             }
 
-            hand_control::merai::JointIO* getJointIOPtr() override
+            // ---------------------------
+            // Motion-level data access
+            // ---------------------------
+            hand_control::merai::JointMotionCommand* getJointMotionCommandPtr() override
             {
-                return localJointIOs_.data();
+                return localJointMotionCommand_.data();
             }
 
-            size_t getJointCount() const override
+            hand_control::merai::JointMotionFeedback* getJointMotionFeedbackPtr() override
             {
-                return driveCount_;
+                return localJointMotionFeedback_.data();
             }
 
-            // Drive control data
-            hand_control::merai::ServoTxControl* getDriveInputControlPtr() override
+            // ---------------------------
+            // IO data access
+            // ---------------------------
+            hand_control::merai::JointFeedbackIO* getJointFeedbackIOPtr() override
             {
-                return DriveInputControl_.data();
+                return localJointFeedbackIO_.data();
             }
 
-            hand_control::merai::ServoRxControl* getDriveOutputControlPtr() override
+            hand_control::merai::JointCommandIO* getJointCommandIOPtr() override
             {
-                return DriveOutputControl_.data();
+                return localJointCommandIO_.data();
             }
 
+            // ---------------------------
+            // Drive count
+            // ---------------------------
             size_t getDriveCount() const override
             {
                 return driveCount_;
             }
 
         private:
-            // Shared memory, config, logger references
-            hand_control::merai::RTMemoryLayout* rtLayout_ = nullptr;
-            const hand_control::merai::ParameterServer* paramServerPtr_ = nullptr;
-            hand_control::merai::multi_ring_logger_memory* loggerMem_ = nullptr;
+            // --------------------------------------------------
+            // References to shared memory, config, logger
+            // --------------------------------------------------
+            hand_control::merai::RTMemoryLayout*           rtLayout_       = nullptr;
+            const hand_control::merai::ParameterServer*    paramServerPtr_ = nullptr;
+            hand_control::merai::multi_ring_logger_memory* loggerMem_      = nullptr;
 
             // Number of drives/joints
             int driveCount_ = 0;
 
-            // Local arrays for servo control bits (feedback and commands)
-            std::array<hand_control::merai::ServoTxControl, hand_control::merai::MAX_DRIVES> DriveInputControl_;
-            std::array<hand_control::merai::ServoRxControl, hand_control::merai::MAX_DRIVES> DriveOutputControl_;
+            // --------------------------------------------------
+            // Local joint-level data structures
+            // --------------------------------------------------
 
-            // Joint data in SI
-            std::array<hand_control::merai::JointState,   hand_control::merai::MAX_DRIVES> localJointStates_;
-            std::array<hand_control::merai::JointCommand, hand_control::merai::MAX_DRIVES> localJointCommands_;
-            std::array<hand_control::merai::JointIO,      hand_control::merai::MAX_DRIVES> localJointIOs_;
+            // Control commands & feedback
+            std::array<hand_control::merai::JointControlCommand,
+                       hand_control::merai::MAX_SERVO_DRIVES>   localJointControlCommand_;
+            std::array<hand_control::merai::JointControlFeedback,
+                       hand_control::merai::MAX_SERVO_DRIVES>   localJointControlFeedback_;
 
-            // **Local copy of each joint's config** (gear ratio, offset, etc.).
-            // Adjust the type to match your paramServer->joints[i] type.
-            std::array<hand_control::merai::JointConfig, hand_control::merai::MAX_DRIVES> localJointConfigs_;
+            // Motion commands & feedback (in SI units)
+            std::array<hand_control::merai::JointMotionCommand,
+                       hand_control::merai::MAX_SERVO_DRIVES>   localJointMotionCommand_;
+            std::array<hand_control::merai::JointMotionFeedback,
+                       hand_control::merai::MAX_SERVO_DRIVES>   localJointMotionFeedback_;
+
+            // IO feedback & command arrays (digital/analog)
+            std::array<hand_control::merai::JointFeedbackIO,
+                       hand_control::merai::MAX_SERVO_DRIVES>   localJointFeedbackIO_;
+            std::array<hand_control::merai::JointCommandIO,
+                       hand_control::merai::MAX_SERVO_DRIVES>   localJointCommandIO_;
+
+            // Local copy of each joint's config (gear ratio, offset, etc.)
+            std::array<hand_control::merai::JointConfig,
+                       hand_control::merai::MAX_SERVO_DRIVES>   localJointConfigs_;
 
         private:
+            // --------------------------------------------------
             // Private helpers for reading/writing EtherCAT data
-            bool mapServoTxData(const std::array<hand_control::merai::ServoTxPdo, hand_control::merai::MAX_DRIVES>& servoTxArray);
-            bool convertTxToJointStates();
-            bool convertJointCommandsToRx();
-            bool mapServoRxData(std::array<hand_control::merai::ServoRxPdo, hand_control::merai::MAX_DRIVES>& servoRxArray);
+            // --------------------------------------------------
+
+            /**
+             * @brief Reads servo Tx data from shared memory, converts to SI units,
+             *        and populates local feedback arrays in one pass.
+             *
+             * @param servoTxArray Reference to the array of ServoTxPdo from shared memory.
+             * @return true if successful, false otherwise
+             */
+            bool mapAndConvertServoTxData(
+                const std::array<hand_control::merai::ServoTxPdo,
+                                 hand_control::merai::MAX_SERVO_DRIVES>& servoTxArray);
+
+            /**
+             * @brief Converts local joint commands (in SI) to raw servo units
+             *        and maps them into the servo Rx array in shared memory.
+             *
+             * @param servoRxArray Reference to the array of ServoRxPdo in shared memory.
+             * @return true if successful, false otherwise
+             */
+            bool convertAndMapJointCommandsToServoRxData(
+                std::array<hand_control::merai::ServoRxPdo,
+                           hand_control::merai::MAX_SERVO_DRIVES>& servoRxArray);
         };
 
     } // namespace control

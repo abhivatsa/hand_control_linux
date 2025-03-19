@@ -6,13 +6,13 @@ namespace hand_control
     {
         GravityCompController::GravityCompController(
             const hand_control::robotics::haptic_device::HapticDeviceModel &model,
-            hand_control::merai::JointState *statesPtr,
-            hand_control::merai::JointCommand *commandsPtr,
+            hand_control::merai::JointMotionFeedback* feedbackPtr,
+            hand_control::merai::JointMotionCommand* commandPtr,
             std::size_t numJoints)
             : model_(model),
               dynamics_(model),
-              statesPtr_(statesPtr),
-              commandsPtr_(commandsPtr),
+              feedbackPtr_(feedbackPtr),
+              commandPtr_(commandPtr),
               numJoints_(numJoints)
         {
             // Constructor only stores pointers and parameters. No heavy logic here.
@@ -20,8 +20,8 @@ namespace hand_control
 
         bool GravityCompController::init()
         {
-            // Validate pointers and set initial state
-            if (!statesPtr_ || !commandsPtr_ || numJoints_ == 0)
+            // Validate pointers
+            if (!feedbackPtr_ || !commandPtr_ || numJoints_ == 0)
             {
                 return false; // or handle error
             }
@@ -47,25 +47,24 @@ namespace hand_control
                 return;
             }
 
-            // We'll assume a 6-DOF device, but if numJoints_ can vary, adapt the logic
-            // For safety, limit dof to 6 if your math library uses 6-element vectors
-            const int dof = static_cast<int>(numJoints_);
+            // If numJoints_ can exceed 6, adapt your math library or clamp dof to 6
+            int dof = static_cast<int>(numJoints_);
             if (dof > 6)
             {
-                // Or handle an error, or adapt your math vectors to match dof
+                dof = 6;
             }
 
             // Prepare vectors for inverse dynamics
             hand_control::math::Vector<6> jointAngles, jointVel, jointAcc;
             jointAngles.setZero();
             jointVel.setZero();
-            jointAcc.setZero();  // for pure gravity comp, assume no acceleration
+            jointAcc.setZero(); // for pure gravity comp, assume zero acceleration
 
             // 1) Read joint positions & velocities into your math vectors
             for (int i = 0; i < dof; ++i)
             {
-                jointAngles[i] = statesPtr_[i].position;
-                jointVel[i]    = statesPtr_[i].velocity;
+                jointAngles[i] = feedbackPtr_[i].positionActual;
+                jointVel[i]    = feedbackPtr_[i].velocityActual;
             }
 
             // 2) Compute inverse dynamics
@@ -75,18 +74,18 @@ namespace hand_control
             int ret = dynamics_.computeInverseDynamics(jointAngles, jointVel, jointAcc, outTorques);
             if (ret != 0)
             {
-                // fallback: zero torques if an error code
+                // fallback: zero torques if there's an error code
                 for (int i = 0; i < dof; ++i)
                 {
-                    commandsPtr_[i].torque = 0.0;
+                    commandPtr_[i].targetTorque = 0.0;
                 }
                 return;
             }
 
-            // 3) Write torques to commands array
+            // 3) Write torques to the command array
             for (int i = 0; i < dof; ++i)
             {
-                commandsPtr_[i].torque = gravityScale_ * outTorques[i];
+                commandPtr_[i].targetTorque = gravityScale_ * outTorques[i];
             }
         }
 

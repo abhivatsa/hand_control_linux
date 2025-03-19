@@ -1,6 +1,6 @@
 #include <iostream>
 #include <stdexcept>
-#include <cmath>  // for M_PI or any math
+#include <cmath>  // for M_PI or other math constants
 
 #include "control/hardware_abstraction/RealHAL.h"
 
@@ -9,15 +9,66 @@ namespace hand_control
     namespace control
     {
 
+        //------------------------------------------------------------------------------
+        // Inline helper functions for reading
+        //------------------------------------------------------------------------------
+
+        /// Convert raw servo position to radians (plus offset).
+        static inline double convertPositionRawToRad(double rawPos, const hand_control::merai::JointConfig& cfg)
+        {
+            // Example: rawPos * 0.001 => rad, then apply gear ratio, direction, offset
+            return (rawPos * 0.001) * cfg.gear_ratio * cfg.axis_direction + cfg.position_offset;
+        }
+
+        /// Convert raw servo velocity to rad/s.
+        static inline double convertVelocityRawToRad(double rawVel, const hand_control::merai::JointConfig& cfg)
+        {
+            // Example: rawVel * 0.0001 => rad/s, then apply gear ratio, direction
+            return (rawVel * 0.0001) * cfg.gear_ratio * cfg.axis_direction;
+        }
+
+        /// Convert raw servo torque to Nm.
+        static inline double convertTorqueRawToNm(double rawTorque, const hand_control::merai::JointConfig& cfg)
+        {
+            // Example: rawTorque * 0.01 => Nm, then apply gear ratio, direction
+            return (rawTorque * 0.01) * cfg.gear_ratio * cfg.torque_axis_direction;
+        }
+
+        //------------------------------------------------------------------------------
+        // Inline helper functions for writing
+        //------------------------------------------------------------------------------
+
+        /// Convert from target position in radians to raw servo position units.
+        static inline int32_t convertPositionRadToRaw(double posRad, const hand_control::merai::JointConfig& cfg)
+        {
+            // Reverse of convertPositionRawToRad: (posRad - offset) / (gearRatio * axisDir)
+            // Example scaling: 1 raw => 0.001 rad => so multiply by 1000
+            double adjPos = (posRad - cfg.position_offset) / (cfg.gear_ratio * cfg.axis_direction);
+            return static_cast<int32_t>(adjPos * 1000.0);
+        }
+
+        /// Convert from target torque in Nm to raw servo torque units.
+        static inline int16_t convertTorqueNmToRaw(double torqueNm, const hand_control::merai::JointConfig& cfg)
+        {
+            // Reverse of convertTorqueRawToNm: 1 raw => 0.01 Nm
+            // So multiply by 100, plus handle gear ratio/direction
+            double adjTorque = torqueNm / (cfg.gear_ratio * cfg.torque_axis_direction);
+            return static_cast<int16_t>(adjTorque * 100.0);
+        }
+
+        //------------------------------------------------------------------------------
+        // Constructor / Destructor
+        //------------------------------------------------------------------------------
+
         RealHAL::RealHAL(
             hand_control::merai::RTMemoryLayout*           rtLayout,
             const hand_control::merai::ParameterServer*    paramServerPtr,
-            hand_control::merai::multi_ring_logger_memory* loggerMem
-        )
+            hand_control::merai::multi_ring_logger_memory* loggerMem)
             : rtLayout_(rtLayout),
               paramServerPtr_(paramServerPtr),
               loggerMem_(loggerMem)
         {
+            // Basic pointer checks
             if (!rtLayout_)
             {
                 throw std::runtime_error("[RealHAL] Null rtLayout passed to constructor.");
@@ -34,14 +85,15 @@ namespace hand_control
 
             // 1) Determine how many drives from paramServerPtr_
             driveCount_ = paramServerPtr_->driveCount;
-            if (driveCount_ > hand_control::merai::MAX_DRIVES)
+            if (driveCount_ > hand_control::merai::MAX_SERVO_DRIVES)
             {
-                driveCount_ = hand_control::merai::MAX_DRIVES;
+                std::cerr << "[RealHAL] Requested driveCount (" << driveCount_
+                          << ") exceeds MAX_SERVO_DRIVES; capping.\n";
+                driveCount_ = hand_control::merai::MAX_SERVO_DRIVES;
             }
 
-            // 2) Load static servo/joint config
-            //    Adjust if your paramServer uses a different structure or naming.
-            for (int i = 0; i < driveCount_; i++)
+            // 2) Load static servo/joint config from ParameterServer
+            for (int i = 0; i < driveCount_; ++i)
             {
                 localJointConfigs_[i] = paramServerPtr_->joints[i];
             }
@@ -49,45 +101,38 @@ namespace hand_control
             // 3) Zero out local arrays
             for (int i = 0; i < driveCount_; ++i)
             {
-                // Clear DriveInputControl_ / DriveOutputControl_ if needed
-                DriveInputControl_[i] = {};  
-                DriveOutputControl_[i] = {};
-
-                localJointStates_[i].position = 0.0;
-                localJointStates_[i].velocity = 0.0;
-                localJointStates_[i].torque   = 0.0;
-
-                localJointCommands_[i].position = 0.0;
-                localJointCommands_[i].velocity = 0.0;
-                localJointCommands_[i].torque   = 0.0;
+                localJointControlCommand_[i]  = {};
+                localJointControlFeedback_[i] = {};
+                localJointMotionCommand_[i]   = {};
+                localJointMotionFeedback_[i]  = {};
+                localJointFeedbackIO_[i]      = {};
             }
 
+            std::cout << "[RealHAL] init() complete. driveCount_ = " << driveCount_ << "\n";
             return true;
         }
 
+        //------------------------------------------------------------------------------
+        // Public BaseHAL Methods
+        //------------------------------------------------------------------------------
+
         bool RealHAL::read()
         {
+            // 1) Safety check
             if (!rtLayout_)
             {
                 std::cerr << "[RealHAL] read() failed: rtLayout_ is null.\n";
                 return false;
             }
 
-            // 1) Acquire the latest servoTx array from shared memory
+            // 2) Acquire the latest servo Tx array from shared memory
             int servoFrontIdx = rtLayout_->servoBuffer.frontIndex.load(std::memory_order_acquire);
-            auto& servoTxArray = rtLayout_->servoBuffer.buffer[servoFrontIdx].tx;
+            const auto& servoTxArray = rtLayout_->servoBuffer.buffer[servoFrontIdx].tx;
 
-            // 2) Map servoTxArray -> DriveInputControl_
-            // if (!mapServoTxData(servoTxArray))
-            // {
-            //     std::cerr << "[RealHAL] mapServoTxData failed.\n";
-            //     return false;
-            // }
-
-            // 3) Convert DriveInputControl_ -> localJointStates_
-            if (!convertTxToJointStates())
+            // 3) Map and convert from servo Tx data → joint feedback in SI
+            if (!mapAndConvertServoTxData(servoTxArray))
             {
-                std::cerr << "[RealHAL] convertTxToJointStates failed.\n";
+                std::cerr << "[RealHAL] mapAndConvertServoTxData() failed.\n";
                 return false;
             }
 
@@ -96,139 +141,93 @@ namespace hand_control
 
         bool RealHAL::write()
         {
+            // 1) Safety check
             if (!rtLayout_)
             {
                 std::cerr << "[RealHAL] write() failed: rtLayout_ is null.\n";
                 return false;
             }
 
-            // 1) Convert localJointCommands_ -> DriveOutputControl_
-            if (!convertJointCommandsToRx())
-            {
-                std::cerr << "[RealHAL] convertJointCommandsToRx failed.\n";
-                return false;
-            }
-
-            // 2) Map DriveOutputControl_ -> servoRx array
+            // 2) Convert and map from joint commands in SI → servo Rx data
             int servoFrontIdx = rtLayout_->servoBuffer.frontIndex.load(std::memory_order_acquire);
             auto& servoRxArray = rtLayout_->servoBuffer.buffer[servoFrontIdx].rx;
 
-            // if (!mapServoRxData(servoRxArray))
-            // {
-            //     std::cerr << "[RealHAL] mapServoRxData failed.\n";
-            //     return false;
-            // }
+            if (!convertAndMapJointCommandsToServoRxData(servoRxArray))
+            {
+                std::cerr << "[RealHAL] convertAndMapJointCommandsToServoRxData() failed.\n";
+                return false;
+            }
 
             return true;
         }
 
-        // --------------------------------------------------------------------
-        // Private Helpers
-        // --------------------------------------------------------------------
+        //------------------------------------------------------------------------------
+        // Private Helpers (Read path)
+        //------------------------------------------------------------------------------
 
-        bool RealHAL::mapServoTxData(
+        bool RealHAL::mapAndConvertServoTxData(
             const std::array<hand_control::merai::ServoTxPdo,
-                             hand_control::merai::MAX_DRIVES>& servoTxArray)
+                             hand_control::merai::MAX_SERVO_DRIVES>& servoTxArray)
         {
-            // Copy raw data from servoTxArray into DriveInputControl_
+            // Single pass: copy raw -> local arrays, then convert to SI
             for (int i = 0; i < driveCount_; ++i)
             {
-                // DriveInputControl_[i].statusWord  = servoTxArray[i].statusWord;
-                // DriveInputControl_[i].positionRaw = servoTxArray[i].positionActual;
-                // DriveInputControl_[i].velocityRaw = servoTxArray[i].velocityActual;
-                // DriveInputControl_[i].torqueRaw   = servoTxArray[i].torqueActual;
+                // 1) Control feedback
+                localJointControlFeedback_[i].statusWord = servoTxArray[i].ctrl.statusWord;
 
-                // debug
-                // std::cout << "[RealHAL] Drive " << i
-                //           << " posRaw=" << servoTxArray[i].positionActual << "\n";
+                // 2) Extract raw motion data
+                double rawPos    = static_cast<double>(servoTxArray[i].motion.positionActual);
+                double rawVel    = static_cast<double>(servoTxArray[i].motion.velocityActual);
+                double rawTorque = static_cast<double>(servoTxArray[i].motion.torqueActual);
+
+                // 3) Convert to SI
+                localJointMotionFeedback_[i].positionActual =
+                    convertPositionRawToRad(rawPos, localJointConfigs_[i]);
+                localJointMotionFeedback_[i].velocityActual =
+                    convertVelocityRawToRad(rawVel, localJointConfigs_[i]);
+                localJointMotionFeedback_[i].torqueActual =
+                    convertTorqueRawToNm(rawTorque, localJointConfigs_[i]);
+
+                // 4) I/O feedback
+                uint32_t digitalInputs = servoTxArray[i].io.digitalInputs;
+                localJointFeedbackIO_[i].digitalInputClutch = (digitalInputs & 0x01) != 0;  // example bit
+                localJointFeedbackIO_[i].digitalInputThumb  = (digitalInputs & 0x02) != 0;  // example bit
+
+                localJointFeedbackIO_[i].analogInputPinch =
+                    static_cast<double>(servoTxArray[i].io.analogInput);
             }
             return true;
         }
 
-        bool RealHAL::convertTxToJointStates()
-        {
-            // Convert from raw drive inputs -> SI-based joint states
-            for (int i = 0; i < driveCount_; ++i)
-            {
-                const auto& driveIn = DriveInputControl_[i];
-                const auto& cfg     = localJointConfigs_[i];
-                auto&       jState  = localJointStates_[i];
+        //------------------------------------------------------------------------------
+        // Private Helpers (Write path)
+        //------------------------------------------------------------------------------
 
-                // Example usage:
-                double gearRatio      = cfg.gear_ratio;
-                int    axisDirection  = cfg.axis_direction; // ±1
-                double posOffset      = cfg.position_offset;
-                int    torqueDir      = cfg.torque_axis_direction; // ±1
-
-                // // Convert raw counts to radians
-                // // e.g. 1 raw => 0.001 rad
-                // double posRad = static_cast<double>(driveIn.positionRaw) * 0.001;
-                // posRad *= gearRatio * axisDirection;
-                // posRad += posOffset;
-
-                // double velRad = static_cast<double>(driveIn.velocityRaw) * 0.0001;
-                // velRad *= (gearRatio * axisDirection);
-
-                // double torqueNm = static_cast<double>(driveIn.torqueRaw) * 0.01;
-                // torqueNm *= (gearRatio * torqueDir);
-
-                // jState.position = posRad;
-                // jState.velocity = velRad;
-                // jState.torque   = torqueNm;
-            }
-            return true;
-        }
-
-        bool RealHAL::convertJointCommandsToRx()
-        {
-            // Convert from localJointCommands_ (SI) -> DriveOutputControl_ (raw)
-            for (int i = 0; i < driveCount_; ++i)
-            {
-                const auto& cfg = localJointConfigs_[i];
-                const auto& cmd = localJointCommands_[i];
-                auto&       out = DriveOutputControl_[i];
-
-                double gearRatio      = cfg.gear_ratio;
-                int    axisDirection  = cfg.axis_direction;
-                double posOffset      = cfg.position_offset;
-                int    torqueDir      = cfg.torque_axis_direction;
-
-                // position (rad -> raw)
-                double posRad = cmd.position - posOffset;
-                posRad /= (gearRatio * axisDirection);
-                int rawPos = static_cast<int>(posRad * 1000.0); // inverse of 1 raw => 0.001 rad
-
-                // velocity (rad/s -> raw)
-                double velRad = cmd.velocity / (gearRatio * axisDirection);
-                int rawVel = static_cast<int>(velRad * 10000.0);
-
-                // torque (Nm -> raw)
-                double tNm = cmd.torque / (gearRatio * torqueDir);
-                int rawTorque = static_cast<int>(tNm * 100.0); // inverse of 1 raw => 0.01 Nm
-
-                // Fill out typical fields
-                out.controlWord       = 0x000F; // example
-                out.modeOfOperation   = 9;      // e.g. torque mode
-                // out.targetPositionRaw = rawPos;
-                // out.targetVelocityRaw = rawVel;
-                // out.targetTorqueRaw   = rawTorque;
-            }
-            return true;
-        }
-
-        bool RealHAL::mapServoRxData(
+        bool RealHAL::convertAndMapJointCommandsToServoRxData(
             std::array<hand_control::merai::ServoRxPdo,
-                       hand_control::merai::MAX_DRIVES>& servoRxArray)
+                       hand_control::merai::MAX_SERVO_DRIVES>& servoRxArray)
         {
-            // Copy from DriveOutputControl_ -> servoRxArray
+            // Single pass: read local SI commands, convert to raw, write into servoRxArray
             for (int i = 0; i < driveCount_; ++i)
             {
-                const auto& out = DriveOutputControl_[i];
-                // servoRxArray[i].controlWord     = out.controlWord;
-                // servoRxArray[i].modeOfOperation = out.modeOfOperation;
-                // servoRxArray[i].targetPosition  = out.targetPositionRaw;
-                // servoRxArray[i].targetVelocity  = out.targetVelocityRaw;
-                // servoRxArray[i].targetTorque    = out.targetTorqueRaw;
+                // 1) Retrieve local joint commands
+                const auto& ctrlCmd   = localJointControlCommand_[i];
+                const auto& motionCmd = localJointMotionCommand_[i];
+                const auto& cfg       = localJointConfigs_[i];
+
+                // 2) Convert to raw servo units
+                int32_t rawPos    = convertPositionRadToRaw(motionCmd.targetPosition, cfg);
+                int16_t rawTorque = convertTorqueNmToRaw(motionCmd.targetTorque,     cfg);
+
+                // 3) Fill servoRx data
+                servoRxArray[i].ctrl.controlWord = ctrlCmd.controlWord;
+
+                servoRxArray[i].motion.modeOfOperation = motionCmd.modeOfOperation;
+                servoRxArray[i].motion.targetPosition  = rawPos;
+                servoRxArray[i].motion.targetTorque    = rawTorque;
+
+                // 4) If you have joint-level digital/analog outputs, you can map them here
+                //    e.g. servoRxArray[i].io.digitalOutputs = ...
             }
             return true;
         }

@@ -1,87 +1,122 @@
 #pragma once
 
 #include <array>
+#include <iostream>
+#include <cmath>
 
-#include "merai/RTMemoryLayout.h"      // hand_control::merai::RTMemoryLayout, JointState, etc.
-#include "merai/ParameterServer.h"     // hand_control::merai::ParameterServer
-#include "merai/SharedLogger.h"        // hand_control::merai::multi_ring_logger_memory
-
-#include "control/hardware_abstraction/BaseHAL.h"  // hand_control::control::BaseHAL
+#include "merai/RTMemoryLayout.h"          // for hand_control::merai::RTMemoryLayout, etc.
+#include "merai/ParameterServer.h"         // for hand_control::merai::ParameterServer
+#include "merai/SharedLogger.h"            // for hand_control::merai::multi_ring_logger_memory
+#include "control/hardware_abstraction/BaseHAL.h"  // for BaseHAL interface
 
 namespace hand_control
 {
     namespace control
     {
-        class SimHAL : public hand_control::control::BaseHAL
+        /**
+         * @brief A simulation-based Hardware Abstraction Layer (HAL)
+         *        that mimics RealHAL but doesn't interact with real EtherCAT hardware.
+         */
+        class SimHAL : public BaseHAL
         {
         public:
-            SimHAL(
-                hand_control::merai::RTMemoryLayout* rtLayout,
-                const hand_control::merai::ParameterServer* paramServerPtr,
-                hand_control::merai::multi_ring_logger_memory* loggerMem
-            );
+            SimHAL(hand_control::merai::RTMemoryLayout* rtLayout,
+                   const hand_control::merai::ParameterServer* paramServerPtr,
+                   hand_control::merai::multi_ring_logger_memory* loggerMem);
 
             ~SimHAL() override = default;
 
+            // --------------------------------------------------------------------
+            // BaseHAL interface
+            // --------------------------------------------------------------------
             bool init() override;
             bool read() override;
             bool write() override;
 
-            // Joint Data
-            hand_control::merai::JointState* getJointStatesPtr() override
+            // ---------------------------
+            // Control-level data access
+            // ---------------------------
+            hand_control::merai::JointControlCommand* getJointControlCommandPtr() override
             {
-                return localJointStates_.data();
+                return localJointControlCommand_.data();
             }
 
-            hand_control::merai::JointCommand* getJointCommandsPtr() override
+            hand_control::merai::JointControlFeedback* getJointControlFeedbackPtr() override
             {
-                return localJointCommands_.data();
+                return localJointControlFeedback_.data();
             }
 
-            hand_control::merai::JointIO* getJointIOPtr() override
+            // ---------------------------
+            // Motion-level data access
+            // ---------------------------
+            hand_control::merai::JointMotionCommand* getJointMotionCommandPtr() override
             {
-                return localJointIOs_.data();
+                return localJointMotionCommand_.data();
             }
 
-            size_t getJointCount() const override
+            hand_control::merai::JointMotionFeedback* getJointMotionFeedbackPtr() override
             {
-                return driveCount_;
+                return localJointMotionFeedback_.data();
             }
 
-            // Drive Data
-            hand_control::merai::ServoTxControl* getDriveInputControlPtr() override
+            // ---------------------------
+            // IO data access
+            // ---------------------------
+            hand_control::merai::JointFeedbackIO* getJointFeedbackIOPtr() override
             {
-                return DriveInputControl_.data();
+                return localJointFeedbackIO_.data();
             }
 
-            hand_control::merai::ServoRxControl* getDriveOutputControlPtr() override
+            hand_control::merai::JointCommandIO* getJointCommandIOPtr() override
             {
-                return DriveOutputControl_.data();
+                return localJointCommandIO_.data();
             }
 
+            // --------------------------------------------------------------------
+            // Misc
+            // --------------------------------------------------------------------
             size_t getDriveCount() const override
             {
                 return driveCount_;
             }
 
         private:
+            // --------------------------------------------------------------------
+            // References to shared memory, config, logger (as needed)
+            // --------------------------------------------------------------------
             hand_control::merai::RTMemoryLayout*            rtLayout_       = nullptr;
             const hand_control::merai::ParameterServer*     paramServerPtr_ = nullptr;
             hand_control::merai::multi_ring_logger_memory*  loggerMem_      = nullptr;
 
+            // Number of simulated drives/joints
             int driveCount_ = 0;
 
-            // Raw drive data for DSM + simulation
-            std::array<hand_control::merai::ServoTxControl,  hand_control::merai::MAX_SERVO_DRIVES> DriveInputControl_{};
-            std::array<hand_control::merai::ServoRxControl, hand_control::merai::MAX_SERVO_DRIVES> DriveOutputControl_{};
+            // --------------------------------------------------------------------
+            // Joint-level arrays (simulation data)
+            // --------------------------------------------------------------------
 
-            // Joint data in SI
-            std::array<hand_control::merai::JointState,   hand_control::merai::MAX_SERVO_DRIVES> localJointStates_;
-            std::array<hand_control::merai::JointCommand, hand_control::merai::MAX_SERVO_DRIVES> localJointCommands_;
-            std::array<hand_control::merai::JointIO,      hand_control::merai::MAX_SERVO_DRIVES> localJointIOs_;
+            // Control commands / feedback
+            std::array<hand_control::merai::JointControlCommand,
+                       hand_control::merai::MAX_SERVO_DRIVES>   localJointControlCommand_{};
+            std::array<hand_control::merai::JointControlFeedback,
+                       hand_control::merai::MAX_SERVO_DRIVES>   localJointControlFeedback_{};
+
+            // Motion commands / feedback (in SI units)
+            std::array<hand_control::merai::JointMotionCommand,
+                       hand_control::merai::MAX_SERVO_DRIVES>   localJointMotionCommand_{};
+            std::array<hand_control::merai::JointMotionFeedback,
+                       hand_control::merai::MAX_SERVO_DRIVES>   localJointMotionFeedback_{};
+
+            // Joint I/O (digital, analog, etc.)
+            std::array<hand_control::merai::JointFeedbackIO,
+                       hand_control::merai::MAX_SERVO_DRIVES>   localJointFeedbackIO_{};
+            std::array<hand_control::merai::JointCommandIO,
+                       hand_control::merai::MAX_SERVO_DRIVES>   localJointCommandIO_{};
 
         private:
-            // Optionally, a helper to simulate transitions
+            // --------------------------------------------------------------------
+            // Helpers for simulating behavior
+            // --------------------------------------------------------------------
             void simulateDriveStateTransitions();
             void simulateJointIOChanges();
         };

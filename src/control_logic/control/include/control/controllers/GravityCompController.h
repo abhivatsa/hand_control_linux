@@ -4,6 +4,7 @@
 #include "robotics_lib/haptic_device/HapticDeviceModel.h"
 #include "robotics_lib/haptic_device/HapticDeviceDynamics.h"
 #include "math_lib/Vector.h"
+#include "merai/RTMemoryLayout.h" // for DriveCommand, DriveStatus, etc.
 
 namespace hand_control
 {
@@ -19,17 +20,17 @@ namespace hand_control
         public:
             /**
              * @brief Constructor that stores references to the device model,
-             *        as well as pointers to the joint states/commands arrays.
+             *        as well as pointers to the joint feedback/command arrays.
              *
              * @param model        A device model describing kinematics/dynamics.
-             * @param statesPtr    Pointer to array of JointState (size = numJoints).
-             * @param commandsPtr  Pointer to array of JointCommand (size = numJoints).
+             * @param feedbackPtr  Pointer to array of JointMotionFeedback (size = numJoints).
+             * @param commandPtr   Pointer to array of JointMotionCommand (size = numJoints).
              * @param numJoints    Number of joints this controller operates on.
              */
             GravityCompController(
                 const hand_control::robotics::haptic_device::HapticDeviceModel &model,
-                hand_control::merai::JointState *statesPtr,
-                hand_control::merai::JointCommand *commandsPtr,
+                hand_control::merai::JointMotionFeedback* feedbackPtr,
+                hand_control::merai::JointMotionCommand*  commandPtr,
                 std::size_t numJoints);
 
             /**
@@ -47,10 +48,11 @@ namespace hand_control
             /**
              * @brief update
              *   - Called each control cycle (e.g. 1kHz).
-             *   - Reads joint states from statesPtr_, writes torque commands to commandsPtr_.
+             *   - Reads joint positions/velocities from feedbackPtr_,
+             *     writes torque commands to commandPtr_.
              *   - Uses inverse dynamics for gravity compensation.
-             * 
-             * @param dt  Timestep in seconds, e.g. 0.001.
+             *
+             * @param dt  Timestep in seconds, e.g. 0.001 for 1kHz.
              */
             void update(double dt) override;
 
@@ -67,16 +69,16 @@ namespace hand_control
             void teardown() override;
 
         private:
-            // Pointers to joint data (in SI units)
-            hand_control::merai::JointState  *statesPtr_   = nullptr;
-            hand_control::merai::JointCommand* commandsPtr_ = nullptr;
+            // Pointers to motion feedback & command data (SI units)
+            hand_control::merai::JointMotionFeedback* feedbackPtr_ = nullptr;
+            hand_control::merai::JointMotionCommand*  commandPtr_  = nullptr;
             std::size_t numJoints_ = 0;
 
-            // The device model and dynamics object
+            // Device model and dynamics
             const hand_control::robotics::haptic_device::HapticDeviceModel &model_;
             hand_control::robotics::haptic_device::HapticDeviceDynamics dynamics_;
 
-            // Controller parameter(s)
+            // Optional parameter
             double gravityScale_ = 1.0; // scale factor for torque compensation
         };
 

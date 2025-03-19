@@ -1,6 +1,6 @@
 #include "control/controllers/HomingController.h"
 #include <cmath>     // for std::fabs, std::sqrt
-#include <algorithm> // std::max, std::min
+#include <algorithm> // for std::max, std::min
 
 namespace hand_control
 {
@@ -8,13 +8,14 @@ namespace hand_control
     {
         HomingController::HomingController(const double* homePositions,
                                            int numJoints,
-                                           hand_control::merai::JointState* statesPtr,
-                                           hand_control::merai::JointCommand* commandsPtr)
-            : statesPtr_(statesPtr),
-              commandsPtr_(commandsPtr),
+                                           hand_control::merai::JointMotionFeedback* feedbackPtr,
+                                           hand_control::merai::JointMotionCommand*  commandPtr)
+            : feedbackPtr_(feedbackPtr),
+              commandPtr_(commandPtr),
               numJoints_(numJoints)
         {
-            if (numJoints_ > MAX_JOINTS) {
+            if (numJoints_ > MAX_JOINTS)
+            {
                 numJoints_ = MAX_JOINTS; // clamp
             }
 
@@ -27,15 +28,15 @@ namespace hand_control
             // Initialize arrays
             for (int i = 0; i < MAX_JOINTS; i++)
             {
-                iniPositions_[i]  = 0.0;
-                jointAcc_[i]      = 0.0;
+                iniPositions_[i] = 0.0;
+                jointAcc_[i]     = 0.0;
             }
         }
 
         bool HomingController::init()
         {
             // Validate pointers
-            if (!statesPtr_ || !commandsPtr_ || numJoints_ <= 0)
+            if (!feedbackPtr_ || !commandPtr_ || numJoints_ <= 0)
             {
                 return false;
             }
@@ -51,17 +52,15 @@ namespace hand_control
             // Only proceed if we were INIT or STOPPED
             if (state_ == ControllerState::INIT || state_ == ControllerState::STOPPED)
             {
-                // We'll set RUNNING here, but the actual planning (planTrajectory)
-                // is triggered in the first update() call or we can do it right here.
-                state_ = ControllerState::RUNNING;
+                state_       = ControllerState::RUNNING;
                 segmentTime_ = 0.0;
-                isActive_    = false; // We'll plan in update()
+                isActive_    = false; // We'll plan in the first update() call
             }
         }
 
         void HomingController::update(double dt)
         {
-            // If the controller is not RUNNING, do nothing
+            // If not RUNNING, do nothing
             if (state_ != ControllerState::RUNNING)
             {
                 return;
@@ -73,7 +72,8 @@ namespace hand_control
                 double currentPos[MAX_JOINTS];
                 for (int i = 0; i < numJoints_; i++)
                 {
-                    currentPos[i] = statesPtr_[i].position;
+                    // Read from feedback array (actual positions)
+                    currentPos[i] = feedbackPtr_[i].positionActual;
                 }
                 planTrajectory(currentPos);
             }
@@ -85,19 +85,19 @@ namespace hand_control
                 if (segmentTime_ > maxTime_)
                 {
                     segmentTime_ = maxTime_;
-                    isActive_ = false; // we've completed the move
+                    isActive_    = false; // we've completed the move
                 }
 
-                double t1 = globalAccTime_;                // end of accel
+                double t1 = globalAccTime_;                   // end of accel
                 double t2 = globalAccTime_ + globalCruiseTime_; // end of cruise
-                double t3 = t2 + globalAccTime_;           // end of decel => maxTime_
+                double t3 = t2 + globalAccTime_;              // end of decel => maxTime_
 
                 double t = segmentTime_;
 
                 for (int j = 0; j < numJoints_; j++)
                 {
                     double dist = (homePositions_[j] - iniPositions_[j]);
-                    double a = jointAcc_[j]; // includes sign for direction
+                    double a    = jointAcc_[j]; // includes sign for direction
 
                     double pos = iniPositions_[j]; // default to start
                     // Phase-based logic (acc -> cruise -> dec)
@@ -139,10 +139,14 @@ namespace hand_control
                         pos = homePositions_[j];
                     }
 
-                    commandsPtr_[j].position = pos;
-                    // For a pure position-control approach, set torque/velocity to 0
-                    commandsPtr_[j].velocity = 0.0;
-                    commandsPtr_[j].torque   = 0.0;
+                    // Write to the motion commands
+                    commandPtr_[j].targetPosition = pos;
+
+                    // For pure position-control approach, zero out velocity/torque
+                    // (In some controllers, you might set a targetVelocity or partial torque.)
+                    // This is optional, depending on your strategy:
+                    commandPtr_[j].targetTorque   = 0.0; 
+                    // If you have a targetVelocity field in JointMotionCommand, you can set that to 0.0 as well
                 }
             }
             else
@@ -159,7 +163,7 @@ namespace hand_control
             {
                 // Optionally force isActive_ = false
                 isActive_ = false;
-                state_ = ControllerState::STOPPED;
+                state_     = ControllerState::STOPPED;
             }
         }
 
@@ -195,8 +199,8 @@ namespace hand_control
 
                 double dist_needed_full_speed = (v * v) / std::fabs(a);
 
-                double acc_time = 0.0;
-                double cruise_time = 0.0;
+                double acc_time   = 0.0;
+                double cruise_time= 0.0;
                 double local_time = 0.0;
 
                 if (std::fabs(diff) < std::fabs(dist_needed_full_speed))
@@ -227,6 +231,7 @@ namespace hand_control
             globalCruiseTime_ = best_cruise_time;
             maxTime_          = global_total_time;
 
+            // 2) Compute a uniform acceleration that covers the full distance in that time
             double denom = (globalAccTime_ * globalAccTime_
                             + globalAccTime_ * globalCruiseTime_);
             for (int j = 0; j < numJoints_; j++)
@@ -234,7 +239,7 @@ namespace hand_control
                 double diff = homePositions_[j] - iniPositions_[j];
                 if (std::fabs(denom) > 1e-8)
                 {
-                    jointAcc_[j] = diff / denom;
+                    jointAcc_[j] = diff / denom; // includes sign
                 }
                 else
                 {
@@ -251,9 +256,10 @@ namespace hand_control
             // Just hold the current position
             for (int j = 0; j < numJoints_; j++)
             {
-                commandsPtr_[j].position = statesPtr_[j].position;
-                commandsPtr_[j].velocity = 0.0;
-                commandsPtr_[j].torque   = 0.0;
+                double currentPos = feedbackPtr_[j].positionActual;
+                commandPtr_[j].targetPosition = currentPos;
+                // Zero out torque or velocity if your architecture uses it
+                commandPtr_[j].targetTorque = 0.0;
             }
         }
 

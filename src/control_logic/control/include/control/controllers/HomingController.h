@@ -1,7 +1,7 @@
 #pragma once
 
 #include "control/controllers/BaseController.h"
-#include "merai/RTMemoryLayout.h" // for JointState, JointCommand
+#include "merai/RTMemoryLayout.h" // for JointMotionFeedback, JointMotionCommand
 
 namespace hand_control
 {
@@ -11,8 +11,9 @@ namespace hand_control
          * @brief A simple controller that moves all joints from their current position
          *        to a fixed "home" position using a trapezoidal position trajectory.
          *
-         * Approach B: we store pointers to the joint states & commands in the constructor,
-         * then read/write them in update(double dt).
+         * In this “motion-only” approach, we read from JointMotionFeedback (positions, velocities)
+         * and write new position commands to JointMotionCommand. We ignore control word / status word
+         * or any I/O signals.
          */
         class HomingController : public BaseController
         {
@@ -21,50 +22,23 @@ namespace hand_control
 
             /**
              * @brief Constructor.
-             * @param homePositions Array of joint positions to serve as the homing target.
-             * @param numJoints     Number of active joints (<= MAX_JOINTS).
-             * @param statesPtr     Pointer to array of JointState.
-             * @param commandsPtr   Pointer to array of JointCommand.
+             *
+             * @param homePositions  Array of joint positions to serve as the homing target.
+             * @param numJoints      Number of active joints (<= MAX_JOINTS).
+             * @param feedbackPtr    Pointer to array of JointMotionFeedback (one per joint).
+             * @param commandPtr     Pointer to array of JointMotionCommand (one per joint).
              */
             HomingController(const double* homePositions,
                              int numJoints,
-                             hand_control::merai::JointState* statesPtr,
-                             hand_control::merai::JointCommand* commandsPtr);
+                             hand_control::merai::JointMotionFeedback* feedbackPtr,
+                             hand_control::merai::JointMotionCommand*  commandPtr);
 
             ~HomingController() override = default;
 
-            /**
-             * @brief init
-             *  Set internal state to INIT; can do any param loading if needed.
-             */
             bool init() override;
-
-            /**
-             * @brief start
-             *  Called when transitioning to this controller. Here we can plan the trajectory
-             *  from the current position (wherever the joints are) to the homePositions_.
-             */
             void start() override;
-
-            /**
-             * @brief update
-             *  Called each real-time cycle. If homing is active, step the trapezoidal trajectory
-             *  until it finishes. Once finished, hold final position.
-             *
-             * @param dt Timestep in seconds.
-             */
             void update(double dt) override;
-
-            /**
-             * @brief stop
-             *  Called when transitioning away to another controller; stop the motion.
-             */
             void stop() override;
-
-            /**
-             * @brief teardown
-             *  Cleanup if needed, or reset to UNINIT.
-             */
             void teardown() override;
 
         private:
@@ -75,19 +49,19 @@ namespace hand_control
             void planTrajectory(const double* currentPos);
 
             /**
-             * @brief Helper to hold position when the trajectory is inactive.
+             * @brief Helper to hold position when the trajectory is inactive or done.
              */
             void holdPosition();
 
         private:
-            // Store references to the joint data
-            hand_control::merai::JointState*  statesPtr_   = nullptr;
-            hand_control::merai::JointCommand* commandsPtr_ = nullptr;
+            hand_control::merai::JointMotionFeedback* feedbackPtr_ = nullptr;
+            hand_control::merai::JointMotionCommand*  commandPtr_  = nullptr;
             int numJoints_{0};
 
             double homePositions_[MAX_JOINTS];  ///< The target homing position for each joint
             double iniPositions_[MAX_JOINTS];   ///< Positions at the start of homing
             double jointAcc_[MAX_JOINTS];       ///< Computed trapezoid acceleration (sign included)
+
             double segmentTime_{0.0};           ///< Current time in the homing trajectory
             bool  isActive_{false};             ///< True if a homing trajectory is in progress
 

@@ -1,23 +1,35 @@
 #pragma once
 
 #include <cstddef>  // for size_t
-#include "merai/RTMemoryLayout.h"   // hand_control::merai::JointState, JointCommand, IoState, IoCommand
+#include "merai/RTMemoryLayout.h" // For definitions like JointControlCommand, JointMotionCommand, etc.
 
 namespace hand_control
 {
     namespace control
     {
         /**
-         * @brief The BaseHAL interface defines a generic contract
+         * @brief The BaseHAL interface defines the essential contract
          *        for initializing, reading from, and writing commands to hardware (or simulated hardware).
+         *
+         * In the new architecture, we have separate data structures for:
+         *   - Control-level commands/feedback: JointControlCommand / JointControlFeedback
+         *   - Motion-level commands/feedback:  JointMotionCommand / JointMotionFeedback
+         *   - IO-level commands/feedback:      JointCommandIO / JointFeedbackIO
+         *
+         * Each derived HAL (RealHAL, SimHAL) will provide pointers to these arrays,
+         * which the rest of the system can use for reading/writing data in real-time.
          */
         class BaseHAL
         {
         public:
             virtual ~BaseHAL() = default;
 
+            // --------------------------------------------------
+            // Lifecycle
+            // --------------------------------------------------
+
             /**
-             * @brief Initialize hardware or simulation layer.
+             * @brief Initialize the hardware or simulation layer.
              * @return True on success, false on error.
              */
             virtual bool init() = 0;
@@ -29,60 +41,69 @@ namespace hand_control
             virtual bool read() = 0;
 
             /**
-             * @brief Write current commands (joint or drive) out to hardware or simulation.
+             * @brief Write the current joint commands (control or motion) out to hardware or simulation.
              * @return True on success, false on error.
              */
             virtual bool write() = 0;
 
-            /**
-             * @brief Accessor for the local array of joint states in SI units.
-             * @return Pointer to array of JointState structures.
-             */
-            virtual hand_control::merai::JointState* getJointStatesPtr() = 0;
-
-            /**
-             * @brief Accessor for the local array of joint commands in SI units.
-             * @return Pointer to array of JointCommand structures.
-             */
-            virtual hand_control::merai::JointCommand* getJointCommandsPtr() = 0;
-
-            /**
-             * @brief Get the number of joints or actuators this hardware layer manages.
-             * @return The count of joints.
-             */
-            virtual size_t getJointCount() const = 0;
-
             // --------------------------------------------------
-            // Drive data: Simulated or Real Drive I/O
+            // Joint Control (CiA-402) Access
             // --------------------------------------------------
 
             /**
-             * @brief Accessor for the local array of drive input controls.
-             * @return Pointer to the array of drive input control data.
+             * @brief Provides access to the array of JointControlCommand (controlWord, etc.)
+             * @return Pointer to the first element of an array sized getDriveCount().
              */
-            virtual hand_control::merai::ServoTxControl* getDriveInputControlPtr() = 0;
+            virtual hand_control::merai::JointControlCommand* getJointControlCommandPtr() = 0;
 
             /**
-             * @brief Accessor for the local array of drive output controls.
-             * @return Pointer to the array of drive output control data.
+             * @brief Provides access to the array of JointControlFeedback (statusWord, etc.)
+             * @return Pointer to the first element of an array sized getDriveCount().
              */
-            virtual hand_control::merai::ServoRxControl* getDriveOutputControlPtr() = 0;
+            virtual hand_control::merai::JointControlFeedback* getJointControlFeedbackPtr() = 0;
+
+            // --------------------------------------------------
+            // Joint Motion Access
+            // --------------------------------------------------
 
             /**
-             * @brief Get the number of drives the hardware layer manages.
-             * @return The count of drives.
+             * @brief Provides access to the array of JointMotionCommand (position, torque, mode).
+             * @return Pointer to the first element of an array sized getDriveCount().
+             */
+            virtual hand_control::merai::JointMotionCommand* getJointMotionCommandPtr() = 0;
+
+            /**
+             * @brief Provides access to the array of JointMotionFeedback (positionActual, velocityActual, torqueActual).
+             * @return Pointer to the first element of an array sized getDriveCount().
+             */
+            virtual hand_control::merai::JointMotionFeedback* getJointMotionFeedbackPtr() = 0;
+
+            // --------------------------------------------------
+            // Joint IO Access (optional)
+            // --------------------------------------------------
+
+            /**
+             * @brief Accessor for the array of JointFeedbackIO (digital/analog inputs, etc.).
+             * @return Pointer to an array sized getDriveCount(), or nullptr if not used.
+             */
+            virtual hand_control::merai::JointFeedbackIO* getJointFeedbackIOPtr() = 0;
+
+            /**
+             * @brief Accessor for the array of JointCommandIO (digital/analog outputs, etc.).
+             * @return Pointer to an array sized getDriveCount(), or nullptr if not used.
+             */
+            virtual hand_control::merai::JointCommandIO* getJointCommandIOPtr() = 0;
+
+            // --------------------------------------------------
+            // Metadata
+            // --------------------------------------------------
+
+            /**
+             * @brief Returns the number of drives (or joints) this hardware layer manages.
+             * @return The drive/joint count.
              */
             virtual size_t getDriveCount() const = 0;
-
-            // --------------------------------------------------
-            // Joint I/O access
-            // --------------------------------------------------
-
-            /**
-             * @brief Accessor for the local array of joint I/O.
-             * @return Pointer to array of JointIO structures.
-             */
-            virtual hand_control::merai::JointIO* getJointIOPtr() = 0;
         };
+
     } // namespace control
 } // namespace hand_control

@@ -138,15 +138,15 @@ namespace hand_control
             }
 
             int driveCount = configPtr_->driveCount;
-            if (driveCount > hand_control::merai::MAX_DRIVES)
+            if (driveCount > hand_control::merai::MAX_SERVO_DRIVES)
             {
                 hand_control::merai::log_warn(
                     loggerMem_,
                     "Fieldbus",
                     105,
-                    "driveCount exceeds MAX_DRIVES, ignoring extras"
+                    "driveCount exceeds MAX_SERVO_DRIVES, ignoring extras"
                 );
-                driveCount = hand_control::merai::MAX_DRIVES;
+                driveCount = hand_control::merai::MAX_SERVO_DRIVES;
             }
 
             // Create and configure each drive

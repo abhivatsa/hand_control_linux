@@ -1,12 +1,15 @@
 #include <stdexcept>
-#include <time.h>
+#include <ctime>
 
 #include "control/Control.h"
-#include "control/hardware_abstraction/SimHAL.h" // Changed to SimHAL
+#include "control/hardware_abstraction/SimHAL.h"
 #include "control/hardware_abstraction/RealHAL.h"
+
+// Example controllers
 #include "control/controllers/GravityCompController.h"
 #include "control/controllers/HomingController.h"
-#include "merai/Enums.h"
+
+#include "merai/Enums.h"  // for e.g. DriveCommand, ControllerID
 
 namespace hand_control
 {
@@ -22,22 +25,31 @@ namespace hand_control
               rtDataShm_(rtDataShmName, rtDataShmSize, false),
               loggerShm_(loggerShmName, loggerShmSize, false)
         {
-            paramServerPtr_ = reinterpret_cast<const merai::ParameterServer *>(
+            // 1) ParameterServer mapping
+            paramServerPtr_ = reinterpret_cast<const merai::ParameterServer*>(
                 paramServerShm_.getPtr());
             if (!paramServerPtr_)
+            {
                 throw std::runtime_error("Failed to map ParameterServer memory.");
+            }
 
-            rtLayout_ = reinterpret_cast<merai::RTMemoryLayout *>(
+            // 2) RTMemoryLayout mapping
+            rtLayout_ = reinterpret_cast<merai::RTMemoryLayout*>(
                 rtDataShm_.getPtr());
             if (!rtLayout_)
+            {
                 throw std::runtime_error("Failed to map RTMemoryLayout memory.");
+            }
 
-            loggerMem_ = reinterpret_cast<merai::multi_ring_logger_memory *>(
+            // 3) Logger memory
+            loggerMem_ = reinterpret_cast<merai::multi_ring_logger_memory*>(
                 loggerShm_.getPtr());
             if (!loggerMem_)
+            {
                 throw std::runtime_error("Failed to map multi_ring_logger_memory.");
+            }
 
-            // Initialize HAL based on simulation mode
+            // 4) Initialize HAL (simulate or real)
             if (paramServerPtr_->startup.simulateMode)
             {
                 hal_ = std::make_unique<SimHAL>(rtLayout_, paramServerPtr_, loggerMem_);
@@ -47,65 +59,67 @@ namespace hand_control
                 hal_ = std::make_unique<RealHAL>(rtLayout_, paramServerPtr_, loggerMem_);
             }
 
-            // IMPORTANT: Use accessor methods to retrieve pointers
+            // 5) Create DriveStateManager with joint-level control/feedback pointers
             driveStateManager_ = std::make_unique<DriveStateManager>(
-                hal_->getDriveOutputControlPtr(),
-                hal_->getDriveInputControlPtr(),
-                hal_->getDriveCount());
+                hal_->getJointControlCommandPtr(),
+                hal_->getJointControlFeedbackPtr(),
+                hal_->getDriveCount() // or getJointCount(), if they match
+            );
 
+            // 6) Create ControllerManager with motion-level pointers
             controllerManager_ = std::make_unique<ControllerManager>(
                 paramServerPtr_,
-                hal_->getJointStatesPtr(),
-                hal_->getJointCommandsPtr(),
-                hal_->getJointCount());
+                // The manager presumably wants motion feedback + motion commands:
+                hal_->getJointMotionFeedbackPtr(),
+                hal_->getJointMotionCommandPtr(),
+                hal_->getDriveCount() // or getJointCount()
+            );
         }
 
         Control::~Control()
         {
+            // Cleanup if needed
         }
 
         bool Control::init()
         {
-            // 1) Load device model
+            // 1) Load device model from param server
             if (!hapticDeviceModel_.loadFromParameterServer(*paramServerPtr_))
                 return false;
 
-            // 2) Init HAL
+            // 2) Initialize HAL
             if (!hal_->init())
                 return false;
 
-            // 3) Initialize managers with pointers
-            if (!driveStateManager_->init()) // No need to pass drive inputs/outputs, already done in constructor
+            // 3) Initialize the drive manager & controller manager
+            if (!driveStateManager_->init())
                 return false;
-
             if (!controllerManager_->init())
                 return false;
 
-            // 4) Register controllers with correct constructor signatures
-
-            // GravityCompController now expects:
-            //   (const HapticDeviceModel&, JointState*, JointCommand*, std::size_t)
+            // 4) Register controllers (GravityComp, Homing, etc.)
             auto gravityComp = std::make_shared<GravityCompController>(
                 hapticDeviceModel_,
-                hal_->getJointStatesPtr(),
-                hal_->getJointCommandsPtr(),
-                hal_->getJointCount());
+                hal_->getJointMotionFeedbackPtr(),  // motion feedback
+                hal_->getJointMotionCommandPtr(),   // motion commands
+                hal_->getDriveCount()
+            );
             if (!controllerManager_->registerController(merai::ControllerID::GRAVITY_COMP, gravityComp))
                 return false;
 
-            // HomingController now expects:
-            //   (const double* homePositions, int numJoints, JointState*, JointCommand*)
+            // Example for Homing
             double homePositions[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
             auto homingCtrl = std::make_shared<HomingController>(
                 homePositions,
                 6,
-                hal_->getJointStatesPtr(),
-                hal_->getJointCommandsPtr());
+                hal_->getJointMotionFeedbackPtr(),
+                hal_->getJointMotionCommandPtr()
+            );
             if (!controllerManager_->registerController(merai::ControllerID::HOMING, homingCtrl))
                 return false;
 
-            // 5) Finalize manager setup
-            if (!controllerManager_->init()) // Possibly re-initializing or finalizing sub-controllers
+            // Possibly do a final init if your manager needs it
+            if (!controllerManager_->init())
                 return false;
 
             return true;
@@ -121,37 +135,50 @@ namespace hand_control
             stopRequested_.store(true, std::memory_order_relaxed);
         }
 
+        //----------------------------------------------------------------------------
+        // The main real-time loop
+        //----------------------------------------------------------------------------
         void Control::cyclicTask()
         {
             period_info pinfo;
-            periodic_task_init(&pinfo, 1'000'000L);
+            periodic_task_init(&pinfo, 1'000'000L); // e.g., 1 ms
 
             while (!stopRequested_.load(std::memory_order_relaxed))
             {
-                // 1. HAL input
+                // 1) HAL read -> local feedback arrays
                 hal_->read();
-                copyJointStatesToSharedMemory();
 
-                // 2. Command input (e.g., from user or other modules)
+                // 2) Copy local feedback arrays -> shared memory
+                copyJointFeedbackToSharedMemory();
+
+                // 3) Read any user/drive commands from shared memory
                 readControllerCommand(&ctrlCmd);
                 readDriveCommand(&driveCmd);
 
-                // 3. Drive state & control updates
+                // 4) Update drive states
                 driveStateManager_->update(driveCmd.commands.data(), driveFdbk.status.data());
+
+                // 5) Update controllers
                 controllerManager_->update(ctrlCmd, ctrlFdbk, 0.001);
 
-                // 4. Process outputs
+                // 6) Copy joint commands from shared memory -> local command arrays
                 copyJointCommandsFromSharedMemory();
+
+                // 7) Write drive/controller feedback to shared memory
                 writeDriveFeedback(driveFdbk);
                 writeControllerFeedback(ctrlFdbk);
 
-                // 5. HAL output
+                // 8) HAL write -> real hardware or sim
                 hal_->write();
 
+                // 9) Sleep until next period
                 wait_rest_of_period(&pinfo);
             }
         }
 
+        //----------------------------------------------------------------------------
+        // Periodic helpers
+        //----------------------------------------------------------------------------
         void Control::periodic_task_init(period_info *pinfo, long periodNs)
         {
             clock_gettime(CLOCK_MONOTONIC, &pinfo->next_period);
@@ -174,58 +201,97 @@ namespace hand_control
             clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &pinfo->next_period, nullptr);
         }
 
-        void Control::copyJointStatesToSharedMemory()
+        //----------------------------------------------------------------------------
+        // Copy from HAL's joint feedback arrays -> shared memory
+        //----------------------------------------------------------------------------
+        void Control::copyJointFeedbackToSharedMemory()
         {
             int currentFront = rtLayout_->jointBuffer.frontIndex.load(std::memory_order_acquire);
-            int backIndex = 1 - currentFront;
+            int backIndex    = 1 - currentFront;
 
-            auto &backStates = rtLayout_->jointBuffer.buffer[backIndex].states;
-            int jointCount = static_cast<int>(hal_->getJointCount());
-            auto *halStates = hal_->getJointStatesPtr();
+            auto &backFeedbackArray = rtLayout_->jointBuffer.buffer[backIndex].feedback;
+
+            // Number of joints
+            int jointCount = static_cast<int>(hal_->getDriveCount()); // or getJointCount()
+
+            // Pointers from HAL
+            auto *ctrlFbk   = hal_->getJointControlFeedbackPtr();
+            auto *motionFbk = hal_->getJointMotionFeedbackPtr();
+            auto *ioFbk     = hal_->getJointFeedbackIOPtr();
 
             for (int i = 0; i < jointCount; i++)
             {
-                backStates[i].position = halStates[i].position;
-                backStates[i].velocity = halStates[i].velocity;
-                backStates[i].torque = halStates[i].torque;
+                // Control feedback
+                backFeedbackArray[i].control.statusWord = ctrlFbk[i].statusWord;
+
+                // Motion feedback
+                backFeedbackArray[i].motion.positionActual = motionFbk[i].positionActual;
+                backFeedbackArray[i].motion.velocityActual = motionFbk[i].velocityActual;
+                backFeedbackArray[i].motion.torqueActual   = motionFbk[i].torqueActual;
+
+                // I/O feedback
+                backFeedbackArray[i].io.digitalInputClutch = ioFbk[i].digitalInputClutch;
+                backFeedbackArray[i].io.digitalInputThumb  = ioFbk[i].digitalInputThumb;
+                backFeedbackArray[i].io.analogInputPinch   = ioFbk[i].analogInputPinch;
             }
 
+            // Publish the 'back' index
             rtLayout_->jointBuffer.frontIndex.store(backIndex, std::memory_order_release);
         }
 
+        //----------------------------------------------------------------------------
+        // Copy from shared memory's joint commands -> HAL's local command arrays
+        //----------------------------------------------------------------------------
         void Control::copyJointCommandsFromSharedMemory()
         {
             int frontIndex = rtLayout_->jointBuffer.frontIndex.load(std::memory_order_acquire);
-            auto &cmds = rtLayout_->jointBuffer.buffer[frontIndex].commands;
+            auto &cmdArray = rtLayout_->jointBuffer.buffer[frontIndex].commands;
 
-            int jointCount = static_cast<int>(hal_->getJointCount());
-            auto *halCommands = hal_->getJointCommandsPtr();
+            int jointCount = static_cast<int>(hal_->getDriveCount());
+
+            // Pointers from HAL
+            auto *ctrlCmd   = hal_->getJointControlCommandPtr();
+            auto *motionCmd = hal_->getJointMotionCommandPtr();
 
             for (int i = 0; i < jointCount; i++)
             {
-                halCommands[i].position = cmds[i].position;
-                halCommands[i].velocity = cmds[i].velocity;
-                halCommands[i].torque = cmds[i].torque;
+                // Control command
+                ctrlCmd[i].controlWord = cmdArray[i].control.controlWord;
+
+                // Motion command
+                motionCmd[i].targetPosition   = cmdArray[i].motion.targetPosition;
+                motionCmd[i].targetTorque     = cmdArray[i].motion.targetTorque;
+                motionCmd[i].modeOfOperation  = cmdArray[i].motion.modeOfOperation;
+
+                // IO commands if any
+                // if (ioCmd) { ... }
             }
         }
 
+        //----------------------------------------------------------------------------
+        // Read ControllerCommand from shared memory
+        //----------------------------------------------------------------------------
         void Control::readControllerCommand(hand_control::merai::ControllerCommand *outCmd)
         {
             int frontIdx = rtLayout_->controllerCommandBuffer.frontIndex.load(std::memory_order_acquire);
             *outCmd = rtLayout_->controllerCommandBuffer.buffer[frontIdx];
         }
 
+        // Read DriveCommandData from shared memory
         void Control::readDriveCommand(hand_control::merai::DriveCommandData *outDriveCmd)
         {
             int frontIdx = rtLayout_->driveCommandBuffer.frontIndex.load(std::memory_order_acquire);
             *outDriveCmd = rtLayout_->driveCommandBuffer.buffer[frontIdx];
         }
 
+        //----------------------------------------------------------------------------
+        // Write DriveFeedbackData to shared memory
+        //----------------------------------------------------------------------------
         void Control::writeDriveFeedback(const hand_control::merai::DriveFeedbackData &feedback)
         {
             size_t driveCount = paramServerPtr_->driveCount;
             int frontIdx = rtLayout_->driveFeedbackBuffer.frontIndex.load(std::memory_order_acquire);
-            int backIdx = 1 - frontIdx;
+            int backIdx  = 1 - frontIdx;
 
             auto &feedbackData = rtLayout_->driveFeedbackBuffer.buffer[backIdx];
 
@@ -237,10 +303,11 @@ namespace hand_control
             rtLayout_->driveFeedbackBuffer.frontIndex.store(backIdx, std::memory_order_release);
         }
 
+        // Write ControllerFeedback to shared memory
         void Control::writeControllerFeedback(const hand_control::merai::ControllerFeedback &feedback)
         {
             int frontIdx = rtLayout_->controllerFeedbackBuffer.frontIndex.load(std::memory_order_acquire);
-            int backIdx = 1 - frontIdx;
+            int backIdx  = 1 - frontIdx;
 
             rtLayout_->controllerFeedbackBuffer.buffer[backIdx] = feedback;
             rtLayout_->controllerFeedbackBuffer.frontIndex.store(backIdx, std::memory_order_release);

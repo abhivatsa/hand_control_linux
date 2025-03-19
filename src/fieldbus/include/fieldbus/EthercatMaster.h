@@ -8,7 +8,7 @@
 #include <ecrt.h>
 
 #include "fieldbus/drives/BaseDrive.h"        // BaseDrive is in hand_control::fieldbus
-#include "hand_control_merai/merai/RTMemoryLayout.h"             // hand_control::merai::RTMemoryLayout, MAX_DRIVES
+#include "hand_control_merai/merai/RTMemoryLayout.h"             // hand_control::merai::RTMemoryLayout, MAX_SERVO_DRIVES
 #include "hand_control_merai/merai/ParameterServer.h"            // hand_control::merai::ParameterServer
 #include "hand_control_merai/merai/RAII_SharedMemory.h"          // hand_control::merai::RAII_SharedMemory
 #include "hand_control_merai/merai/SharedLogger.h"               // hand_control::merai::multi_ring_logger_memory
@@ -83,8 +83,8 @@ namespace hand_control
 
             long loopPeriodNs = 1000000L;  // default 1 ms
 
-            // Array of drives (up to hand_control::merai::MAX_DRIVES)
-            std::array<std::unique_ptr<BaseDrive>, hand_control::merai::MAX_DRIVES> drives_;
+            // Array of drives (up to hand_control::merai::MAX_SERVO_DRIVES)
+            std::array<std::unique_ptr<BaseDrive>, hand_control::merai::MAX_SERVO_DRIVES> drives_;
 
             // SharedMemory for ParameterServer
             hand_control::merai::RAII_SharedMemory      configShm_;

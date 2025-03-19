@@ -28,23 +28,22 @@ namespace hand_control
         // Control-related fields (e.g. control word, mode of operation)
         struct ServoRxControl
         {
-            uint16_t controlWord = 0;    // Command control word
-            uint8_t modeOfOperation = 0; // Operating mode indicator
+            uint16_t controlWord = 0; // Command control word
         };
 
         // Motion-related fields (e.g. target torque, position, velocity)
         struct ServoRxMotion
         {
-            int16_t targetTorque = 0;   // Desired torque value
-            int32_t targetPosition = 0; // Desired position value
-            int32_t targetVelocity = 0; // Desired velocity value
+            uint8_t modeOfOperation = 0; // Operating mode indicator
+            int16_t targetTorque = 0;    // Desired torque value
+            int32_t targetPosition = 0;  // Desired position value
         };
 
         // IO-related fields (digital/analog IO, if any)
         // Currently empty, but reserved for future expansion.
         struct ServoRxIO
         {
-            // e.g. digitalOutputs, analogOutput, etc.
+            // uint32_t digitalOutputs = 0; // Placeholder for digital outputs
         };
 
         // Consolidated Rx PDO that groups the above sub-structs
@@ -61,7 +60,6 @@ namespace hand_control
         struct ServoTxControl
         {
             uint16_t statusWord = 0; // Feedback status word
-            // If needed, you can also store a "modeOfOperationDisplay" here, etc.
         };
 
         // Motion-related feedback fields (e.g. position, velocity, torque actual)
@@ -77,6 +75,8 @@ namespace hand_control
         struct ServoTxIO
         {
             // e.g. digitalInputs, analogInput, etc.
+            uint32_t digitalInputs = 0; // Placeholder for digital inputs
+            uint16_t analogInput = 0;   // Placeholder for analog input
         };
 
         // Consolidated Tx PDO that groups the above sub-structs
@@ -97,46 +97,85 @@ namespace hand_control
             std::array<ServoTxPdo, MAX_SERVO_DRIVES> tx;
         };
 
-        //====================================================
-        // Joint Data Structures
-        //====================================================
+        ///-------------------------------
+        /// Joint Command Structures
+        ///-------------------------------
 
-        // Structure for I/O signals related to each joint.
-        struct JointIO
+        /// Control-related commands (e.g., servo control words).
+        struct JointControlCommand
         {
-            // Example: digital or analog inputs/outputs at the joint level.
-            // You can rename or expand as needed for your hardware.
-
-            bool digitalInputA = false; // Example digital input flag
-            bool digitalInputB = false; // Another digital input
-            double analogInput = 0.0;   // Example analog reading
-
-            bool digitalOutputA = false; // Example digital output (if the joint has any)
-            double analogOutput = 0.0;   // Example analog output command
+            uint16_t controlWord = 0; // E.g., enable/disable bits, fault reset, etc.
         };
 
-        // Structure for commanding a joint.
-        struct JointCommand
+        /// Motion-related commands (target position, velocity, torque, mode, etc.)
+        struct JointMotionCommand
         {
-            double position = 0.0; // Desired joint position
-            double velocity = 0.0; // Desired joint velocity
-            double torque = 0.0;   // Desired joint torque
+            double targetPosition = 0.0;
+            double targetTorque = 0.0;
+            uint8_t modeOfOperation = 0; // Tightly coupled to how the servo interprets these commands
         };
 
-        // Structure representing the current state of a joint.
-        struct JointState
+        /// I/O-related commands (digital outputs, analog outputs, etc.)
+        /// Currently just placeholders; expand as needed.
+        struct JointCommandIO
         {
-            double position = 0.0; // Measured joint position
-            double velocity = 0.0; // Measured joint velocity
-            double torque = 0.0;   // Measured joint torque
         };
 
-        // Aggregates command, state feedback, and I/O for all joints.
+        /// Consolidated command data for each joint (what the controller *sends* to the servo).
+        struct JointCommandData
+        {
+            JointControlCommand control; // e.g., enable, fault reset
+            JointMotionCommand motion;   // position, velocity, torque, mode
+            JointCommandIO io;           // digital/analog output signals
+        };
+
+        ///-------------------------------
+        /// Joint Feedback Structures
+        ///-------------------------------
+
+        /// Control-related feedback (e.g., servo status word).
+        struct JointControlFeedback
+        {
+            uint16_t statusWord = 0; // e.g., ready, enabled, fault, etc.
+        };
+
+        /// Motion-related feedback (actual position, velocity, torque).
+        struct JointMotionFeedback
+        {
+            double positionActual = 0.0;
+            double velocityActual = 0.0;
+            double torqueActual = 0.0;
+        };
+
+        /// I/O-related feedback (digital inputs, analog inputs, etc.)
+        struct JointFeedbackIO
+        {
+            bool digitalInputClutch = false;
+            bool digitalInputThumb = false;
+            double analogInputPinch = 0.0;
+        };
+
+        /// Consolidated feedback data for each joint (what the servo *reports* to the controller).
+        struct JointFeedbackData
+        {
+            JointControlFeedback control;
+            JointMotionFeedback motion;
+            JointFeedbackIO io;
+        };
+
+        ///-------------------------------
+        /// Main Container
+        ///-------------------------------
+
+        /// Holds command (to servo) and feedback (from servo) for each joint.
+        /// Mirroring your servo-level “Rx” and “Tx,” but using simpler terms.
         struct JointData
         {
-            std::array<JointCommand, MAX_SERVO_DRIVES> commands; // Commands for each joint
-            std::array<JointState, MAX_SERVO_DRIVES> states;     // States for each joint
-            std::array<JointIO, MAX_SERVO_DRIVES> io;            // I/O signals for each joint
+            // Commands going out to each joint (formerly “Rx”).
+            std::array<JointCommandData, MAX_SERVO_DRIVES> commands;
+
+            // Feedback coming back from each joint (formerly “Tx”).
+            std::array<JointFeedbackData, MAX_SERVO_DRIVES> feedback;
         };
 
         //====================================================
