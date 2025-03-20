@@ -1,20 +1,22 @@
 [Unit]
-Description=Fieldbus Service
-After=launcher.service
-Requires=launcher.service
+Description=Fieldbus Service for Robot Control
+Requires=network.target
+After=network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/fieldbus
-User=youruser
-Group=youruser
+ExecStart=/usr/bin/hand_control_fieldbus_exe
+
+# If you have a dedicated robot user (recommended over root):
+User=abhishek
+
 Restart=on-failure
 
-# Real-time + CPU affinity:
+# Real-time scheduling + CPU affinity, if needed:
 LimitRTPRIO=99
 CPUSchedulingPolicy=rr
 CPUSchedulingPriority=90
-CPUAffinity=2 3
+CPUAffinity=2
 
 [Install]
 WantedBy=multi-user.target

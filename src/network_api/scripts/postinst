@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+
+# This might:
+# 1. Copy systemd service file to /etc/systemd/system
+# 2. Enable or start the service
+
+echo "Installing network_api service..."
+cp services/network_api.service /etc/systemd/system/
+systemctl daemon-reload
+systemctl enable network_api.service
+# systemctl start network_api.service

@@ -1,0 +1,43 @@
+cmake_minimum_required(VERSION 3.14)
+project(network_api)
+
+set(CMAKE_CXX_STANDARD 17)
+
+# If ENet is installed system-wide, you can try:
+find_package(ENet REQUIRED)
+
+# If you have custom find scripts, or you vendor enet in external_libraries, adapt accordingly.
+
+# Build the library from source files
+add_library(network_api
+    src/APIManager.cpp
+    src/UDPSession.cpp
+    src/RateLimiter.cpp
+)
+
+target_include_directories(network_api
+    PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+target_link_libraries(network_api
+    PUBLIC
+        ENet::ENet  # or enet if that's the target name from find_package
+)
+
+# Build the standalone executable (if desired)
+add_executable(network_api_node
+    src/main.cpp
+)
+target_link_libraries(network_api_node
+    PRIVATE
+        network_api
+)
+
+# (Optional) Installation directives
+install(TARGETS network_api network_api_node
+        RUNTIME DESTINATION bin
+        LIBRARY DESTINATION lib
+        ARCHIVE DESTINATION lib)
+
+install(FILES services/network_api.service
+        DESTINATION /etc/systemd/system)

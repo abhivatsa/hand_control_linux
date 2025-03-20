@@ -1,0 +1,15 @@
+[Unit]
+Description=Network API Service for Haptic Device
+After=network.target
+Wants=network-online.target
+
+[Service]
+ExecStart=/usr/bin/network_api_node
+Restart=always
+User=root
+# Potentially set CPU affinity or real-time scheduling if you have an RT kernel:
+# Nice=-20
+# CPUAffinity=1
+
+[Install]
+WantedBy=multi-user.target
