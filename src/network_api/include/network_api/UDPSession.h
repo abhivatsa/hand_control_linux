@@ -1,34 +1,50 @@
 #pragma once
 
-#include <string>
-#include <vector>
-// Forward-declare ENet types if needed
-// #include <enet/enet.h>
+#include <enet/enet.h>
+#include "merai/SharedLogger.h"
+#include "HapticDeviceAPI.h" // if we want to call deviceAPI
 
-namespace network_api {
+namespace hand_control
+{
+    namespace network_api
+    {
 
-class UDPSession {
-public:
-    UDPSession();
-    ~UDPSession();
+        class UDPSession
+        {
+        public:
+            UDPSession();
+            ~UDPSession();
 
-    // Open/close session
-    bool open(const std::string& ip, unsigned short port);
-    void close();
+            // Create ENet server on IP and port. Return false if fails.
+            bool createServerHost(const char *ip, unsigned short port);
 
-    // Send data
-    bool sendPacket(const void* data, size_t size);
+            // Poll for incoming connections, packets, etc.
+            void pollEvents();
 
-    // Poll or receive data
-    // Return either raw bytes or a higher-level Packet structure
-    bool receivePacket(std::vector<uint8_t>& outData);
+            // Destroy the ENet server if it exists
+            void destroyServerHost();
 
-    // Any additional methods for ENet initialization, event loops, etc.
+            // (Optional) Provide references to logger and device API
+            void setLogger(merai::multi_ring_logger_memory *loggerMem);
+            void setDeviceAPI(HapticDeviceAPI *api);
 
-private:
-    // e.g., ENetHost* host_ = nullptr;
-    // e.g., ENetPeer* peer_ = nullptr;
-    // or raw socket if not using ENet
-};
+            // Example method to send device state
+            void sendHapticData(double linearVel, double angularVel);
 
-} // namespace network_api
+        private:
+            ENetHost *serverHost_ = nullptr;
+
+            // Pointers for logging and calling device methods
+            merai::multi_ring_logger_memory *loggerMem_ = nullptr;
+            HapticDeviceAPI *deviceAPI_ = nullptr;
+
+            // Private helpers
+            void handleConnect(ENetEvent &event);
+            void handleReceive(ENetEvent &event);
+            void handleDisconnect(ENetEvent &event);
+
+            void logInfo(const char *msg);
+        };
+
+    } // namespace network_api
+} // namespace hand_control

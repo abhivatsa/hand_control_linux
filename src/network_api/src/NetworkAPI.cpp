@@ -1,139 +1,150 @@
-#include "network_api/NetworkAPI.h"
+#include "network_api/include/network_api/NetworkAPI.h"
 #include <stdexcept>
 #include <iostream>
 #include <ctime>
-// Add your networking includes (e.g. enet, sockets, etc.)
+#include <enet/enet.h> // for enet_initialize(), etc.
 
 namespace hand_control
 {
-namespace network_api
-{
-
-//-----------------------------------------------------
-// Constructor: Map shared memory segments, store pointers
-//-----------------------------------------------------
-NetworkAPI::NetworkAPI(const std::string &paramServerShmName,
-                       size_t paramServerShmSize,
-                       const std::string &rtDataShmName,
-                       size_t rtDataShmSize,
-                       const std::string &loggerShmName,
-                       size_t loggerShmSize)
-    : paramServerShm_(paramServerShmName, paramServerShmSize, true),
-      rtDataShm_(rtDataShmName, rtDataShmSize, false),
-      loggerShm_(loggerShmName, loggerShmSize, false)
-{
-    // Map the ParameterServer
-    paramServerPtr_ = reinterpret_cast<const merai::ParameterServer*>(paramServerShm_.getPtr());
-    if (!paramServerPtr_)
+    namespace network_api
     {
-        throw std::runtime_error("Failed to map ParameterServer memory.");
-    }
 
-    // Map the RTMemoryLayout
-    rtLayout_ = reinterpret_cast<merai::RTMemoryLayout*>(rtDataShm_.getPtr());
-    if (!rtLayout_)
-    {
-        throw std::runtime_error("Failed to map RTMemoryLayout memory.");
-    }
+        NetworkAPI::NetworkAPI(const std::string &paramServerShmName,
+                               size_t paramServerShmSize,
+                               const std::string &rtDataShmName,
+                               size_t rtDataShmSize,
+                               const std::string &loggerShmName,
+                               size_t loggerShmSize)
+            // Initialize shared mem RAII
+            : paramServerShm_(paramServerShmName, paramServerShmSize, true),
+              rtDataShm_(rtDataShmName, rtDataShmSize, false),
+              loggerShm_(loggerShmName, loggerShmSize, false),
+              // Create the device API with null pointers for now; we'll fix in the constructor body.
+              deviceAPI_(nullptr, nullptr)
+        {
+            // 1) Map ParamServer
+            paramServerPtr_ = reinterpret_cast<const merai::ParameterServer *>(paramServerShm_.getPtr());
+            if (!paramServerPtr_)
+            {
+                // throw std::runtime_error("[NetworkAPI] Failed to map ParameterServer memory.");
+                log_error(loggerMem_, "NetworkAPI", 542, "Failed to map ParameterServer memory.");
+            }
 
-    // Map the Logger memory
-    loggerMem_ = reinterpret_cast<merai::multi_ring_logger_memory*>(loggerShm_.getPtr());
-    if (!loggerMem_)
-    {
-        throw std::runtime_error("Failed to map multi_ring_logger_memory.");
-    }
+            // 2) Map RTMemoryLayout
+            rtLayout_ = reinterpret_cast<merai::RTMemoryLayout *>(rtDataShm_.getPtr());
+            if (!rtLayout_)
+            {
+                // throw std::runtime_error("[NetworkAPI] Failed to map RTMemoryLayout memory.");
+                log_error(loggerMem_, "NetworkAPI", 598, "Failed to map RTMemoryLayout memory.");
+            }
 
-    // Potentially read IP/Port from the parameter server
-    // e.g.: ip_ = paramServerPtr_->network.ip;  
-    //       port_ = paramServerPtr_->network.port; 
-}
+            // 3) Map Logger memory
+            loggerMem_ = reinterpret_cast<merai::multi_ring_logger_memory *>(loggerShm_.getPtr());
+            if (!loggerMem_)
+            {
+                // throw std::runtime_error("[NetworkAPI] Failed to map multi_ring_logger_memory.");
+                log_error(loggerMem_, "NetworkAPI", 545, "Failed to map multi_ring_logger_memory.");
+            }
 
-NetworkAPI::~NetworkAPI()
-{
-    // Cleanup if needed
-}
+            // 4) If param server holds IP/port, read them here:
+            // ip_ = paramServerPtr_->network.ip;
+            // port_ = paramServerPtr_->network.port;
 
-//-----------------------------------------------------
-// init(): set up networking resources
-//-----------------------------------------------------
-bool NetworkAPI::init()
-{
-    // If using ENet: enet_initialize() ...
-    // If using raw sockets: create socket, bind, etc.
+            // 5) Now re-initialize the deviceAPI_ with real pointers
+            deviceAPI_ = HapticDeviceAPI(rtLayout_, loggerMem_);
+        }
 
-    std::cout << "[NetworkAPI] init done.\n";
-    return true;
-}
+        NetworkAPI::~NetworkAPI()
+        {
+            // Cleanup if needed
+        }
 
-//-----------------------------------------------------
-// run(): the main cyc. loop
-//-----------------------------------------------------
-void NetworkAPI::run()
-{
-    // Use the same approach as in your Control module
-    period_info pinfo;
-    periodic_task_init(&pinfo, 1'000'000L); // 1 ms for 1000Hz
+        bool NetworkAPI::init()
+        {
+            // ENet global init
+            if (enet_initialize() != 0)
+            {
+                // std::cerr << "[NetworkAPI] enet_initialize() failed.\n";
+                log_error(loggerMem_, "NetworkAPI", 511, "enet_initialize() failed.");
+                return false;
+            }
+            atexit(enet_deinitialize);
 
-    while (!stopRequested_.load(std::memory_order_relaxed))
-    {
-        cyclicTask();
-        wait_rest_of_period(&pinfo);
-    }
-}
+            // Create ENet server host on ip_, port_
+            if (!udpSession_.createServerHost(ip_.empty() ? "0.0.0.0" : ip_.c_str(), port_))
+            {
+                // std::cerr << "[NetworkAPI] createServerHost failed.\n";
+                log_error(loggerMem_, "NetworkAPI", 510, "createServerHost failed.");
+                return false;
+            }
 
-//-----------------------------------------------------
-// requestStop(): signaled from outside
-//-----------------------------------------------------
-void NetworkAPI::requestStop()
-{
-    stopRequested_.store(true, std::memory_order_relaxed);
-}
+            // Pass logger and deviceAPI to UDPSession for direct usage
+            udpSession_.setLogger(loggerMem_);
+            udpSession_.setDeviceAPI(&deviceAPI_);
 
-//-----------------------------------------------------
-// The actual cyc. logic at 1 kHz
-//-----------------------------------------------------
-void NetworkAPI::cyclicTask()
-{
-    // 1) Read the data from shared memory (e.g. device state)
-    // e.g. read out joint positions, forces, etc.
-    // or read commands that other modules wrote into shared memory.
+            std::cout << "[NetworkAPI] init done. Listening on " << (ip_.empty() ? "0.0.0.0" : ip_)
+                      << ":" << port_ << "\n";
+            return true;
+        }
 
-    // 2) Transmit relevant data via UDP/ENet
-    // e.g. some kind of haptic_data_packet, serializing it out
+        void NetworkAPI::run()
+        {
+            period_info pinfo;
+            periodic_task_init(&pinfo, 1'000'000L); // 1 ms for 1000Hz
 
-    // 3) Receive any data from the network, parse commands
-    // e.g. if (receivedCommand) { write it to rtLayout_ or wherever it needs to go }
+            while (!stopRequested_.load(std::memory_order_relaxed))
+            {
+                cyclicTask();
+                wait_rest_of_period(&pinfo);
+            }
 
-    // 4) Possibly log to loggerMem_, if your system uses multi_ring_logger
-    // e.g. loggerMem_->push("NetworkAPI: Sent data...");
+            // Clean up the session
+            udpSession_.destroyServerHost();
+        }
 
-    // 5) (No extra sleep here, because we do wait_rest_of_period at the bottom of run())
-}
+        void NetworkAPI::requestStop()
+        {
+            stopRequested_.store(true, std::memory_order_relaxed);
+        }
 
-//-----------------------------------------------------
-// Periodic helpers: same as in your Control.cpp
-//-----------------------------------------------------
-void NetworkAPI::periodic_task_init(period_info *pinfo, long periodNs)
-{
-    clock_gettime(CLOCK_MONOTONIC, &pinfo->next_period);
-    pinfo->period_ns = periodNs;
-}
+        // The actual 1 kHz cyc. function
+        void NetworkAPI::cyclicTask()
+        {
+            // 1) Poll ENet events (connect, receive, etc.)
+            udpSession_.pollEvents();
 
-void NetworkAPI::inc_period(period_info *pinfo)
-{
-    pinfo->next_period.tv_nsec += pinfo->period_ns;
-    if (pinfo->next_period.tv_nsec >= 1'000'000'000L)
-    {
-        pinfo->next_period.tv_nsec -= 1'000'000'000L;
-        pinfo->next_period.tv_sec++;
-    }
-}
+            // 2) Get device velocities, etc. from the deviceAPI
+            double linVel = deviceAPI_.getLinearVelocity();
+            double angVel = deviceAPI_.getAngularVelocityRad();
 
-void NetworkAPI::wait_rest_of_period(period_info *pinfo)
-{
-    inc_period(pinfo);
-    clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &pinfo->next_period, nullptr);
-}
+            // 3) Send them to all connected clients
+            udpSession_.sendHapticData(linVel, angVel);
 
-} // namespace network_api
+            // You could do more logic here (logging, read commands from memory, etc.)
+        }
+
+        // ------------------ Periodic Helpers ------------------------
+        void NetworkAPI::periodic_task_init(period_info *pinfo, long periodNs)
+        {
+            clock_gettime(CLOCK_MONOTONIC, &pinfo->next_period);
+            pinfo->period_ns = periodNs;
+        }
+
+        void NetworkAPI::inc_period(period_info *pinfo)
+        {
+            pinfo->next_period.tv_nsec += pinfo->period_ns;
+            if (pinfo->next_period.tv_nsec >= 1'000'000'000L)
+            {
+                pinfo->next_period.tv_nsec -= 1'000'000'000L;
+                pinfo->next_period.tv_sec++;
+            }
+        }
+
+        void NetworkAPI::wait_rest_of_period(period_info *pinfo)
+        {
+            inc_period(pinfo);
+            clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &pinfo->next_period, nullptr);
+        }
+
+    } // namespace network_api
 } // namespace hand_control

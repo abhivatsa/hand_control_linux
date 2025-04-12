@@ -1,47 +1,50 @@
 #include <iostream>
 #include <stdexcept>
-#include <cstdlib>  // for EXIT_SUCCESS, EXIT_FAILURE
+#include <cstdlib> // EXIT_SUCCESS, EXIT_FAILURE
 
-#include "network_api/NetworkAPI.h"  // The class we’ll create to manage cyc. loop
+#include "network_api/include/network_api/NetworkAPI.h"
 
-int main(int argc, char* argv[])
+int main(int argc, char *argv[])
 {
     try
     {
-        // 1) Shared memory names and sizes
-        //    These should match your existing global config or "merai" structures
+        // Example shared memory config
         std::string paramServerShmName = "/ParameterServerShm";
-        size_t paramServerShmSize      = sizeof(hand_control::merai::ParameterServer);
+        size_t paramServerShmSize = sizeof(hand_control::merai::ParameterServer);
 
         std::string rtDataShmName = "/RTDataShm";
-        size_t rtDataShmSize      = sizeof(hand_control::merai::RTMemoryLayout);
+        size_t rtDataShmSize = sizeof(hand_control::merai::RTMemoryLayout);
 
         std::string loggerShmName = "/LoggerShm";
-        size_t loggerShmSize      = sizeof(hand_control::merai::multi_ring_logger_memory);
+        /// Pointer to your shared memory logger for optional logging.
+        hand_control::merai::multi_ring_logger_memory *loggerMem_;
+        size_t loggerShmSize = sizeof(hand_control::merai::multi_ring_logger_memory);
 
-        // 2) Create the NetworkAPI object using the three shared memories
+        // Create the NetworkAPI object
         hand_control::network_api::NetworkAPI networkApi(
             paramServerShmName, paramServerShmSize,
-            rtDataShmName,      rtDataShmSize,
-            loggerShmName,      loggerShmSize
-        );
+            rtDataShmName, rtDataShmSize,
+            loggerShmName, loggerShmSize);
 
-        // 3) Initialize the network API (sets up UDP / enet, etc.)
+        // Initialize the network (ENet, etc.)
         if (!networkApi.init())
         {
-            std::cerr << "[NetworkAPI Main] init() failed.\n";
+            // std::cerr << "[NetworkAPI Main] init() failed.\n";
+            log_error(loggerMem_, "NetworkAPI Main", 501, " init() failed. ");
             return EXIT_FAILURE;
         }
 
-        // 4) Start the real-time loop
-        std::cout << "[NetworkAPI Main] Starting network API cyclic task...\n";
-        networkApi.run();  // Blocks until requestStop()
+        // Start the real-time loop
+        // std::cout << "[NetworkAPI Main] Starting network API cyclic task...\n";
+        log_info(loggerMem_, "NetworkAPI Main", 502, " Starting network API cyclic task... ");
+        networkApi.run(); // Blocks until requestStop()
 
-        // 5) Normal exit
-        std::cout << "[NetworkAPI Main] Exiting normally.\n";
+        // Normal exit
+        // std::cout << "[NetworkAPI Main] Exiting normally.\n";
+        log_info(loggerMem_, "NetworkAPI Main", 503, " Exiting normally. ");
         return EXIT_SUCCESS;
     }
-    catch (const std::exception& e)
+    catch (const std::exception &e)
     {
         std::cerr << "[NetworkAPI Main] Exception: " << e.what() << "\n";
         return EXIT_FAILURE;
