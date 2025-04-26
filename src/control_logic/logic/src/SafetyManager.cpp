@@ -93,11 +93,11 @@ namespace hand_control
                 //     forceFault();
                 // }
 
-                // (4) Check joint limits
-                checkJointLimits();
+                // // (4) Check joint limits
+                // checkJointLimits();
 
-                // (5) Check torque or advanced kinematics if needed
-                checkTorqueOrKinematicLimits();
+                // // (5) Check torque or advanced kinematics if needed
+                // checkTorqueOrKinematicLimits();
             }
 
             return faulted_;
@@ -106,6 +106,27 @@ namespace hand_control
         bool SafetyManager::isFaulted() const
         {
             return faulted_;
+        }
+
+        bool SafetyManager::isHomingCompleted(){
+            if (!rtLayout_)
+            {
+                return false;
+            }
+            double homing_pos[7] = {0, 0, 0, 0, 0, 0, 0};
+            // We read from the jointBuffer (states) to see if any joint is out of range
+            int frontIdx = rtLayout_->jointBuffer.frontIndex.load(std::memory_order_acquire);
+            auto &jointFeedback = rtLayout_->jointBuffer.buffer[frontIdx].feedback;
+
+            for (std::size_t i = 0; i < driveCount_; ++i)
+            {
+                double pos = jointFeedback[i].motion.positionActual;
+                if (fabs(homing_pos[i] - pos) > 0.001){
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         void SafetyManager::forceFault()
@@ -117,13 +138,6 @@ namespace hand_control
         {
             // Optionally ensure we are safe to re-enable
             faulted_ = false;
-        }
-
-        bool SafetyManager::HomingStatus()
-        {
-            // Example placeholder. If you track homing done or not
-            // Return a real value if needed.
-            return true; 
         }
 
         void SafetyManager::checkJointLimits()

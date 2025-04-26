@@ -75,9 +75,11 @@ namespace hand_control
                 unsigned int statusword                = 0; // 0x6041
                 unsigned int position_actual_value     = 0; // 0x6064
                 unsigned int velocity_actual_value     = 0; // 0x606C
-                unsigned int torque_actual_value       = 0; // 0x6077
+                unsigned int current_actual_value      = 0; // 0x2076
                 unsigned int digital_input_value       = 0; // 0x2600
                 unsigned int analog_input_value        = 0; // 0x2081
+                unsigned int error_code                = 0; // 0x603F
+
                 
                 // Possibly mode_of_operation_display
 
@@ -85,7 +87,8 @@ namespace hand_control
                 unsigned int controlword               = 0; // 0x6040
                 unsigned int modes_of_operation        = 0; // 0x6060
                 unsigned int target_position           = 0; // 0x607A
-                unsigned int target_torque             = 0; // 0x6071
+                unsigned int target_current            = 0; // 0x201A
+                unsigned int max_current               = 0; // 0x6073
             } servoOffsets_;
 
             void* getOffsetPointerByIndex(uint16_t objectIndex);

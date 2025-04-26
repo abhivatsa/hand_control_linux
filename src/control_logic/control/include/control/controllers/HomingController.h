@@ -18,7 +18,7 @@ namespace hand_control
         class HomingController : public BaseController
         {
         public:
-            static constexpr int MAX_JOINTS = 6;
+            static constexpr int MAX_JOINTS = 7;
 
             /**
              * @brief Constructor.

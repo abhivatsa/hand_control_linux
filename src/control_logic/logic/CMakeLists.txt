@@ -89,7 +89,7 @@ install(EXPORT LogicTargets
 #
 install(
     FILES
-        ${CMAKE_CURRENT_SOURCE_DIR}/services/logic.service
+        ${CMAKE_CURRENT_SOURCE_DIR}/../services/logic.service
     DESTINATION lib/systemd/system
 )
 
@@ -116,7 +116,7 @@ set(CPACK_DEBIAN_PACKAGE_DESCRIPTION
 
 # Post-install script (if any)
 set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA
-    "${CMAKE_CURRENT_SOURCE_DIR}/scripts/postinst"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../scripts/postinst"
 )
 
 # Install prefix => /usr in the .deb

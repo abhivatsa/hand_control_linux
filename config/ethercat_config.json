@@ -1,6 +1,6 @@
 {
   "drives": [
-    {
+    {   
       "id": 1,
       "alias": 0,
       "position": 0,
@@ -21,7 +21,8 @@
                 { "object_index": "0x6040", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Control Word" },
                 { "object_index": "0x6060", "subindex": 0, "bit_length": 8, "data_type": "int8", "description": "Operation Mode" },
                 { "object_index": "0x607A", "subindex": 0, "bit_length": 32, "data_type": "int32", "description": "Target Position" },
-                { "object_index": "0x6071", "subindex": 0, "bit_length": 16, "data_type": "int16", "description": "Target Torque"}
+                { "object_index": "0x201A", "subindex": 0, "bit_length": 32, "data_type": "float", "description": "Target Current"},
+                { "object_index": "0x6073", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Max Current"}
               ],
               "0x1601": [],
               "0x1602": []
@@ -37,7 +38,7 @@
                 { "object_index": "0x6041", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Status Word" },
                 { "object_index": "0x6064", "subindex": 0, "bit_length": 32, "data_type": "int32", "description": "Position Actual Value" },
                 { "object_index": "0x606C", "subindex": 0, "bit_length": 32, "data_type": "int32", "description": "Velocity Actual Value" },
-                { "object_index": "0x6077", "subindex": 0, "bit_length": 16, "data_type": "int16", "description": "Torque Actual Value" }
+                { "object_index": "0x2076", "subindex": 0, "bit_length": 32, "data_type": "float", "description": "Current Actual Value" }
               ],
               "0x1A01": [
                 { "object_index": "0x2600", "subindex": 0, "bit_length": 32, "data_type": "uint32", "description": "Digital Input Value" },
@@ -72,7 +73,8 @@
                 { "object_index": "0x6040", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Control Word" },
                 { "object_index": "0x6060", "subindex": 0, "bit_length": 8, "data_type": "int8", "description": "Operation Mode" },
                 { "object_index": "0x607A", "subindex": 0, "bit_length": 32, "data_type": "int32", "description": "Target Position" },
-                { "object_index": "0x6071", "subindex": 0, "bit_length": 16, "data_type": "int16", "description": "Target Torque"}
+                { "object_index": "0x201A", "subindex": 0, "bit_length": 32, "data_type": "float", "description": "Target Current"},
+                { "object_index": "0x6073", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Max Current"}
               ],
               "0x1601": [],
               "0x1602": []
@@ -88,7 +90,7 @@
                 { "object_index": "0x6041", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Status Word" },
                 { "object_index": "0x6064", "subindex": 0, "bit_length": 32, "data_type": "int32", "description": "Position Actual Value" },
                 { "object_index": "0x606C", "subindex": 0, "bit_length": 32, "data_type": "int32", "description": "Velocity Actual Value" },
-                { "object_index": "0x6077", "subindex": 0, "bit_length": 16, "data_type": "int16", "description": "Torque Actual Value" }
+                { "object_index": "0x2076", "subindex": 0, "bit_length": 32, "data_type": "float", "description": "Current Actual Value" }
               ],
               "0x1A01": [
                 { "object_index": "0x2600", "subindex": 0, "bit_length": 32, "data_type": "uint32", "description": "Digital Input Value" },
@@ -123,7 +125,8 @@
                 { "object_index": "0x6040", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Control Word" },
                 { "object_index": "0x6060", "subindex": 0, "bit_length": 8, "data_type": "int8", "description": "Operation Mode" },
                 { "object_index": "0x607A", "subindex": 0, "bit_length": 32, "data_type": "int32", "description": "Target Position" },
-                { "object_index": "0x6071", "subindex": 0, "bit_length": 16, "data_type": "int16", "description": "Target Torque"}
+                { "object_index": "0x201A", "subindex": 0, "bit_length": 32, "data_type": "float", "description": "Target Current"},
+                { "object_index": "0x6073", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Max Current"}
               ],
               "0x1601": [],
               "0x1602": []
@@ -139,7 +142,7 @@
                 { "object_index": "0x6041", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Status Word" },
                 { "object_index": "0x6064", "subindex": 0, "bit_length": 32, "data_type": "int32", "description": "Position Actual Value" },
                 { "object_index": "0x606C", "subindex": 0, "bit_length": 32, "data_type": "int32", "description": "Velocity Actual Value" },
-                { "object_index": "0x6077", "subindex": 0, "bit_length": 16, "data_type": "int16", "description": "Torque Actual Value" }
+                { "object_index": "0x2076", "subindex": 0, "bit_length": 32, "data_type": "float", "description": "Current Actual Value" }
               ],
               "0x1A01": [
                 { "object_index": "0x2600", "subindex": 0, "bit_length": 32, "data_type": "uint32", "description": "Digital Input Value" },
@@ -174,7 +177,8 @@
                 { "object_index": "0x6040", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Control Word" },
                 { "object_index": "0x6060", "subindex": 0, "bit_length": 8, "data_type": "int8", "description": "Operation Mode" },
                 { "object_index": "0x607A", "subindex": 0, "bit_length": 32, "data_type": "int32", "description": "Target Position" },
-                { "object_index": "0x6071", "subindex": 0, "bit_length": 16, "data_type": "int16", "description": "Target Torque"}
+                { "object_index": "0x201A", "subindex": 0, "bit_length": 32, "data_type": "float", "description": "Target Current"},
+                { "object_index": "0x6073", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Max Current"}
               ],
               "0x1601": [],
               "0x1602": []
@@ -190,7 +194,7 @@
                 { "object_index": "0x6041", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Status Word" },
                 { "object_index": "0x6064", "subindex": 0, "bit_length": 32, "data_type": "int32", "description": "Position Actual Value" },
                 { "object_index": "0x606C", "subindex": 0, "bit_length": 32, "data_type": "int32", "description": "Velocity Actual Value" },
-                { "object_index": "0x6077", "subindex": 0, "bit_length": 16, "data_type": "int16", "description": "Torque Actual Value" }
+                { "object_index": "0x2076", "subindex": 0, "bit_length": 32, "data_type": "float", "description": "Current Actual Value" }
               ],
               "0x1A01": [
                 { "object_index": "0x2600", "subindex": 0, "bit_length": 32, "data_type": "uint32", "description": "Digital Input Value" },
@@ -225,7 +229,8 @@
                 { "object_index": "0x6040", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Control Word" },
                 { "object_index": "0x6060", "subindex": 0, "bit_length": 8, "data_type": "int8", "description": "Operation Mode" },
                 { "object_index": "0x607A", "subindex": 0, "bit_length": 32, "data_type": "int32", "description": "Target Position" },
-                { "object_index": "0x6071", "subindex": 0, "bit_length": 16, "data_type": "int16", "description": "Target Torque"}
+                { "object_index": "0x201A", "subindex": 0, "bit_length": 32, "data_type": "float", "description": "Target Current"},
+                { "object_index": "0x6073", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Max Current"}
               ],
               "0x1601": [],
               "0x1602": []
@@ -241,7 +246,7 @@
                 { "object_index": "0x6041", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Status Word" },
                 { "object_index": "0x6064", "subindex": 0, "bit_length": 32, "data_type": "int32", "description": "Position Actual Value" },
                 { "object_index": "0x606C", "subindex": 0, "bit_length": 32, "data_type": "int32", "description": "Velocity Actual Value" },
-                { "object_index": "0x6077", "subindex": 0, "bit_length": 16, "data_type": "int16", "description": "Torque Actual Value" }
+                { "object_index": "0x2076", "subindex": 0, "bit_length": 32, "data_type": "float", "description": "Current Actual Value" }
               ],
               "0x1A01": [
                 { "object_index": "0x2600", "subindex": 0, "bit_length": 32, "data_type": "uint32", "description": "Digital Input Value" },
@@ -276,7 +281,8 @@
                 { "object_index": "0x6040", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Control Word" },
                 { "object_index": "0x6060", "subindex": 0, "bit_length": 8, "data_type": "int8", "description": "Operation Mode" },
                 { "object_index": "0x607A", "subindex": 0, "bit_length": 32, "data_type": "int32", "description": "Target Position" },
-                { "object_index": "0x6071", "subindex": 0, "bit_length": 16, "data_type": "int16", "description": "Target Torque"}
+                { "object_index": "0x201A", "subindex": 0, "bit_length": 32, "data_type": "float", "description": "Target Current"},
+                { "object_index": "0x6073", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Max Current"}
               ],
               "0x1601": [],
               "0x1602": []
@@ -292,7 +298,7 @@
                 { "object_index": "0x6041", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Status Word" },
                 { "object_index": "0x6064", "subindex": 0, "bit_length": 32, "data_type": "int32", "description": "Position Actual Value" },
                 { "object_index": "0x606C", "subindex": 0, "bit_length": 32, "data_type": "int32", "description": "Velocity Actual Value" },
-                { "object_index": "0x6077", "subindex": 0, "bit_length": 16, "data_type": "int16", "description": "Torque Actual Value" }
+                { "object_index": "0x2076", "subindex": 0, "bit_length": 32, "data_type": "float", "description": "Current Actual Value" }
               ],
               "0x1A01": [
                 { "object_index": "0x2600", "subindex": 0, "bit_length": 32, "data_type": "uint32", "description": "Digital Input Value" },
@@ -327,7 +333,8 @@
                 { "object_index": "0x6040", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Control Word" },
                 { "object_index": "0x6060", "subindex": 0, "bit_length": 8, "data_type": "int8", "description": "Operation Mode" },
                 { "object_index": "0x607A", "subindex": 0, "bit_length": 32, "data_type": "int32", "description": "Target Position" },
-                { "object_index": "0x6071", "subindex": 0, "bit_length": 16, "data_type": "int16", "description": "Target Torque"}
+                { "object_index": "0x201A", "subindex": 0, "bit_length": 32, "data_type": "float", "description": "Target Current"},
+                { "object_index": "0x6073", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Max Current"}
               ],
               "0x1601": [],
               "0x1602": []
@@ -343,7 +350,7 @@
                 { "object_index": "0x6041", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Status Word" },
                 { "object_index": "0x6064", "subindex": 0, "bit_length": 32, "data_type": "int32", "description": "Position Actual Value" },
                 { "object_index": "0x606C", "subindex": 0, "bit_length": 32, "data_type": "int32", "description": "Velocity Actual Value" },
-                { "object_index": "0x6077", "subindex": 0, "bit_length": 16, "data_type": "int16", "description": "Torque Actual Value" }
+                { "object_index": "0x2076", "subindex": 0, "bit_length": 32, "data_type": "float", "description": "Current Actual Value" }
               ],
               "0x1A01": [
                 { "object_index": "0x2600", "subindex": 0, "bit_length": 32, "data_type": "uint32", "description": "Digital Input Value" },
@@ -354,7 +361,7 @@
             }
           }
         ]
-      },
+      },          
       "sdo_configuration": []
     }
   ]

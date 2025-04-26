@@ -37,6 +37,12 @@ namespace hand_control
             {
                 state_ = ControllerState::RUNNING;
             }
+            
+            for (int i = 0; i < numJoints_; ++i)
+            {
+                commandPtr_[i].modeOfOperation = -3;
+            }
+
         }
 
         void GravityCompController::update(double dt)
@@ -49,10 +55,10 @@ namespace hand_control
 
             // If numJoints_ can exceed 6, adapt your math library or clamp dof to 6
             int dof = static_cast<int>(numJoints_);
-            if (dof > 6)
-            {
-                dof = 6;
-            }
+            // if (numJoints_ > 6)
+            // {
+            //     numJoints_ = 6;
+            // }
 
             // Prepare vectors for inverse dynamics
             hand_control::math::Vector<6> jointAngles, jointVel, jointAcc;

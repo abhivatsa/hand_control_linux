@@ -86,10 +86,11 @@ namespace hand_control
             hand_control::merai::multi_ring_logger_memory *loggerMem_ = nullptr;
 
             // The new StateMachine (replacing old SystemOrchestrator)
-            StateMachine stateMachine_;
+            // StateMachine stateMachine_;
 
             // SafetyManager now stored in a unique_ptr
             std::unique_ptr<SafetyManager> safetyManager_;
+            std::unique_ptr<StateMachine> stateMachine_;
 
             // Temp aggregator structures
             hand_control::merai::UserCommands userCmds;

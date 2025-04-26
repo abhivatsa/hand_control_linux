@@ -1,7 +1,7 @@
 {
     "robot": {
-      "name": "UR5",
-      "manipulator_type": "6axis",
+      "name": "hand_control_rev1",
+      "manipulator_type": "haptic_device",
   
       "links": [
         {
@@ -24,6 +24,12 @@
         },
         {
           "name": "forearm_link",
+          "mass": 2.33,
+          "com": [0.0, 0.0, 0.0],
+          "inertia": [0.05, 0.05, 0.05, 0.0, 0.0, 0.0]
+        },
+        {
+          "name": "wrist_comp_link",
           "mass": 2.33,
           "com": [0.0, 0.0, 0.0],
           "inertia": [0.05, 0.05, 0.05, 0.0, 0.0, 0.0]
@@ -61,17 +67,19 @@
           "axis": [0.0, 0.0, 1.0],
   
           "limits": {
-            "position": { "min": -180.0, "max": 180.0 },
+            "position": { "min": -45, "max": 45 },
             "velocity": { "min": -180.0, "max": 180.0 },
             "acceleration": { "min": -360.0, "max": 360.0 }
           },
   
-          "gear_ratio": 100.0,
+          "gear_ratio": 12.5,
           "encoder_counts": 4096,
           "axis_direction": 1,
           "torque_axis_direction": 1,
-          "rated_torque": 50.0, 
+          "rated_torque": 0.185, 
           "enable_drive": true,
+          "rated_current": 3.1,
+          "torque_constant": 0.05967,
   
           "limits_active": {
             "position": true,
@@ -80,7 +88,7 @@
             "torque": true
           },
   
-          "position_offset": 0.0
+          "position_offset": 260.0
         },
         {
           "name": "shoulder_lift_joint",
@@ -99,12 +107,14 @@
             "acceleration": { "min": -300.0, "max": 300.0 }
           },
   
-          "gear_ratio": 120.0,
+          "gear_ratio": 9.17,
           "encoder_counts": 4096,
           "axis_direction": 1,
           "torque_axis_direction": 1,
-          "rated_torque": 50.0,
+          "rated_torque": 0.185, 
           "enable_drive": true,
+          "rated_current": 3.1,
+          "torque_constant": 0.05967,
   
           "limits_active": {
             "position": true,
@@ -113,7 +123,7 @@
             "torque": true
           },
   
-          "position_offset": 0.0
+          "position_offset": 3900.0
         },
         {
           "name": "elbow_joint",
@@ -132,12 +142,14 @@
             "acceleration": { "min": -300.0, "max": 300.0 }
           },
   
-          "gear_ratio": 100.0,
+          "gear_ratio": 9.17,
           "encoder_counts": 4096,
           "axis_direction": 1,
           "torque_axis_direction": 1,
-          "rated_torque": 50.0,
+          "rated_torque": 0.185, 
           "enable_drive": true,
+          "rated_current": 3.1,
+          "torque_constant": 0.05967,
   
           "limits_active": {
             "position": true,
@@ -146,12 +158,47 @@
             "torque": true
           },
   
-          "position_offset": 0.0
+          "position_offset": 3700.0
+        },
+        {
+          "name": "wrist_comp_joint",
+          "type": "revolute",
+          "parent": "forearm_link",
+          "child": "wrist_comp_link",
+  
+          "origin_pos": [0.0, 0.0, 0.4],
+          "origin_orient": [0.0, 0.0, 0.0],
+  
+          "axis": [1.0, 0.0, 0.0],
+  
+          "limits": {
+            "position": { "min": -180.0, "max": 180.0 },
+            "velocity": { "min": -180.0, "max": 180.0 },
+            "acceleration": { "min": -360.0, "max": 360.0 }
+          },
+  
+          "gear_ratio": 56.0,
+          "encoder_counts": 4096,
+          "axis_direction": 1,
+          "torque_axis_direction": 1,
+          "rated_torque": 0.0113,
+          "enable_drive": true,
+          "rated_current": 0.651,
+          "torque_constant": 0.017357,
+  
+          "limits_active": {
+            "position": true,
+            "velocity": true,
+            "acceleration": true,
+            "torque": true
+          },
+  
+          "position_offset": 2130.0
         },
         {
           "name": "wrist_1_joint",
           "type": "revolute",
-          "parent": "forearm_link",
+          "parent": "wrist_comp_link",
           "child": "wrist_1_link",
   
           "origin_pos": [0.0, 0.0, 0.4],
@@ -165,12 +212,14 @@
             "acceleration": { "min": -360.0, "max": 360.0 }
           },
   
-          "gear_ratio": 80.0,
+          "gear_ratio": 56.0,
           "encoder_counts": 4096,
           "axis_direction": 1,
           "torque_axis_direction": 1,
-          "rated_torque": 30.0,
+          "rated_torque": 0.0113,
           "enable_drive": true,
+          "rated_current": 0.651,
+          "torque_constant": 0.017357,
   
           "limits_active": {
             "position": true,
@@ -179,7 +228,7 @@
             "torque": true
           },
   
-          "position_offset": 0.0
+          "position_offset": 2048.0
         },
         {
           "name": "wrist_2_joint",
@@ -198,12 +247,14 @@
             "acceleration": { "min": -360.0, "max": 360.0 }
           },
   
-          "gear_ratio": 80.0,
+          "gear_ratio": 70.0,
           "encoder_counts": 4096,
           "axis_direction": 1,
           "torque_axis_direction": 1,
-          "rated_torque": 20.0,
+          "rated_torque": 0.00666,
           "enable_drive": true,
+          "rated_current": 0.314,
+          "torque_constant": 0.02121,
   
           "limits_active": {
             "position": true,
@@ -212,7 +263,7 @@
             "torque": true
           },
   
-          "position_offset": 0.0
+          "position_offset": 2191.0
         },
         {
           "name": "wrist_3_joint",
@@ -231,12 +282,14 @@
             "acceleration": { "min": -360.0, "max": 360.0 }
           },
   
-          "gear_ratio": 80.0,
+          "gear_ratio": 32.0,
           "encoder_counts": 4096,
           "axis_direction": 1,
           "torque_axis_direction": 1,
-          "rated_torque": 15.0,
+          "rated_torque": 0.00543,
           "enable_drive": true,
+          "rated_current": 0.321,
+          "torque_constant": 0.0169,
   
           "limits_active": {
             "position": true,
@@ -245,7 +298,7 @@
             "torque": true
           },
   
-          "position_offset": 0.0
+          "position_offset": 2048.0
         }
       ]
     }

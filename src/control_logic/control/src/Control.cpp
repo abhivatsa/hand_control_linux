@@ -108,10 +108,10 @@ namespace hand_control
                 return false;
 
             // Example for Homing
-            double homePositions[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+            double homePositions[7] = {-0.82, 1.336, 0.0, 0.4724, -0.504, 0.0, 0.0};
             auto homingCtrl = std::make_shared<HomingController>(
                 homePositions,
-                6,
+                hal_->getDriveCount(),
                 hal_->getJointMotionFeedbackPtr(),
                 hal_->getJointMotionCommandPtr()
             );
@@ -136,7 +136,7 @@ namespace hand_control
         }
 
         //----------------------------------------------------------------------------
-        // The main real-time loop
+        // The main real-time loophal_->getDriveCount()
         //----------------------------------------------------------------------------
         void Control::cyclicTask()
         {
@@ -155,14 +155,18 @@ namespace hand_control
                 readControllerCommand(&ctrlCmd);
                 readDriveCommand(&driveCmd);
 
+                // std::cout<<"Drive Command : "<<int(driveCmd.commands[0])<<std::endl;
+
                 // 4) Update drive states
                 driveStateManager_->update(driveCmd.commands.data(), driveFdbk.status.data());
 
                 // 5) Update controllers
                 controllerManager_->update(ctrlCmd, ctrlFdbk, 0.001);
 
+                // std::cout<<"Control Word : "<<hal_->getJointControlCommandPtr()[0].controlWord<<std::endl;
+
                 // 6) Copy joint commands from shared memory -> local command arrays
-                copyJointCommandsFromSharedMemory();
+                // copyJointCommandsFromSharedMemory();
 
                 // 7) Write drive/controller feedback to shared memory
                 writeDriveFeedback(driveFdbk);
@@ -256,7 +260,7 @@ namespace hand_control
             for (int i = 0; i < jointCount; i++)
             {
                 // Control command
-                ctrlCmd[i].controlWord = cmdArray[i].control.controlWord;
+                // ctrlCmd[i].controlWord = cmdArray[i].control.controlWord;
 
                 // Motion command
                 motionCmd[i].targetPosition   = cmdArray[i].motion.targetPosition;

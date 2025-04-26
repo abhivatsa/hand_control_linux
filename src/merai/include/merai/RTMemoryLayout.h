@@ -34,9 +34,10 @@ namespace hand_control
         // Motion-related fields (e.g. target torque, position, velocity)
         struct ServoRxMotion
         {
-            uint8_t modeOfOperation = 0; // Operating mode indicator
-            int16_t targetTorque = 0;    // Desired torque value
+            uint8_t modeOfOperation = 8; // Operating mode indicator
+            float targetCurrent = 0;    // Desired Current value
             int32_t targetPosition = 0;  // Desired position value
+            uint16_t maxCurrent = 1000; // Max Current Input
         };
 
         // IO-related fields (digital/analog IO, if any)
@@ -67,7 +68,7 @@ namespace hand_control
         {
             int32_t positionActual = 0; // Actual position feedback
             int32_t velocityActual = 0; // Actual velocity feedback
-            int16_t torqueActual = 0;   // Actual torque feedback
+            float currentActual = 0;   // Actual current feedback
         };
 
         // IO-related feedback fields (digital/analog IO inputs, if any)
@@ -77,6 +78,7 @@ namespace hand_control
             // e.g. digitalInputs, analogInput, etc.
             uint32_t digitalInputs = 0; // Placeholder for digital inputs
             uint16_t analogInput = 0;   // Placeholder for analog input
+            uint16_t error_code = 0;
         };
 
         // Consolidated Tx PDO that groups the above sub-structs
@@ -112,7 +114,7 @@ namespace hand_control
         {
             double targetPosition = 0.0;
             double targetTorque = 0.0;
-            uint8_t modeOfOperation = 0; // Tightly coupled to how the servo interprets these commands
+            uint8_t modeOfOperation = 8; // Tightly coupled to how the servo interprets these commands
         };
 
         /// I/O-related commands (digital outputs, analog outputs, etc.)

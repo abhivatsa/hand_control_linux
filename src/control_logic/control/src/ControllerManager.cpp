@@ -1,5 +1,5 @@
-#include <stdexcept>    // for std::runtime_error
-#include <iostream>     // for std::cerr, std::endl
+#include <stdexcept> // for std::runtime_error
+#include <iostream>  // for std::cerr, std::endl
 #include "control/ControllerManager.h"
 #include "control/controllers/BaseController.h"
 
@@ -7,14 +7,12 @@ namespace hand_control
 {
     namespace control
     {
-        using namespace hand_control::merai;
 
         ControllerManager::ControllerManager(
-            const ParameterServer* paramServerPtr,
-            JointMotionFeedback*   motionFeedbackPtr,
-            JointMotionCommand*    motionCommandPtr,
-            std::size_t            jointCount
-        )
+            const hand_control::merai::ParameterServer *paramServerPtr,
+            hand_control::merai::JointMotionFeedback *motionFeedbackPtr,
+            hand_control::merai::JointMotionCommand *motionCommandPtr,
+            std::size_t jointCount)
             : paramServerPtr_(paramServerPtr),
               motionFeedbackPtr_(motionFeedbackPtr),
               motionCommandPtr_(motionCommandPtr),
@@ -24,6 +22,9 @@ namespace hand_control
             {
                 throw std::runtime_error("ControllerManager: Null paramServer pointer.");
             }
+
+            std::cout<<"jointcount : "<<jointCount_<<std::endl;
+
             if (!motionFeedbackPtr_ || !motionCommandPtr_ || jointCount_ == 0)
             {
                 throw std::runtime_error("ControllerManager: Invalid joint pointers or jointCount.");
@@ -35,7 +36,7 @@ namespace hand_control
             // Cleanup if needed
         }
 
-        bool ControllerManager::registerController(ControllerID id, std::shared_ptr<BaseController> controller)
+        bool ControllerManager::registerController(hand_control::merai::ControllerID id, std::shared_ptr<BaseController> controller)
         {
             if (!controller)
             {
@@ -71,7 +72,7 @@ namespace hand_control
             bool success = true;
 
             // Initialize all registered controllers
-            for (auto& ctrlPtr : idToController_)
+            for (auto &ctrlPtr : idToController_)
             {
                 if (ctrlPtr && !ctrlPtr->init())
                 {
@@ -81,16 +82,17 @@ namespace hand_control
 
             // By default, we can stay with no active controller => fallback
             active_controller_ = nullptr;
-            switchState_        = SwitchState::IDLE;
+            switchState_ = SwitchState::IDLE;
 
             return success;
         }
 
-        void ControllerManager::update(const ControllerCommand &cmd,
-                                       ControllerFeedback &feedback,
+        void ControllerManager::update(const hand_control::merai::ControllerCommand &cmd,
+                                       hand_control::merai::ControllerFeedback &feedback,
                                        double dt)
         {
             // If user requests a switch
+            // std::cout<<"request Switch : "<<cmd.requestSwitch<<std::endl;
             if (cmd.requestSwitch)
             {
                 target_controller_id_ = cmd.controllerId;
@@ -103,6 +105,7 @@ namespace hand_control
             // (2) Run the active controller (Approach B => controller->update(dt))
             if (active_controller_)
             {
+                std::cout<<"running active controller"<<std::endl;
                 active_controller_->update(dt);
             }
             else
@@ -118,15 +121,24 @@ namespace hand_control
                     // Zero out torque if you're in position control by default
                     motionCommandPtr_[i].targetTorque = 0.0;
                     // If you want to specify modeOfOperation, set it here:
-                    // motionCommandPtr_[i].modeOfOperation = ...
+                    motionCommandPtr_[i].modeOfOperation = 8;
                 }
             }
 
             // (3) Fill out the feedback struct
-            bool bridging  = (switchState_ == SwitchState::BRIDGING);
-            bool switching = (switchState_ != SwitchState::RUNNING);
+            bool bridging = (switchState_ == SwitchState::BRIDGING);
+            bool switching = !((switchState_ == SwitchState::RUNNING) || (switchState_ == SwitchState::IDLE));
 
-            feedback.feedbackState = ControllerFeedbackState::SWITCH_IN_PROGRESS;
+            // std::cout<<"bridging : "<<bridging<<", switching : "<<switching<<std::endl;
+
+            if (!switching){
+                feedback.feedbackState = hand_control::merai::ControllerFeedbackState::SWITCH_COMPLETED;
+            }
+            else{
+                feedback.feedbackState = hand_control::merai::ControllerFeedbackState::SWITCH_IN_PROGRESS;
+            }
+
+            
             // e.g. you can track bridging / switching states in more detail if you want
         }
 
@@ -135,6 +147,8 @@ namespace hand_control
             switch (switchState_)
             {
             case SwitchState::IDLE:
+
+            // std::cout<<"inside Idle , switch pending status : "<<switch_pending_.load()<<std::endl;
                 if (switch_pending_.load())
                 {
                     switch_pending_.store(false);
@@ -146,11 +160,13 @@ namespace hand_control
                         break;
                     }
                     bridgingNeeded_ = requiresBridging(oldController_.get(), newController_.get());
-                    switchState_    = SwitchState::STOP_OLD;
+                    switchState_ = SwitchState::STOP_OLD;
                 }
                 break;
 
             case SwitchState::STOP_OLD:
+
+            // std::cout<<"stop old "<<std::endl;
                 if (oldController_)
                 {
                     oldController_->stop();
@@ -166,11 +182,13 @@ namespace hand_control
                 break;
 
             case SwitchState::BRIDGING:
+            // std::cout<<"bridging "<<std::endl;
                 // bridging logic if needed
                 switchState_ = SwitchState::START_NEW;
                 break;
 
             case SwitchState::START_NEW:
+            // std::cout<<"start new"<<std::endl;
                 if (newController_)
                 {
                     newController_->start();
@@ -180,6 +198,7 @@ namespace hand_control
                 break;
 
             case SwitchState::RUNNING:
+            // std::cout<<"Running "<<std::endl;
                 if (switch_pending_.load())
                 {
                     switch_pending_.store(false);
@@ -191,13 +210,13 @@ namespace hand_control
                         break;
                     }
                     bridgingNeeded_ = requiresBridging(oldController_.get(), newController_.get());
-                    switchState_    = SwitchState::STOP_OLD;
+                    switchState_ = SwitchState::STOP_OLD;
                 }
                 break;
             }
         }
 
-        bool ControllerManager::requiresBridging(BaseController* oldCtrl, BaseController* newCtrl)
+        bool ControllerManager::requiresBridging(BaseController *oldCtrl, BaseController *newCtrl)
         {
             if (!oldCtrl || !newCtrl)
             {
@@ -207,7 +226,7 @@ namespace hand_control
             return false;
         }
 
-        std::shared_ptr<BaseController> ControllerManager::findControllerById(ControllerID id)
+        std::shared_ptr<BaseController> ControllerManager::findControllerById(hand_control::merai::ControllerID id)
         {
             int idx = static_cast<int>(id);
             if (idx < 0 || idx >= static_cast<int>(idToController_.size()))

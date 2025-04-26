@@ -72,6 +72,8 @@ namespace hand_control
              */
             bool isFaulted() const;
 
+            bool isHomingCompleted();
+
             /**
              * @brief forceFault()
              *  - Manually triggers a fault.
@@ -83,12 +85,6 @@ namespace hand_control
              *  - Clears the fault condition if it's safe to do so.
              */
             void clearFault();
-
-            /**
-             * @brief HomingStatus()
-             *  - Example placeholder method if you want to track homing done, etc.
-             */
-            bool HomingStatus();
 
         private:
             // ----------------------------------
@@ -126,7 +122,7 @@ namespace hand_control
 
             // Example: number of drives / joints
             std::size_t driveCount_ = 0;
-            static constexpr int MAX_JOINTS = 6;
+            static constexpr int MAX_JOINTS = 7;
 
             // Example min/max joint angle arrays
             double jointMin_[MAX_JOINTS];

@@ -42,15 +42,16 @@ namespace hand_control
             servoTx_.ctrl.statusWord = 0;
             servoTx_.motion.positionActual = 0;
             servoTx_.motion.velocityActual = 0;
-            servoTx_.motion.torqueActual   = 0;
+            servoTx_.motion.currentActual   = 0;
             servoTx_.io.digitalInputs = 0;
             servoTx_.io.analogInput   = 0;
-            
+            servoTx_.io.error_code   = 0;
 
             servoRx_.ctrl.controlWord    = 0;
-            servoRx_.motion.modeOfOperation= 0;
-            servoRx_.motion.targetTorque    = 0;
+            servoRx_.motion.modeOfOperation = 8;
+            servoRx_.motion.targetCurrent    = 0;
             servoRx_.motion.targetPosition  = 0;
+            servoRx_.motion.maxCurrent  = 1000;
 
             if (loggerMem_)
             {
@@ -144,11 +145,11 @@ namespace hand_control
                                 subIdx,
                                 bitLen))
                         {
-                            // std::cerr << "ServoDrive: Failed mapping PDO 0x"
-                            //           << std::hex << pdoAddress
-                            //           << ", index=0x" << index
-                            //           << ", subIndex=" << std::dec << (int)subIdx
-                            //           << ", bits=" << (int)bitLen << "\n";
+                            std::cerr << "ServoDrive: Failed mapping PDO 0x"
+                                      << std::hex << pdoAddress
+                                      << ", index=0x" << index
+                                      << ", subIndex=" << std::dec << (int)subIdx
+                                      << ", bits=" << (int)bitLen << "\n";
                             log_error( loggerMem_, "ServoDrive", 3403, "Failed mapping PDOs");
                             return false;
                         }
@@ -159,7 +160,7 @@ namespace hand_control
             // Register offsets in domain
             if (!registerPdoEntries())
             {
-                // std::cerr << "ServoDrive: Failed to register PDO entries.\n";
+                std::cerr << "ServoDrive: Failed to register PDO entries.\n";
                 log_warn( loggerMem_, "ServoDrive", 3300, "Failed to register PDO entries." );
                 return false;
             }
@@ -251,12 +252,16 @@ namespace hand_control
                 EC_READ_S32(domainPd + servoOffsets_.position_actual_value);
             servoTx_.motion.velocityActual =
                 EC_READ_S32(domainPd + servoOffsets_.velocity_actual_value);
-            servoTx_.motion.torqueActual =
-                EC_READ_S16(domainPd + servoOffsets_.torque_actual_value);
+            servoTx_.motion.currentActual =
+                EC_READ_REAL(domainPd + servoOffsets_.current_actual_value);
             servoTx_.io.digitalInputs =
                 EC_READ_U32(domainPd + servoOffsets_.digital_input_value);
             servoTx_.io.analogInput =
                 EC_READ_U16(domainPd + servoOffsets_.analog_input_value);
+            servoTx_.io.error_code =
+                EC_READ_U16(domainPd + servoOffsets_.error_code);
+
+            std::cout<<"Error Code : "<<servoTx_.io.error_code<<std::endl;
 
 
             // Copy to rtLayout => servoBuffer.tx
@@ -268,9 +273,10 @@ namespace hand_control
                 txPdo.ctrl.statusWord          = servoTx_.ctrl.statusWord;
                 txPdo.motion.positionActual    = servoTx_.motion.positionActual;
                 txPdo.motion.velocityActual    = servoTx_.motion.velocityActual;
-                txPdo.motion.torqueActual      = servoTx_.motion.torqueActual;
+                txPdo.motion.currentActual      = servoTx_.motion.currentActual;
                 txPdo.io.digitalInputs    = servoTx_.io.digitalInputs;
                 txPdo.io.analogInput      = servoTx_.io.analogInput;
+                txPdo.io.error_code      = servoTx_.io.error_code;
             }
             return true;
         }
@@ -289,9 +295,10 @@ namespace hand_control
                 auto &rxPdo  = rtLayout_->servoBuffer.buffer[frontIdx].rx[driveIndex_];
 
                 servoRx_.ctrl.controlWord       = rxPdo.ctrl.controlWord;
-                servoRx_.motion.modeOfOperation   = rxPdo.motion.modeOfOperation;
-                servoRx_.motion.targetTorque    = rxPdo.motion.targetTorque;
+                servoRx_.motion.modeOfOperation = rxPdo.motion.modeOfOperation;
+                servoRx_.motion.targetCurrent    = rxPdo.motion.targetCurrent;
                 servoRx_.motion.targetPosition  = rxPdo.motion.targetPosition;
+                servoRx_.motion.maxCurrent  = rxPdo.motion.maxCurrent;
             }
 
             // Write into EtherCAT domain memory
@@ -299,10 +306,24 @@ namespace hand_control
                          servoRx_.ctrl.controlWord);
             EC_WRITE_S8(domainPd + servoOffsets_.modes_of_operation,
                         servoRx_.motion.modeOfOperation);
-            EC_WRITE_S16(domainPd + servoOffsets_.target_torque,
-                         servoRx_.motion.targetTorque);
+            // EC_WRITE_REAL(domainPd + servoOffsets_.target_current,
+            //              servoRx_.motion.targetCurrent);
             EC_WRITE_S32(domainPd + servoOffsets_.target_position,
                          servoRx_.motion.targetPosition);
+            EC_WRITE_U16(domainPd + servoOffsets_.max_current,
+                            1000);
+
+            if (servoRx_.ctrl.controlWord == 15){
+                servoTx_.io.error_code =
+                EC_READ_U16(domainPd + servoOffsets_.error_code);
+
+            std::cout<<"Error Code : "<<servoTx_.io.error_code<<std::endl;
+            std::cout<<"servoRx_.ctrl.controlWord : "<<servoRx_.ctrl.controlWord<<std::endl;
+            std::cout<<"servoRx_.motion.modeOfOperation : "<<int(servoRx_.motion.modeOfOperation)<<std::endl;
+            std::cout<<"servoRx_.motion.targetPosition : "<<int(servoRx_.motion.targetPosition)<<std::endl;
+            }
+            
+            
             return true;
         }
 
@@ -325,9 +346,10 @@ namespace hand_control
             case 0x6041: return &servoOffsets_.statusword;           // statusWord
             case 0x6064: return &servoOffsets_.position_actual_value;
             case 0x606C: return &servoOffsets_.velocity_actual_value;
-            case 0x6077: return &servoOffsets_.torque_actual_value;
+            case 0x2076: return &servoOffsets_.current_actual_value;
             case 0x2600: return &servoOffsets_.digital_input_value;
             case 0x2081: return &servoOffsets_.analog_input_value;
+            case 0x603F: return &servoOffsets_.error_code;
             
             // Possibly 0x6061 => mode_of_operation_display
 
@@ -335,7 +357,8 @@ namespace hand_control
             case 0x6040: return &servoOffsets_.controlword;
             case 0x6060: return &servoOffsets_.modes_of_operation;
             case 0x607A: return &servoOffsets_.target_position;
-            case 0x6071: return &servoOffsets_.target_torque;
+            case 0x201A: return &servoOffsets_.target_current;
+            case 0x6073: return &servoOffsets_.max_current;
 
             default:
                 return nullptr;

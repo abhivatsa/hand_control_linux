@@ -61,7 +61,7 @@ namespace hand_control
                 return hand_control::merai::DriveStatus::SWITCHED_ON;
             if (readyToSwitchOn && switchedOn && opEnabled)
             {
-                if (quickStop)
+                if (!quickStop)
                     return hand_control::merai::DriveStatus::QUICK_STOP;
                 else
                     return hand_control::merai::DriveStatus::OPERATION_ENABLED;
@@ -88,9 +88,13 @@ namespace hand_control
                 hand_control::merai::DriveCommand cmd = driveCommands[i];
                 uint16_t controlWord = CW_DISABLE_VOLTAGE; // default
 
+                // std::cout<<"Joint Data - i "<<i<<std::endl;
+                // std::cout<<"Drive Command : "<<int(cmd)<<std::endl;
+
                 switch (driveStatus[i])
                 {
                 case hand_control::merai::DriveStatus::FAULT:
+                    // std::cout<<"Drive state Fault, cmd == hand_control::merai::DriveCommand::FAULT_RESET : "<<(cmd == hand_control::merai::DriveCommand::FAULT_RESET)<<std::endl;
                     if (cmd == hand_control::merai::DriveCommand::FAULT_RESET)
                         controlWord = CW_FAULT_RESET;
                     else
@@ -98,25 +102,33 @@ namespace hand_control
                     break;
 
                 case hand_control::merai::DriveStatus::SWITCH_ON_DISABLED:
+                // std::cout<<"Drive state SWITCH_ON_DISABLED, DriveStatus::SWITCH_ON_DISABLED, control word Shutdown "<<std::endl;
                     controlWord = CW_SHUTDOWN;
                     break;
 
                 case hand_control::merai::DriveStatus::NOT_READY_TO_SWITCH_ON:
+                // std::cout<<"Drive state NOT_READY_TO_SWITCH_ON"<<std::endl;
                     controlWord = CW_DISABLE_VOLTAGE;
                     break;
 
                 case hand_control::merai::DriveStatus::READY_TO_SWITCH_ON:
+                // std::cout<<"Drive state READY_TO_SWITCH_ON"<<std::endl;
                     controlWord = CW_SWITCH_ON;
                     break;
 
                 case hand_control::merai::DriveStatus::SWITCHED_ON:
+                
                     if (cmd == hand_control::merai::DriveCommand::ALLOW_OPERATION)
+                    {
+                        std::cout<<"command recieved for operation enabled"<<std::endl;
                         controlWord = CW_ENABLE_OPERATION;
+                    }
                     else
                         controlWord = CW_SWITCH_ON;
                     break;
 
                 case hand_control::merai::DriveStatus::OPERATION_ENABLED:
+                std::cout<<"Drive state OPERATION_ENABLED"<<std::endl;
                     if (cmd == hand_control::merai::DriveCommand::ALLOW_OPERATION)
                         controlWord = CW_ENABLE_OPERATION;
                     else if (cmd == hand_control::merai::DriveCommand::FORCE_DISABLE)
@@ -126,6 +138,7 @@ namespace hand_control
                     break;
 
                 case hand_control::merai::DriveStatus::QUICK_STOP:
+                // std::cout<<"Drive state QUICK_STOP"<<std::endl;
                     if (cmd == hand_control::merai::DriveCommand::ALLOW_OPERATION)
                         controlWord = CW_SWITCH_ON;
                     else
@@ -136,6 +149,8 @@ namespace hand_control
                     controlWord = CW_DISABLE_VOLTAGE;
                     break;
                 }
+
+                // std::cout<<"************* controlWord : "<<controlWord<<std::endl;
 
                 // 3) Write the computed control word into JointControlCommand
                 jointCommandPtr_[i].controlWord = controlWord;

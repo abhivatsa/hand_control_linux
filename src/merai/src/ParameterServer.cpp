@@ -334,6 +334,8 @@ void parseRobotParameters(ParameterServer& paramServer,
             jc.torque_axis_direction = jt.value("torque_axis_direction", 1);
             jc.rated_torque        = jt.value("rated_torque", 0.0);
             jc.enable_drive        = jt.value("enable_drive", false);
+            jc.torque_constant     = jt.value("torque_constant", 0.0);
+            jc.rated_current       = jt.value("rated_current", 0.0);
 
             // "limits_active": { "position": ..., "velocity": ..., "acceleration": ..., "torque": ... }
             if (jt.contains("limits_active"))

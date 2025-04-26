@@ -169,6 +169,8 @@ namespace hand_control
                 
                 if (drive)
                 {
+                    drive->initialize();
+
                     if (!drive->configurePdos())
                     {
                         std::cerr << "[Error] Failed to configure PDOs.\n";
@@ -255,11 +257,14 @@ namespace hand_control
                 }
 
                 // Write outputs for all drives
+                // int cnt = 0;
                 for (auto& drive : drives_)
                 {
                     if (drive)
                     {
+                        // std::cout<<"cnt : "<<cnt<<std::endl;
                         drive->writeOutputs(domainPd_);
+                        // cnt++;
                     }
                 }
 

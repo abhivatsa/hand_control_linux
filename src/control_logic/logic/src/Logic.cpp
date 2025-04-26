@@ -44,8 +44,12 @@ namespace hand_control
 
         bool Logic::init()
         {
+            stateMachine_ = std::make_unique<StateMachine>(
+                paramServerPtr_
+            );
+
             // 1) Initialize the StateMachine
-            if (!stateMachine_.init())
+            if (!stateMachine_->init())
             {
                 std::cerr << "[Logic] StateMachine init failed.\n";
                 return false;
@@ -90,7 +94,7 @@ namespace hand_control
         {
             period_info pinfo;
             // Example: run at 10 ms cycle
-            periodic_task_init(&pinfo, 10'000'000L);
+            periodic_task_init(&pinfo, 1'000'000L);
 
             while (!stopRequested_.load(std::memory_order_relaxed))
             {
@@ -99,18 +103,34 @@ namespace hand_control
                 readDriveFeedback(driveFdbk);
                 readControllerFeedback(ctrlFdbk);
 
+                userCmds.resetFault = true;
+
+                // std::cout<<""
+
                 // 2) Safety checks
                 isFaulted        = safetyManager_->update(driveFdbk, userCmds, ctrlFdbk);
-                isHomingCompleted= safetyManager_->HomingStatus();
+
+                // std::cout<<"isFaulted : "<<isFaulted<<std::endl;
+
+                isHomingCompleted = safetyManager_->isHomingCompleted();
 
                 // 3) StateMachine update => output commands
-                StateManagerOutput stateOutput = stateMachine_.update(isFaulted, isHomingCompleted, userCmds);
+                StateManagerOutput stateOutput = stateMachine_->update(isFaulted, isHomingCompleted, driveFdbk, userCmds, ctrlFdbk);
+
+                // std::cout<<"Request Switch : "<<stateOutput.ctrlCmd.requestSwitch<<", Controller_id : "<<int(stateOutput.ctrlCmd.controllerId)<<std::endl;
 
                 // 4) If controller not switching, write drive & controller commands
                 if (ctrlFdbk.feedbackState != merai::ControllerFeedbackState::SWITCH_IN_PROGRESS)
                 {
+                    // std::cout<<"drive command : "<<int(stateOutput.driveCmd.commands[0])<<std::endl;
                     writeDriveCommands(stateOutput.driveCmd);
                     writeControllerCommand(stateOutput.ctrlCmd);
+                }
+                else{
+                    // std::cout<<"switching Controller :  "<<int(ctrlFdbk.feedbackState)<<std::endl;
+                    // std::cout<<"drive command : "<<int(stateOutput.driveCmd.commands[0])<<std::endl;
+                    // std::cout<<"ctrl_cmd : "<<int(stateOutput.ctrlCmd.controllerId)<<std::endl;
+                    // std::cout<<"ctrl_cmd requestSwitch: "<<int(stateOutput.ctrlCmd.requestSwitch)<<std::endl;
                 }
 
                 // 5) Update user feedback with the current application state

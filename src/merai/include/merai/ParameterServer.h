@@ -147,6 +147,8 @@ namespace hand_control
             int torque_axis_direction = 1;
             double rated_torque = 0.0;
             bool enable_drive = false;
+            double rated_current = 0.0;
+            double torque_constant = 0.0;
 
             // "limits_active": { "position": true, "velocity": true, "acceleration": true, "torque": true }
             // We'll store them in a struct or booleans:
