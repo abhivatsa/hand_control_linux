@@ -6,7 +6,7 @@ Description=Merai Launcher Service
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/merai_launcher  # Adjust if your install prefix is different
+ExecStart=/usr/bin/merai_launcher
 Restart=on-failure
 RestartSec=5
 

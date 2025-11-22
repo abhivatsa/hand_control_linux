@@ -1,6 +1,11 @@
 cmake_minimum_required(VERSION 3.10)
 project(hand_control_merai VERSION 1.0.0)
 
+include(GNUInstallDirs)
+include(CTest)
+
+include(GNUInstallDirs)
+
 #
 # 1) Foundation Library (merai_foundation)
 #    Provides functionalities like RAII_SharedMemory, ParameterServer, etc.
@@ -12,6 +17,8 @@ add_library(merai_foundation
     # src/Watchdog.cpp  # Uncomment if Watchdog is implemented in this module
     # ... add more .cpp files as needed
 )
+
+target_compile_features(merai_foundation PUBLIC cxx_std_17)
 
 target_include_directories(merai_foundation
     PRIVATE
@@ -34,13 +41,19 @@ target_include_directories(merai_foundation
 #
 # 2) Logger Executable (merai_logger)
 #
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(LIBSYSTEMD REQUIRED libsystemd)
+
 add_executable(merai_logger
     src/LoggerProcess.cpp
 )
 
+target_compile_definitions(merai_logger PRIVATE USE_SYSTEMD_JOURNAL=1)
+target_include_directories(merai_logger PRIVATE ${LIBSYSTEMD_INCLUDE_DIRS})
 target_link_libraries(merai_logger
     PRIVATE
         merai_foundation
+        ${LIBSYSTEMD_LIBRARIES}
 )
 
 #
@@ -53,6 +66,11 @@ add_executable(merai_launcher
 target_link_libraries(merai_launcher
     PRIVATE
         merai_foundation
+)
+target_compile_definitions(merai_launcher
+    PRIVATE
+        MERAI_CONFIG_DIR_INSTALL="${MERAI_CONFIG_INSTALL_DIR}"
+        MERAI_CONFIG_DIR_SOURCE="${CMAKE_SOURCE_DIR}/config"
 )
 
 #
@@ -93,6 +111,9 @@ install(
     DESTINATION include/hand_control_merai
 )
 
+# Config install directory (configurable)
+set(MERAI_CONFIG_INSTALL_DIR "${CMAKE_INSTALL_DATAROOTDIR}/hand_control_merai/config" CACHE PATH "Install path for merai config files")
+
 # 4f) Install JSON config files to a unique directory
 install(
     FILES
@@ -100,7 +121,7 @@ install(
         ${CMAKE_CURRENT_SOURCE_DIR}/../../config/ethercat_config.json
         ${CMAKE_CURRENT_SOURCE_DIR}/../../config/robot_parameters.json
         ${CMAKE_CURRENT_SOURCE_DIR}/../../config/startup_config.json
-    DESTINATION etc/hand_control_merai_configs
+    DESTINATION ${MERAI_CONFIG_INSTALL_DIR}
 )
 
 #
@@ -150,3 +171,21 @@ set(CPACK_DEBIAN_PACKAGE_DESCRIPTION
 set(CPACK_PACKAGING_INSTALL_PREFIX "/usr")
 
 include(CPack)
+
+# ----------------------------------------------------------
+# 7) Tests (optional, not installed)
+# ----------------------------------------------------------
+if(BUILD_TESTING)
+    add_executable(merai_param_server_tests
+        tests/ParameterServerTests.cpp
+    )
+    target_compile_definitions(merai_param_server_tests PRIVATE SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+    target_link_libraries(merai_param_server_tests PRIVATE merai_foundation)
+    add_test(NAME merai_param_server_tests COMMAND merai_param_server_tests)
+
+    add_executable(merai_logger_tests
+        tests/LoggerTests.cpp
+    )
+    target_link_libraries(merai_logger_tests PRIVATE merai_foundation)
+    add_test(NAME merai_logger_tests COMMAND merai_logger_tests)
+endif()

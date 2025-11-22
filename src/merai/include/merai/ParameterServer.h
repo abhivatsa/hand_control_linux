@@ -2,44 +2,69 @@
 
 #include <array>
 #include <cstdint>
-#include "merai/FixedString.h"
+#include <string>
+#include <type_traits>
 
 namespace hand_control
 {
     namespace merai
     {
+        enum class DriveType : uint8_t
+        {
+            Unknown = 0,
+            Servo,
+            Io
+        };
+
+        enum class SyncType : uint8_t
+        {
+            Unknown = 0,
+            RxPdo,
+            TxPdo
+        };
+
+        enum class PdoDataType : uint8_t
+        {
+            Unknown = 0,
+            Int8,
+            Int16,
+            Int32,
+            UInt16,
+            UInt32
+        };
+
         // -------------------------------------------------------------------------
         // 1) EtherCAT Drive Config (unchanged)
         // -------------------------------------------------------------------------
 
         constexpr int MAX_DRIVES = 16;
-        constexpr size_t MAX_STR_LEN = 16;
+        constexpr uint32_t PARAM_SERVER_MAGIC = 0x50415241; // 'PARA'
+        constexpr uint32_t PARAM_SERVER_VERSION = 1;
 
         // PDO Mapping
         struct PdoMappingEntry
         {
-            FixedString<MAX_STR_LEN> object_index;
+            uint16_t object_index = 0;
             uint8_t subindex = 0;
             uint32_t bit_length = 0;
-            FixedString<MAX_STR_LEN> data_type;
-            FixedString<MAX_STR_LEN> description;
+            PdoDataType data_type = PdoDataType::Unknown;
         };
 
         struct SyncManagerConfig
         {
             int id = 0;
-            FixedString<MAX_STR_LEN> type; // e.g. "rxpdo", "txpdo"
+            SyncType type = SyncType::Unknown;
             bool watchdog_enabled = false;
 
             static constexpr int MAX_ASSIGNMENTS = 4;
-            std::array<FixedString<MAX_STR_LEN>, MAX_ASSIGNMENTS> pdo_assignments{};
+            std::array<uint16_t, MAX_ASSIGNMENTS> pdo_assignments{};
             int assignmentCount = 0;
 
             static constexpr int MAX_MAPPING_PER_ASSIGNMENT = 8;
 
             struct MappingsForOneAssignment
             {
-                FixedString<MAX_STR_LEN> assignmentKey;
+                uint16_t assignmentKey = 0;
                 std::array<PdoMappingEntry, MAX_MAPPING_PER_ASSIGNMENT> entries;
                 int entryCount = 0;
             };
@@ -51,15 +76,15 @@ namespace hand_control
 
         struct SdoConfig
         {
-            FixedString<MAX_STR_LEN> object_index;
+            uint16_t object_index = 0;
             uint8_t subindex = 0;
             int value = 0;
-            FixedString<MAX_STR_LEN> data_type;
+            PdoDataType data_type = PdoDataType::Unknown;
         };
 
         struct DistributedClockConfig
         {
-            FixedString<MAX_STR_LEN> object_index;
+            uint16_t object_index = 0;
             uint32_t cycle_time_ns = 0;
             uint32_t sync0 = 0;
             uint32_t sync1 = 0;
@@ -72,11 +97,10 @@ namespace hand_control
             uint16_t alias = 0;
             uint16_t position = 0;
 
-            FixedString<MAX_STR_LEN> product_name;
             uint32_t vendor_id = 0;
             uint32_t product_code = 0;
 
-            FixedString<MAX_STR_LEN> type; // e.g. "servo", "io"
+            DriveType type = DriveType::Unknown; // e.g. "servo", "io"
 
             DistributedClockConfig distributed_clock;
 
@@ -99,7 +123,6 @@ namespace hand_control
         // Each link now uses "com" (array of 3) and "inertia" (array of 6).
         struct LinkConfig
         {
-            FixedString<MAX_STR_LEN> name;
             double mass = 0.0;
             // JSON field: "com": [...]
             std::array<double, 3> com{{0.0, 0.0, 0.0}};
@@ -124,10 +147,9 @@ namespace hand_control
 
         struct JointConfig
         {
-            FixedString<MAX_STR_LEN> name;
-            FixedString<MAX_STR_LEN> type;
-            FixedString<MAX_STR_LEN> parent;
-            FixedString<MAX_STR_LEN> child;
+            // All joints are revolute for this robot; no joint type enum needed
+            int parent_index = -1;
+            int child_index = -1;
 
             // Instead of a single 'Origin', your JSON has "origin_pos" and "origin_orient"
             //   e.g. "origin_pos": [0.0, 0.0, 0.4], "origin_orient": [...]
@@ -140,15 +162,19 @@ namespace hand_control
             // "limits": { "position": {...}, "velocity": {...}, "acceleration": {...} }
             JointLimits limits;
 
-            // Additional fields from your JSON (gear_ratio, encoder_counts, etc.)
-            double gear_ratio = 1.0;
-            int encoder_counts = 0;
-            int axis_direction = 1;
-            int torque_axis_direction = 1;
-            double rated_torque = 0.0;
-            bool enable_drive = false;
-            double rated_current = 0.0;
-            double torque_constant = 0.0;
+            struct DriveParameters
+            {
+                double gear_ratio = 1.0;
+                int encoder_counts = 0;
+                int axis_direction = 1;
+                int torque_axis_direction = 1;
+                double rated_torque = 0.0;
+                bool enable_drive = false;
+                double rated_current = 0.0;
+                double torque_constant = 0.0;
+            };
+
+            DriveParameters drive;
 
             // "limits_active": { "position": true, "velocity": true, "acceleration": true, "torque": true }
             // We'll store them in a struct or booleans:
@@ -175,14 +201,14 @@ namespace hand_control
 
         struct ParameterServer
         {
+            uint32_t magic = PARAM_SERVER_MAGIC;
+            uint32_t version = PARAM_SERVER_VERSION;
+
             // A) EtherCAT drive data
             std::array<DriveConfig, MAX_DRIVES> drives;
             int driveCount = 0;
 
             // B) Robot data
-            FixedString<MAX_STR_LEN> robot_name;
-            FixedString<MAX_STR_LEN> manipulator_type;
-
             std::array<LinkConfig, MAX_LINKS> links;
             int linkCount = 0;
 
@@ -205,6 +231,9 @@ namespace hand_control
         ParameterServer parseParameterServer(const std::string &ecatConfigFile,
                                              const std::string &robotParamFile,
                                              const std::string &startupFile);
+
+        static_assert(std::is_trivially_copyable<ParameterServer>::value,
+                      "ParameterServer must be trivially copyable for SHM use");
 
     } // namespace merai
 } // namespace hand_control

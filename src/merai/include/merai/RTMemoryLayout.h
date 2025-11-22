@@ -3,6 +3,7 @@
 #include <array>
 #include <atomic>
 #include <cstdint>
+#include <type_traits>
 
 // Include enumerations for DriveCommand, DriveStatus, ControllerID, etc.
 #include "merai/Enums.h"
@@ -18,6 +19,8 @@ namespace hand_control
 
         // Maximum number of servo drives supported by the system
         constexpr int MAX_SERVO_DRIVES = 12;
+        constexpr uint32_t RT_MEMORY_MAGIC = 0x52544D4D;   // 'RTMM'
+        constexpr uint32_t RT_MEMORY_VERSION = 1;
 
         //====================================================
         // Servo Fieldbus Data Structures
@@ -247,6 +250,9 @@ namespace hand_control
         // It aggregates all the double buffers used to exchange various data types.
         struct RTMemoryLayout
         {
+            uint32_t magic = RT_MEMORY_MAGIC;
+            uint32_t version = RT_MEMORY_VERSION;
+
             // Servo fieldbus data: both transmit and receive PDOs.
             DoubleBuffer<ServoSharedData> servoBuffer;
 
@@ -266,5 +272,16 @@ namespace hand_control
             DoubleBuffer<UserFeedback> userFeedbackBuffer;
         };
 
+        static_assert(std::is_trivially_copyable<ServoRxPdo>::value, "ServoRxPdo must be trivially copyable");
+        static_assert(std::is_trivially_copyable<ServoTxPdo>::value, "ServoTxPdo must be trivially copyable");
+        static_assert(std::is_trivially_copyable<ServoSharedData>::value, "ServoSharedData must be trivially copyable");
+        static_assert(std::is_trivially_copyable<JointData>::value, "JointData must be trivially copyable");
+        static_assert(std::is_trivially_copyable<DriveCommandData>::value, "DriveCommandData must be trivially copyable");
+        static_assert(std::is_trivially_copyable<DriveFeedbackData>::value, "DriveFeedbackData must be trivially copyable");
+        static_assert(std::is_trivially_copyable<ControllerCommand>::value, "ControllerCommand must be trivially copyable");
+        static_assert(std::is_trivially_copyable<ControllerFeedback>::value, "ControllerFeedback must be trivially copyable");
+        static_assert(std::is_trivially_copyable<UserCommands>::value, "UserCommands must be trivially copyable");
+        static_assert(std::is_trivially_copyable<UserFeedback>::value, "UserFeedback must be trivially copyable");
+        static_assert(std::is_trivially_copyable<RTMemoryLayout>::value, "RTMemoryLayout must be trivially copyable");
     } // namespace merai
 } // namespace hand_control

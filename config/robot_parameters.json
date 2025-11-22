@@ -1,7 +1,15 @@
 {
+    "schema_version": 1,
+    "units": {
+      "angles": "deg",
+      "velocities": "deg/s",
+      "accelerations": "deg/s^2",
+      "torque": "Nm",
+      "length": "m"
+    },
     "robot": {
-      "name": "hand_control_rev1",
-      "manipulator_type": "haptic_device",
+      "name": "seven_axis_robot",
+      "manipulator_type": "robotic_arm",
   
       "links": [
         {
@@ -11,43 +19,43 @@
           "inertia": [0.1, 0.1, 0.1, 0.0, 0.0, 0.0]
         },
         {
-          "name": "shoulder_link",
+          "name": "link1",
           "mass": 3.7,
           "com": [0.0, 0.0, 0.0],
           "inertia": [0.1, 0.1, 0.1, 0.0, 0.0, 0.0]
         },
         {
-          "name": "upper_arm_link",
+          "name": "link2",
           "mass": 8.4,
           "com": [0.0, 0.0, 0.0],
           "inertia": [0.2, 0.2, 0.2, 0.0, 0.0, 0.0]
         },
         {
-          "name": "forearm_link",
+          "name": "link3",
           "mass": 2.33,
           "com": [0.0, 0.0, 0.0],
           "inertia": [0.05, 0.05, 0.05, 0.0, 0.0, 0.0]
         },
         {
-          "name": "wrist_comp_link",
+          "name": "link4",
           "mass": 2.33,
           "com": [0.0, 0.0, 0.0],
           "inertia": [0.05, 0.05, 0.05, 0.0, 0.0, 0.0]
         },
         {
-          "name": "wrist_1_link",
+          "name": "link5",
           "mass": 1.96,
           "com": [0.0, 0.0, 0.0],
           "inertia": [0.03, 0.03, 0.03, 0.0, 0.0, 0.0]
         },
         {
-          "name": "wrist_2_link",
+          "name": "link6",
           "mass": 1.23,
           "com": [0.0, 0.0, 0.0],
           "inertia": [0.02, 0.02, 0.02, 0.0, 0.0, 0.0]
         },
         {
-          "name": "wrist_3_link",
+          "name": "tcp_link",
           "mass": 0.35,
           "com": [0.0, 0.0, 0.0],
           "inertia": [0.01, 0.01, 0.01, 0.0, 0.0, 0.0]
@@ -56,10 +64,10 @@
   
       "joints": [
         {
-          "name": "shoulder_pan_joint",
+          "name": "joint1",
           "type": "revolute",
           "parent": "base_link",
-          "child": "shoulder_link",
+          "child": "link1",
   
           "origin_pos": [0.0, 0.0, 0.0],
           "origin_orient": [0.0, 0.0, 0.0],
@@ -72,14 +80,16 @@
             "acceleration": { "min": -360.0, "max": 360.0 }
           },
   
-          "gear_ratio": 12.5,
-          "encoder_counts": 4096,
-          "axis_direction": 1,
-          "torque_axis_direction": 1,
-          "rated_torque": 0.185, 
-          "enable_drive": true,
-          "rated_current": 3.1,
-          "torque_constant": 0.05967,
+          "drive": {
+            "gear_ratio": 12.5,
+            "encoder_counts": 4096,
+            "axis_direction": 1,
+            "torque_axis_direction": 1,
+            "rated_torque": 0.185,
+            "enable_drive": true,
+            "rated_current": 3.1,
+            "torque_constant": 0.05967
+          },
   
           "limits_active": {
             "position": true,
@@ -91,10 +101,10 @@
           "position_offset": 260.0
         },
         {
-          "name": "shoulder_lift_joint",
+          "name": "joint2",
           "type": "revolute",
-          "parent": "shoulder_link",
-          "child": "upper_arm_link",
+          "parent": "link1",
+          "child": "link2",
   
           "origin_pos": [0.0, 0.0, 0.4],
           "origin_orient": [0.0, 0.0, 0.0],
@@ -107,14 +117,16 @@
             "acceleration": { "min": -300.0, "max": 300.0 }
           },
   
-          "gear_ratio": 9.17,
-          "encoder_counts": 4096,
-          "axis_direction": 1,
-          "torque_axis_direction": 1,
-          "rated_torque": 0.185, 
-          "enable_drive": true,
-          "rated_current": 3.1,
-          "torque_constant": 0.05967,
+          "drive": {
+            "gear_ratio": 9.17,
+            "encoder_counts": 4096,
+            "axis_direction": 1,
+            "torque_axis_direction": 1,
+            "rated_torque": 0.185,
+            "enable_drive": true,
+            "rated_current": 3.1,
+            "torque_constant": 0.05967
+          },
   
           "limits_active": {
             "position": true,
@@ -126,10 +138,10 @@
           "position_offset": 3900.0
         },
         {
-          "name": "elbow_joint",
+          "name": "joint3",
           "type": "revolute",
-          "parent": "upper_arm_link",
-          "child": "forearm_link",
+          "parent": "link2",
+          "child": "link3",
   
           "origin_pos": [0.0, 0.0, 0.4],
           "origin_orient": [0.0, 0.0, 0.0],
@@ -142,14 +154,16 @@
             "acceleration": { "min": -300.0, "max": 300.0 }
           },
   
-          "gear_ratio": 9.17,
-          "encoder_counts": 4096,
-          "axis_direction": 1,
-          "torque_axis_direction": 1,
-          "rated_torque": 0.185, 
-          "enable_drive": true,
-          "rated_current": 3.1,
-          "torque_constant": 0.05967,
+          "drive": {
+            "gear_ratio": 9.17,
+            "encoder_counts": 4096,
+            "axis_direction": 1,
+            "torque_axis_direction": 1,
+            "rated_torque": 0.185,
+            "enable_drive": true,
+            "rated_current": 3.1,
+            "torque_constant": 0.05967
+          },
   
           "limits_active": {
             "position": true,
@@ -161,10 +175,10 @@
           "position_offset": 3700.0
         },
         {
-          "name": "wrist_comp_joint",
+          "name": "joint4",
           "type": "revolute",
-          "parent": "forearm_link",
-          "child": "wrist_comp_link",
+          "parent": "link3",
+          "child": "link4",
   
           "origin_pos": [0.0, 0.0, 0.4],
           "origin_orient": [0.0, 0.0, 0.0],
@@ -177,14 +191,16 @@
             "acceleration": { "min": -360.0, "max": 360.0 }
           },
   
-          "gear_ratio": 56.0,
-          "encoder_counts": 4096,
-          "axis_direction": 1,
-          "torque_axis_direction": 1,
-          "rated_torque": 0.0113,
-          "enable_drive": true,
-          "rated_current": 0.651,
-          "torque_constant": 0.017357,
+          "drive": {
+            "gear_ratio": 56.0,
+            "encoder_counts": 4096,
+            "axis_direction": 1,
+            "torque_axis_direction": 1,
+            "rated_torque": 0.0113,
+            "enable_drive": true,
+            "rated_current": 0.651,
+            "torque_constant": 0.017357
+          },
   
           "limits_active": {
             "position": true,
@@ -196,10 +212,10 @@
           "position_offset": 2130.0
         },
         {
-          "name": "wrist_1_joint",
+          "name": "joint5",
           "type": "revolute",
-          "parent": "wrist_comp_link",
-          "child": "wrist_1_link",
+          "parent": "link4",
+          "child": "link5",
   
           "origin_pos": [0.0, 0.0, 0.4],
           "origin_orient": [0.0, 0.0, 0.0],
@@ -212,14 +228,16 @@
             "acceleration": { "min": -360.0, "max": 360.0 }
           },
   
-          "gear_ratio": 56.0,
-          "encoder_counts": 4096,
-          "axis_direction": 1,
-          "torque_axis_direction": 1,
-          "rated_torque": 0.0113,
-          "enable_drive": true,
-          "rated_current": 0.651,
-          "torque_constant": 0.017357,
+          "drive": {
+            "gear_ratio": 56.0,
+            "encoder_counts": 4096,
+            "axis_direction": 1,
+            "torque_axis_direction": 1,
+            "rated_torque": 0.0113,
+            "enable_drive": true,
+            "rated_current": 0.651,
+            "torque_constant": 0.017357
+          },
   
           "limits_active": {
             "position": true,
@@ -231,10 +249,10 @@
           "position_offset": 2048.0
         },
         {
-          "name": "wrist_2_joint",
+          "name": "joint6",
           "type": "revolute",
-          "parent": "wrist_1_link",
-          "child": "wrist_2_link",
+          "parent": "link5",
+          "child": "link6",
   
           "origin_pos": [0.0, 0.0, 0.1],
           "origin_orient": [0.0, 0.0, 0.0],
@@ -247,14 +265,16 @@
             "acceleration": { "min": -360.0, "max": 360.0 }
           },
   
-          "gear_ratio": 70.0,
-          "encoder_counts": 4096,
-          "axis_direction": 1,
-          "torque_axis_direction": 1,
-          "rated_torque": 0.00666,
-          "enable_drive": true,
-          "rated_current": 0.314,
-          "torque_constant": 0.02121,
+          "drive": {
+            "gear_ratio": 70.0,
+            "encoder_counts": 4096,
+            "axis_direction": 1,
+            "torque_axis_direction": 1,
+            "rated_torque": 0.00666,
+            "enable_drive": true,
+            "rated_current": 0.314,
+            "torque_constant": 0.02121
+          },
   
           "limits_active": {
             "position": true,
@@ -266,10 +286,10 @@
           "position_offset": 2191.0
         },
         {
-          "name": "wrist_3_joint",
+          "name": "joint7",
           "type": "revolute",
-          "parent": "wrist_2_link",
-          "child": "wrist_3_link",
+          "parent": "link6",
+          "child": "tcp_link",
   
           "origin_pos": [0.0, 0.0, 0.1],
           "origin_orient": [0.0, 0.0, 0.0],
@@ -282,14 +302,16 @@
             "acceleration": { "min": -360.0, "max": 360.0 }
           },
   
-          "gear_ratio": 32.0,
-          "encoder_counts": 4096,
-          "axis_direction": 1,
-          "torque_axis_direction": 1,
-          "rated_torque": 0.00543,
-          "enable_drive": true,
-          "rated_current": 0.321,
-          "torque_constant": 0.0169,
+          "drive": {
+            "gear_ratio": 32.0,
+            "encoder_counts": 4096,
+            "axis_direction": 1,
+            "torque_axis_direction": 1,
+            "rated_torque": 0.00543,
+            "enable_drive": true,
+            "rated_current": 0.321,
+            "torque_constant": 0.0169
+          },
   
           "limits_active": {
             "position": true,

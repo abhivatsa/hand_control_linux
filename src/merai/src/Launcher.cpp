@@ -7,18 +7,8 @@
 #include "merai/SharedLogger.h"
 #include "merai/RAII_SharedMemory.h"
 #include <sys/mman.h>
-
-// If parseParameterServer is implemented in ParameterServer.cpp within the same namespace,
-// declare it here with the matching namespace:
-namespace hand_control
-{
-    namespace merai
-    {
-        extern ParameterServer parseParameterServer(const std::string &ecatConfigFile,
-                                                    const std::string &robotParamFile,
-                                                    const std::string &startupFile);
-    }
-}
+#include <cstdlib>
+#include <filesystem>
 
 int main(int argc, char *argv[])
 {
@@ -29,10 +19,33 @@ int main(int argc, char *argv[])
         ::shm_unlink("/RTDataShm");
         ::shm_unlink("/LoggerShm");
 
-        // Example file paths
-        const std::string ecatFile = "../../../config/ethercat_config.json";
-        const std::string robotFile = "../../../config/robot_parameters.json";
-        const std::string startupFile = "../../../config/startup_config.json";
+        // Resolve config directory: env override -> installed path -> source path
+        std::filesystem::path configDir;
+        if (const char* envDir = std::getenv("MERAI_CONFIG_DIR"))
+        {
+            configDir = envDir;
+        }
+        else
+        {
+            std::filesystem::path installDir = MERAI_CONFIG_DIR_INSTALL;
+            std::filesystem::path sourceDir = MERAI_CONFIG_DIR_SOURCE;
+            if (std::filesystem::exists(installDir))
+            {
+                configDir = installDir;
+            }
+            else if (std::filesystem::exists(sourceDir))
+            {
+                configDir = sourceDir;
+            }
+            else
+            {
+                throw std::runtime_error("Could not locate config directory. Set MERAI_CONFIG_DIR.");
+            }
+        }
+
+        const std::string ecatFile = (configDir / "ethercat_config.json").string();
+        const std::string robotFile = (configDir / "robot_parameters.json").string();
+        const std::string startupFile = (configDir / "startup_config.json").string();
 
         // Parse system parameters
         hand_control::merai::ParameterServer paramServer =
@@ -68,6 +81,8 @@ int main(int argc, char *argv[])
 
         // Zero-initialize the real-time buffer region
         std::memset(rtLayout, 0, rtShmSize);
+        rtLayout->magic = hand_control::merai::RT_MEMORY_MAGIC;
+        rtLayout->version = hand_control::merai::RT_MEMORY_VERSION;
 
         std::cout << "Launcher: RTMemoryLayout shared memory created.\n"
                   << "          (name=\"/RTDataShm\", size=" << rtShmSize << ")\n\n";
@@ -83,6 +98,8 @@ int main(int argc, char *argv[])
 
         // Clear all ring buffers
         std::memset(multiLoggerPtr, 0, loggerShmSize);
+        multiLoggerPtr->magic = hand_control::merai::multi_ring_logger_memory::MAGIC;
+        multiLoggerPtr->version = hand_control::merai::multi_ring_logger_memory::VERSION;
 
         std::cout << "Launcher: Logger shared memory created.\n"
                   << "          (name=\"/LoggerShm\", size=" << loggerShmSize << ")\n\n";

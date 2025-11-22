@@ -4,7 +4,7 @@
       "id": 1,
       "alias": 0,
       "position": 0,
-      "product_name": "denalli_xcr_e",
+      "product_name": "somanet_circulo_7",
       "vendor_id": "0x0000029c",
       "product_code": "0x03831002",
       "type": "servo",
@@ -19,12 +19,14 @@
             "pdo_mappings": {
               "0x1600": [
                 { "object_index": "0x6040", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Control Word" },
-                { "object_index": "0x6060", "subindex": 0, "bit_length": 8, "data_type": "int8", "description": "Operation Mode" },
+                { "object_index": "0x6060", "subindex": 0, "bit_length": 8, "data_type": "int8", "description": "Modes of Operation" },
                 { "object_index": "0x607A", "subindex": 0, "bit_length": 32, "data_type": "int32", "description": "Target Position" },
-                { "object_index": "0x201A", "subindex": 0, "bit_length": 32, "data_type": "float", "description": "Target Current"},
-                { "object_index": "0x6073", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Max Current"}
+                { "object_index": "0x6071", "subindex": 0, "bit_length": 16, "data_type": "int16", "description": "Target Torque"},
+                { "object_index": "0x6072", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Max Torque"}
               ],
-              "0x1601": [],
+              "0x1601": [
+                { "object_index": "0x60FE", "subindex": 1, "bit_length": 32, "data_type": "uint32", "description": "Digital Output" }
+              ],
               "0x1602": []
             }
           },
@@ -38,11 +40,11 @@
                 { "object_index": "0x6041", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Status Word" },
                 { "object_index": "0x6064", "subindex": 0, "bit_length": 32, "data_type": "int32", "description": "Position Actual Value" },
                 { "object_index": "0x606C", "subindex": 0, "bit_length": 32, "data_type": "int32", "description": "Velocity Actual Value" },
-                { "object_index": "0x2076", "subindex": 0, "bit_length": 32, "data_type": "float", "description": "Current Actual Value" }
+                { "object_index": "0x6077", "subindex": 0, "bit_length": 16, "data_type": "int16", "description": "Torque Actual Value" }
               ],
               "0x1A01": [
-                { "object_index": "0x2600", "subindex": 0, "bit_length": 32, "data_type": "uint32", "description": "Digital Input Value" },
-                { "object_index": "0x2081", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Analog Input Value" },
+                { "object_index": "0x60FD", "subindex": 0, "bit_length": 32, "data_type": "uint32", "description": "Digital Inputs" },
+                { "object_index": "0x2401", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Analog Input Value" },
                 { "object_index": "0x603f", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Error Code" }
               ],
               "0x1A02": []
@@ -56,7 +58,7 @@
       "id": 2,
       "alias": 0,
       "position": 1,
-      "product_name": "denalli_xcr_e",
+      "product_name": "somanet_circulo_7",
       "vendor_id": "0x0000029c",
       "product_code": "0x03831002",
       "type": "servo",
@@ -71,12 +73,14 @@
             "pdo_mappings": {
               "0x1600": [
                 { "object_index": "0x6040", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Control Word" },
-                { "object_index": "0x6060", "subindex": 0, "bit_length": 8, "data_type": "int8", "description": "Operation Mode" },
+                { "object_index": "0x6060", "subindex": 0, "bit_length": 8, "data_type": "int8", "description": "Modes of Operation" },
                 { "object_index": "0x607A", "subindex": 0, "bit_length": 32, "data_type": "int32", "description": "Target Position" },
-                { "object_index": "0x201A", "subindex": 0, "bit_length": 32, "data_type": "float", "description": "Target Current"},
-                { "object_index": "0x6073", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Max Current"}
+                { "object_index": "0x6071", "subindex": 0, "bit_length": 16, "data_type": "int16", "description": "Target Torque"},
+                { "object_index": "0x6072", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Max Torque"}
               ],
-              "0x1601": [],
+              "0x1601": [
+                { "object_index": "0x60FE", "subindex": 1, "bit_length": 32, "data_type": "uint32", "description": "Digital Output" }
+              ],
               "0x1602": []
             }
           },
@@ -90,11 +94,11 @@
                 { "object_index": "0x6041", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Status Word" },
                 { "object_index": "0x6064", "subindex": 0, "bit_length": 32, "data_type": "int32", "description": "Position Actual Value" },
                 { "object_index": "0x606C", "subindex": 0, "bit_length": 32, "data_type": "int32", "description": "Velocity Actual Value" },
-                { "object_index": "0x2076", "subindex": 0, "bit_length": 32, "data_type": "float", "description": "Current Actual Value" }
+                { "object_index": "0x6077", "subindex": 0, "bit_length": 16, "data_type": "int16", "description": "Torque Actual Value" }
               ],
               "0x1A01": [
-                { "object_index": "0x2600", "subindex": 0, "bit_length": 32, "data_type": "uint32", "description": "Digital Input Value" },
-                { "object_index": "0x2081", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Analog Input Value" },
+                { "object_index": "0x60FD", "subindex": 0, "bit_length": 32, "data_type": "uint32", "description": "Digital Inputs" },
+                { "object_index": "0x2401", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Analog Input Value" },
                 { "object_index": "0x603f", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Error Code" }
               ],
               "0x1A02": []
@@ -108,7 +112,7 @@
       "id": 3,
       "alias": 0,
       "position": 2,
-      "product_name": "denalli_xcr_e",
+      "product_name": "somanet_circulo_7",
       "vendor_id": "0x0000029c",
       "product_code": "0x03831002",
       "type": "servo",
@@ -123,12 +127,14 @@
             "pdo_mappings": {
               "0x1600": [
                 { "object_index": "0x6040", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Control Word" },
-                { "object_index": "0x6060", "subindex": 0, "bit_length": 8, "data_type": "int8", "description": "Operation Mode" },
+                { "object_index": "0x6060", "subindex": 0, "bit_length": 8, "data_type": "int8", "description": "Modes of Operation" },
                 { "object_index": "0x607A", "subindex": 0, "bit_length": 32, "data_type": "int32", "description": "Target Position" },
-                { "object_index": "0x201A", "subindex": 0, "bit_length": 32, "data_type": "float", "description": "Target Current"},
-                { "object_index": "0x6073", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Max Current"}
+                { "object_index": "0x6071", "subindex": 0, "bit_length": 16, "data_type": "int16", "description": "Target Torque"},
+                { "object_index": "0x6072", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Max Torque"}
               ],
-              "0x1601": [],
+              "0x1601": [
+                { "object_index": "0x60FE", "subindex": 1, "bit_length": 32, "data_type": "uint32", "description": "Digital Output" }
+              ],
               "0x1602": []
             }
           },
@@ -142,11 +148,11 @@
                 { "object_index": "0x6041", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Status Word" },
                 { "object_index": "0x6064", "subindex": 0, "bit_length": 32, "data_type": "int32", "description": "Position Actual Value" },
                 { "object_index": "0x606C", "subindex": 0, "bit_length": 32, "data_type": "int32", "description": "Velocity Actual Value" },
-                { "object_index": "0x2076", "subindex": 0, "bit_length": 32, "data_type": "float", "description": "Current Actual Value" }
+                { "object_index": "0x6077", "subindex": 0, "bit_length": 16, "data_type": "int16", "description": "Torque Actual Value" }
               ],
               "0x1A01": [
-                { "object_index": "0x2600", "subindex": 0, "bit_length": 32, "data_type": "uint32", "description": "Digital Input Value" },
-                { "object_index": "0x2081", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Analog Input Value" },
+                { "object_index": "0x60FD", "subindex": 0, "bit_length": 32, "data_type": "uint32", "description": "Digital Inputs" },
+                { "object_index": "0x2401", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Analog Input Value" },
                 { "object_index": "0x603f", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Error Code" }
               ],
               "0x1A02": []
@@ -160,7 +166,7 @@
       "id": 4,
       "alias": 0,
       "position": 3,
-      "product_name": "denalli_xcr_e",
+      "product_name": "somanet_circulo_7",
       "vendor_id": "0x0000029c",
       "product_code": "0x03831002",
       "type": "servo",
@@ -175,12 +181,14 @@
             "pdo_mappings": {
               "0x1600": [
                 { "object_index": "0x6040", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Control Word" },
-                { "object_index": "0x6060", "subindex": 0, "bit_length": 8, "data_type": "int8", "description": "Operation Mode" },
+                { "object_index": "0x6060", "subindex": 0, "bit_length": 8, "data_type": "int8", "description": "Modes of Operation" },
                 { "object_index": "0x607A", "subindex": 0, "bit_length": 32, "data_type": "int32", "description": "Target Position" },
-                { "object_index": "0x201A", "subindex": 0, "bit_length": 32, "data_type": "float", "description": "Target Current"},
-                { "object_index": "0x6073", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Max Current"}
+                { "object_index": "0x6071", "subindex": 0, "bit_length": 16, "data_type": "int16", "description": "Target Torque"},
+                { "object_index": "0x6072", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Max Torque"}
               ],
-              "0x1601": [],
+              "0x1601": [
+                { "object_index": "0x60FE", "subindex": 1, "bit_length": 32, "data_type": "uint32", "description": "Digital Output" }
+              ],
               "0x1602": []
             }
           },
@@ -194,11 +202,11 @@
                 { "object_index": "0x6041", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Status Word" },
                 { "object_index": "0x6064", "subindex": 0, "bit_length": 32, "data_type": "int32", "description": "Position Actual Value" },
                 { "object_index": "0x606C", "subindex": 0, "bit_length": 32, "data_type": "int32", "description": "Velocity Actual Value" },
-                { "object_index": "0x2076", "subindex": 0, "bit_length": 32, "data_type": "float", "description": "Current Actual Value" }
+                { "object_index": "0x6077", "subindex": 0, "bit_length": 16, "data_type": "int16", "description": "Torque Actual Value" }
               ],
               "0x1A01": [
-                { "object_index": "0x2600", "subindex": 0, "bit_length": 32, "data_type": "uint32", "description": "Digital Input Value" },
-                { "object_index": "0x2081", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Analog Input Value" },
+                { "object_index": "0x60FD", "subindex": 0, "bit_length": 32, "data_type": "uint32", "description": "Digital Inputs" },
+                { "object_index": "0x2401", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Analog Input Value" },
                 { "object_index": "0x603f", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Error Code" }
               ],
               "0x1A02": []
@@ -212,7 +220,7 @@
       "id": 5,
       "alias": 0,
       "position": 4,
-      "product_name": "denalli_xcr_e",
+      "product_name": "somanet_circulo_7",
       "vendor_id": "0x0000029c",
       "product_code": "0x03831002",
       "type": "servo",
@@ -227,12 +235,14 @@
             "pdo_mappings": {
               "0x1600": [
                 { "object_index": "0x6040", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Control Word" },
-                { "object_index": "0x6060", "subindex": 0, "bit_length": 8, "data_type": "int8", "description": "Operation Mode" },
+                { "object_index": "0x6060", "subindex": 0, "bit_length": 8, "data_type": "int8", "description": "Modes of Operation" },
                 { "object_index": "0x607A", "subindex": 0, "bit_length": 32, "data_type": "int32", "description": "Target Position" },
-                { "object_index": "0x201A", "subindex": 0, "bit_length": 32, "data_type": "float", "description": "Target Current"},
-                { "object_index": "0x6073", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Max Current"}
+                { "object_index": "0x6071", "subindex": 0, "bit_length": 16, "data_type": "int16", "description": "Target Torque"},
+                { "object_index": "0x6072", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Max Torque"}
               ],
-              "0x1601": [],
+              "0x1601": [
+                { "object_index": "0x60FE", "subindex": 1, "bit_length": 32, "data_type": "uint32", "description": "Digital Output" }
+              ],
               "0x1602": []
             }
           },
@@ -246,11 +256,11 @@
                 { "object_index": "0x6041", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Status Word" },
                 { "object_index": "0x6064", "subindex": 0, "bit_length": 32, "data_type": "int32", "description": "Position Actual Value" },
                 { "object_index": "0x606C", "subindex": 0, "bit_length": 32, "data_type": "int32", "description": "Velocity Actual Value" },
-                { "object_index": "0x2076", "subindex": 0, "bit_length": 32, "data_type": "float", "description": "Current Actual Value" }
+                { "object_index": "0x6077", "subindex": 0, "bit_length": 16, "data_type": "int16", "description": "Torque Actual Value" }
               ],
               "0x1A01": [
-                { "object_index": "0x2600", "subindex": 0, "bit_length": 32, "data_type": "uint32", "description": "Digital Input Value" },
-                { "object_index": "0x2081", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Analog Input Value" },
+                { "object_index": "0x60FD", "subindex": 0, "bit_length": 32, "data_type": "uint32", "description": "Digital Inputs" },
+                { "object_index": "0x2401", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Analog Input Value" },
                 { "object_index": "0x603f", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Error Code" }
               ],
               "0x1A02": []
@@ -264,7 +274,7 @@
       "id": 6,
       "alias": 0,
       "position": 5,
-      "product_name": "denalli_xcr_e",
+      "product_name": "somanet_circulo_7",
       "vendor_id": "0x0000029c",
       "product_code": "0x03831002",
       "type": "servo",
@@ -279,12 +289,14 @@
             "pdo_mappings": {
               "0x1600": [
                 { "object_index": "0x6040", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Control Word" },
-                { "object_index": "0x6060", "subindex": 0, "bit_length": 8, "data_type": "int8", "description": "Operation Mode" },
+                { "object_index": "0x6060", "subindex": 0, "bit_length": 8, "data_type": "int8", "description": "Modes of Operation" },
                 { "object_index": "0x607A", "subindex": 0, "bit_length": 32, "data_type": "int32", "description": "Target Position" },
-                { "object_index": "0x201A", "subindex": 0, "bit_length": 32, "data_type": "float", "description": "Target Current"},
-                { "object_index": "0x6073", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Max Current"}
+                { "object_index": "0x6071", "subindex": 0, "bit_length": 16, "data_type": "int16", "description": "Target Torque"},
+                { "object_index": "0x6072", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Max Torque"}
               ],
-              "0x1601": [],
+              "0x1601": [
+                { "object_index": "0x60FE", "subindex": 1, "bit_length": 32, "data_type": "uint32", "description": "Digital Output" }
+              ],
               "0x1602": []
             }
           },
@@ -298,11 +310,11 @@
                 { "object_index": "0x6041", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Status Word" },
                 { "object_index": "0x6064", "subindex": 0, "bit_length": 32, "data_type": "int32", "description": "Position Actual Value" },
                 { "object_index": "0x606C", "subindex": 0, "bit_length": 32, "data_type": "int32", "description": "Velocity Actual Value" },
-                { "object_index": "0x2076", "subindex": 0, "bit_length": 32, "data_type": "float", "description": "Current Actual Value" }
+                { "object_index": "0x6077", "subindex": 0, "bit_length": 16, "data_type": "int16", "description": "Torque Actual Value" }
               ],
               "0x1A01": [
-                { "object_index": "0x2600", "subindex": 0, "bit_length": 32, "data_type": "uint32", "description": "Digital Input Value" },
-                { "object_index": "0x2081", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Analog Input Value" },
+                { "object_index": "0x60FD", "subindex": 0, "bit_length": 32, "data_type": "uint32", "description": "Digital Inputs" },
+                { "object_index": "0x2401", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Analog Input Value" },
                 { "object_index": "0x603f", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Error Code" }
               ],
               "0x1A02": []
@@ -316,7 +328,7 @@
       "id": 7,
       "alias": 0,
       "position": 6,
-      "product_name": "denalli_xcr_e",
+      "product_name": "somanet_circulo_7",
       "vendor_id": "0x0000029c",
       "product_code": "0x03831002",
       "type": "servo",
@@ -331,12 +343,14 @@
             "pdo_mappings": {
               "0x1600": [
                 { "object_index": "0x6040", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Control Word" },
-                { "object_index": "0x6060", "subindex": 0, "bit_length": 8, "data_type": "int8", "description": "Operation Mode" },
+                { "object_index": "0x6060", "subindex": 0, "bit_length": 8, "data_type": "int8", "description": "Modes of Operation" },
                 { "object_index": "0x607A", "subindex": 0, "bit_length": 32, "data_type": "int32", "description": "Target Position" },
-                { "object_index": "0x201A", "subindex": 0, "bit_length": 32, "data_type": "float", "description": "Target Current"},
-                { "object_index": "0x6073", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Max Current"}
+                { "object_index": "0x6071", "subindex": 0, "bit_length": 16, "data_type": "int16", "description": "Target Torque"},
+                { "object_index": "0x6072", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Max Torque"}
               ],
-              "0x1601": [],
+              "0x1601": [
+                { "object_index": "0x60FE", "subindex": 1, "bit_length": 32, "data_type": "uint32", "description": "Digital Output" }
+              ],
               "0x1602": []
             }
           },
@@ -350,18 +364,18 @@
                 { "object_index": "0x6041", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Status Word" },
                 { "object_index": "0x6064", "subindex": 0, "bit_length": 32, "data_type": "int32", "description": "Position Actual Value" },
                 { "object_index": "0x606C", "subindex": 0, "bit_length": 32, "data_type": "int32", "description": "Velocity Actual Value" },
-                { "object_index": "0x2076", "subindex": 0, "bit_length": 32, "data_type": "float", "description": "Current Actual Value" }
+                { "object_index": "0x6077", "subindex": 0, "bit_length": 16, "data_type": "int16", "description": "Torque Actual Value" }
               ],
               "0x1A01": [
-                { "object_index": "0x2600", "subindex": 0, "bit_length": 32, "data_type": "uint32", "description": "Digital Input Value" },
-                { "object_index": "0x2081", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Analog Input Value" },
+                { "object_index": "0x60FD", "subindex": 0, "bit_length": 32, "data_type": "uint32", "description": "Digital Inputs" },
+                { "object_index": "0x2401", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Analog Input Value" },
                 { "object_index": "0x603f", "subindex": 0, "bit_length": 16, "data_type": "uint16", "description": "Error Code" }
               ],
               "0x1A02": []
             }
           }
         ]
-      },          
+      },
       "sdo_configuration": []
     }
   ]

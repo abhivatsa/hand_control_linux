@@ -5,12 +5,65 @@
 #include <stdexcept>
 #include <iostream>
 #include <cstdlib>  // for std::strtoul
-#include <cstring>  // for std::memcpy, etc.
+#include <algorithm>
+#include <cctype>
 
 namespace hand_control
 {
 namespace merai
 {
+
+namespace
+{
+    inline std::string toLowerCopy(const std::string& s)
+    {
+        std::string out = s;
+        std::transform(out.begin(), out.end(), out.begin(),
+                       [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+        return out;
+    }
+
+    inline uint32_t parseHexToUint32(const std::string& s, uint32_t defaultValue = 0)
+    {
+        if (s.empty())
+        {
+            return defaultValue;
+        }
+        return static_cast<uint32_t>(std::strtoul(s.c_str(), nullptr, 0));
+    }
+
+    inline uint16_t parseHexToUint16(const std::string& s, uint16_t defaultValue = 0)
+    {
+        return static_cast<uint16_t>(parseHexToUint32(s, defaultValue));
+    }
+
+    inline DriveType parseDriveType(const std::string& typeStr)
+    {
+        auto t = toLowerCopy(typeStr);
+        if (t == "servo") return DriveType::Servo;
+        if (t == "io" || t == "i/o") return DriveType::Io;
+        return DriveType::Unknown;
+    }
+
+    inline SyncType parseSyncType(const std::string& typeStr)
+    {
+        auto t = toLowerCopy(typeStr);
+        if (t == "rxpdo") return SyncType::RxPdo;
+        if (t == "txpdo") return SyncType::TxPdo;
+        return SyncType::Unknown;
+    }
+
+    inline PdoDataType parsePdoDataType(const std::string& dtStr)
+    {
+        auto t = toLowerCopy(dtStr);
+        if (t == "int8") return PdoDataType::Int8;
+        if (t == "int16") return PdoDataType::Int16;
+        if (t == "int32") return PdoDataType::Int32;
+        if (t == "uint16") return PdoDataType::UInt16;
+        if (t == "uint32") return PdoDataType::UInt32;
+        return PdoDataType::Unknown;
+    }
+}
 
 // ---------------------------------------------------------------------
 // Helper: parseEthercatConfig (unchanged from your existing code)
@@ -49,28 +102,26 @@ void parseEthercatConfig(ParameterServer& paramServer,
         dc.alias    = drv.value("alias", 0);
         dc.position = drv.value("position", 0);
 
-        dc.product_name.set(drv.value("product_name", ""));
-
         // vendor_id, product_code (hex strings e.g. "0x0000abcd")
         if (drv.contains("vendor_id"))
         {
             std::string vStr = drv["vendor_id"].get<std::string>();
-            dc.vendor_id = std::strtoul(vStr.c_str(), nullptr, 16);
+            dc.vendor_id = parseHexToUint32(vStr, 0);
         }
         if (drv.contains("product_code"))
         {
             std::string pStr = drv["product_code"].get<std::string>();
-            dc.product_code = std::strtoul(pStr.c_str(), nullptr, 16);
+            dc.product_code = parseHexToUint32(pStr, 0);
         }
 
         // Type: "servo" or "io"
-        dc.type.set(drv.value("type", "unknown"));
+        dc.type = parseDriveType(drv.value("type", ""));
 
         // distributed_clock
         if (drv.contains("distributed_clock"))
         {
             auto clk = drv["distributed_clock"];
-            dc.distributed_clock.object_index.set(clk.value("object_index", "0x0000"));
+            dc.distributed_clock.object_index = parseHexToUint16(clk.value("object_index", "0x0000"), 0);
             dc.distributed_clock.cycle_time_ns = clk.value("cycle_time_ns", 0);
             dc.distributed_clock.sync0         = clk.value("sync0", 0);
             dc.distributed_clock.sync1         = clk.value("sync1", 0);
@@ -96,7 +147,7 @@ void parseEthercatConfig(ParameterServer& paramServer,
                     dc.syncManagerCount++;
 
                     smc.id               = sm.value("id", 0);
-                    smc.type.set(sm.value("type", ""));  // "rxpdo" or "txpdo"
+                    smc.type = parseSyncType(sm.value("type", ""));  // "rxpdo" or "txpdo"
                     smc.watchdog_enabled = sm.value("watchdog_enabled", false);
 
                     // pdo_assignments
@@ -110,7 +161,7 @@ void parseEthercatConfig(ParameterServer& paramServer,
                                 std::cerr << "Warning: Reached MAX_ASSIGNMENTS.\n";
                                 break;
                             }
-                            smc.pdo_assignments[smc.assignmentCount].set(pa.get<std::string>());
+                            smc.pdo_assignments[smc.assignmentCount] = parseHexToUint16(pa.get<std::string>(), 0);
                             smc.assignmentCount++;
                         }
                     }
@@ -130,7 +181,7 @@ void parseEthercatConfig(ParameterServer& paramServer,
                             auto& mg = smc.mappingGroups[smc.mappingGroupCount];
                             smc.mappingGroupCount++;
 
-                            mg.assignmentKey.set(it.key());
+                            mg.assignmentKey = parseHexToUint16(it.key(), 0);
                             auto entryArr = it.value(); // array of objects
 
                             for (auto& en : entryArr)
@@ -143,12 +194,11 @@ void parseEthercatConfig(ParameterServer& paramServer,
                                 PdoMappingEntry& pme = mg.entries[mg.entryCount];
                                 mg.entryCount++;
 
-                                pme.object_index.set(en.value("object_index", ""));
+                                pme.object_index = parseHexToUint16(en.value("object_index", "0x0000"), 0);
                                 pme.subindex   = static_cast<uint8_t>(en.value("subindex", 0));
                                 pme.bit_length = en.value("bit_length", 0);
-                                pme.data_type.set(en.value("data_type", ""));
-                                // parse "description" if present
-                                pme.description.set(en.value("description", ""));
+                                pme.data_type = parsePdoDataType(en.value("data_type", ""));
+                                // description intentionally not stored
                             }
                         }
                     }
@@ -170,10 +220,10 @@ void parseEthercatConfig(ParameterServer& paramServer,
                 SdoConfig& sc = dc.sdo_configuration[dc.sdoCount];
                 dc.sdoCount++;
 
-                sc.object_index.set(scJson.value("object_index", ""));
+                sc.object_index = parseHexToUint16(scJson.value("object_index", "0x0000"), 0);
                 sc.subindex  = static_cast<uint8_t>(scJson.value("subindex", 0));
                 sc.value     = scJson.value("value", 0);
-                sc.data_type.set(scJson.value("data_type", ""));
+                sc.data_type = parsePdoDataType(scJson.value("data_type", ""));
             }
         }
     }
@@ -201,9 +251,6 @@ void parseRobotParameters(ParameterServer& paramServer,
     auto robotObj = j["robot"];
 
     // 1) Robot name & manipulator_type
-    paramServer.robot_name.set(robotObj.value("name", ""));
-    paramServer.manipulator_type.set(robotObj.value("manipulator_type", ""));
-
     // 2) links
     if (robotObj.contains("links"))
     {
@@ -218,7 +265,6 @@ void parseRobotParameters(ParameterServer& paramServer,
             LinkConfig& lc = paramServer.links[paramServer.linkCount];
             paramServer.linkCount++;
 
-            lc.name.set(lk.value("name", ""));
             lc.mass = lk.value("mass", 0.0);
 
             // com: array of 3 => "com"
@@ -261,11 +307,6 @@ void parseRobotParameters(ParameterServer& paramServer,
             }
             JointConfig& jc = paramServer.joints[paramServer.jointCount];
             paramServer.jointCount++;
-
-            jc.name.set(jt.value("name", ""));
-            jc.type.set(jt.value("type", ""));
-            jc.parent.set(jt.value("parent", ""));
-            jc.child.set(jt.value("child", ""));
 
             // origin_pos
             if (jt.contains("origin_pos"))
@@ -327,15 +368,49 @@ void parseRobotParameters(ParameterServer& paramServer,
                 }
             }
 
-            // gear_ratio, encoder_counts, axis_direction, torque_axis_direction, rated_torque, enable_drive
-            jc.gear_ratio          = jt.value("gear_ratio", 1.0);
-            jc.encoder_counts      = jt.value("encoder_counts", 0);
-            jc.axis_direction      = jt.value("axis_direction", 1);
-            jc.torque_axis_direction = jt.value("torque_axis_direction", 1);
-            jc.rated_torque        = jt.value("rated_torque", 0.0);
-            jc.enable_drive        = jt.value("enable_drive", false);
-            jc.torque_constant     = jt.value("torque_constant", 0.0);
-            jc.rated_current       = jt.value("rated_current", 0.0);
+            // drive parameters may be nested under "drive" for clarity; fall back to legacy top-level fields
+            auto get_drive_double = [&](const char* key, double def) -> double {
+                if (jt.contains("drive"))
+                {
+                    auto d = jt["drive"];
+                    if (d.contains(key))
+                    {
+                        return d.value(key, def);
+                    }
+                }
+                return jt.value(key, def);
+            };
+            auto get_drive_int = [&](const char* key, int def) -> int {
+                if (jt.contains("drive"))
+                {
+                    auto d = jt["drive"];
+                    if (d.contains(key))
+                    {
+                        return d.value(key, def);
+                    }
+                }
+                return jt.value(key, def);
+            };
+            auto get_drive_bool = [&](const char* key, bool def) -> bool {
+                if (jt.contains("drive"))
+                {
+                    auto d = jt["drive"];
+                    if (d.contains(key))
+                    {
+                        return d.value(key, def);
+                    }
+                }
+                return jt.value(key, def);
+            };
+
+            jc.drive.gear_ratio            = get_drive_double("gear_ratio", 1.0);
+            jc.drive.encoder_counts        = get_drive_int("encoder_counts", 0);
+            jc.drive.axis_direction        = get_drive_int("axis_direction", 1);
+            jc.drive.torque_axis_direction = get_drive_int("torque_axis_direction", 1);
+            jc.drive.rated_torque          = get_drive_double("rated_torque", 0.0);
+            jc.drive.enable_drive          = get_drive_bool("enable_drive", false);
+            jc.drive.torque_constant       = get_drive_double("torque_constant", 0.0);
+            jc.drive.rated_current         = get_drive_double("rated_current", 0.0);
 
             // "limits_active": { "position": ..., "velocity": ..., "acceleration": ..., "torque": ... }
             if (jt.contains("limits_active"))
@@ -382,6 +457,8 @@ ParameterServer parseParameterServer(const std::string& ecatConfigFile,
                                      const std::string& startupFile)
 {
     ParameterServer paramServer; // zero-initialized
+    paramServer.magic = PARAM_SERVER_MAGIC;
+    paramServer.version = PARAM_SERVER_VERSION;
 
     // 1) EtherCAT config
     parseEthercatConfig(paramServer, ecatConfigFile);

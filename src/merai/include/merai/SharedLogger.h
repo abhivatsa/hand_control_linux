@@ -3,7 +3,8 @@
 #include <atomic>
 #include <cstdint>
 #include <cstring>
-#include <cstdio>  // for snprintf, optional
+#include <chrono>
+#include <type_traits>
 
 namespace hand_control
 {
@@ -22,10 +23,11 @@ namespace hand_control
 
         struct shared_log_message
         {
-            uint64_t         timestamp;  // e.g. microseconds or system time
+            uint64_t         timestamp;  // nanoseconds since steady_clock epoch
             shared_log_level level;
             int              code;
-            char             text[64];   // short text, truncated if longer
+            uint32_t         text_length = 0; // bytes valid in text
+            char             text[128];   // short text, truncated if longer
         };
 
         // =============================
@@ -38,6 +40,7 @@ namespace hand_control
             shared_log_message buffer[log_buffer_size];
             std::atomic<size_t> head {0}; // producer
             std::atomic<size_t> tail {0}; // consumer
+            std::atomic<uint64_t> dropped {0}; // number of messages overwritten
         };
 
         inline void push_log_message(logger_shared_memory* shm, const shared_log_message& msg)
@@ -56,13 +59,15 @@ namespace hand_control
             {
                 size_t old_tail = (shm->tail.load(std::memory_order_relaxed) + 1) % log_buffer_size;
                 shm->tail.store(old_tail, std::memory_order_release);
+                shm->dropped.fetch_add(1, std::memory_order_relaxed);
             }
         }
 
         inline bool pop_log_message(logger_shared_memory* shm, shared_log_message& out_msg)
         {
             size_t tail = shm->tail.load(std::memory_order_relaxed);
-            if (tail == shm->head.load(std::memory_order_acquire))
+            size_t head = shm->head.load(std::memory_order_acquire);
+            if (tail == head)
             {
                 // buffer empty
                 return false;
@@ -78,6 +83,11 @@ namespace hand_control
         // =============================
         struct multi_ring_logger_memory
         {
+            static constexpr uint32_t MAGIC = 0x4C4F4747; // 'LOGG'
+            static constexpr uint32_t VERSION = 1;
+
+            uint32_t magic = MAGIC;
+            uint32_t version = VERSION;
             logger_shared_memory fieldbus_ring;
             logger_shared_memory control_ring;
             logger_shared_memory logic_ring;
@@ -146,10 +156,13 @@ namespace hand_control
                                 const char* text)
         {
             shared_log_message msg{};
-            msg.timestamp = 0ULL; // replace with your real timestamp function
+            auto now = std::chrono::steady_clock::now().time_since_epoch();
+            msg.timestamp = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(now).count());
             msg.level     = level;
             msg.code      = code;
             std::strncpy(msg.text, text, sizeof(msg.text) - 1);
+            msg.text[sizeof(msg.text) - 1] = '\0';
+            msg.text_length = static_cast<uint32_t>(std::strlen(msg.text));
 
             push_log_message_for_module(multi, module_name, msg);
         }
@@ -186,5 +199,12 @@ namespace hand_control
         {
             log_message(multi, module_name, shared_log_level::error, code, text);
         }
+
+        static_assert(std::is_trivially_copyable<shared_log_message>::value,
+                      "shared_log_message must be trivially copyable for SHM");
+        static_assert(std::is_trivially_copyable<logger_shared_memory>::value,
+                      "logger_shared_memory must be trivially copyable for SHM");
+        static_assert(std::is_trivially_copyable<multi_ring_logger_memory>::value,
+                      "multi_ring_logger_memory must be trivially copyable for SHM");
     } // namespace merai
 } // namespace hand_control

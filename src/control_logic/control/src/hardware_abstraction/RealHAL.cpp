@@ -18,28 +18,28 @@ namespace hand_control
         {
             // Example: rawPos * 0.001 => rad, then apply gear ratio, direction, offset
             // return (rawPos * 0.001) * cfg.gear_ratio * cfg.axis_direction + cfg.position_offset;
-            return ((rawPos - cfg.position_offset)/cfg.encoder_counts) * 2 * M_PI * cfg.axis_direction;
+            return ((rawPos - cfg.position_offset)/cfg.drive.encoder_counts) * 2 * M_PI * cfg.drive.axis_direction;
         }
 
         /// Convert raw servo velocity to rad/s.
         static inline double convertVelocityRawToRad(double rawVel, const hand_control::merai::JointConfig &cfg)
         {
             // Example: rawVel * 0.0001 => rad/s, then apply gear ratio, direction
-            return (rawVel * 0.0001) * cfg.gear_ratio * cfg.axis_direction;
+            return (rawVel * 0.0001) * cfg.drive.gear_ratio * cfg.drive.axis_direction;
         }
 
         /// Convert raw servo torque to Nm.
         static inline double convertTorqueRawToNm(double rawTorque, const hand_control::merai::JointConfig &cfg)
         {
             // Example: rawTorque * 0.01 => Nm, then apply gear ratio, direction
-            return (rawTorque / 1000) * cfg.rated_torque * cfg.gear_ratio * cfg.torque_axis_direction;
+            return (rawTorque / 1000) * cfg.drive.rated_torque * cfg.drive.gear_ratio * cfg.drive.torque_axis_direction;
         }
 
         /// Convert raw servo torque to Nm.
         static inline double convertCurrentRawToNm(double rawCurrent, const hand_control::merai::JointConfig &cfg)
         {
             // Example: rawTorque * 0.01 => Nm, then apply gear ratio, direction
-            return (rawCurrent) * cfg.torque_constant * cfg.gear_ratio * cfg.torque_axis_direction;
+            return (rawCurrent) * cfg.drive.torque_constant * cfg.drive.gear_ratio * cfg.drive.torque_axis_direction;
         }
 
         //------------------------------------------------------------------------------
@@ -51,7 +51,7 @@ namespace hand_control
         {
             // Reverse of convertPositionRawToRad: (posRad - offset) / (gearRatio * axisDir)
             // Example scaling: 1 raw => 0.001 rad => so multiply by 1000
-            double desPos = posRad/(2 * M_PI) * cfg.encoder_counts * cfg.axis_direction + cfg.position_offset;
+            double desPos = posRad/(2 * M_PI) * cfg.drive.encoder_counts * cfg.drive.axis_direction + cfg.position_offset;
             return static_cast<int32_t>(desPos);
         }
 
@@ -60,7 +60,7 @@ namespace hand_control
         {
             // Reverse of convertTorqueRawToNm: 1 raw => 0.01 Nm
             // So multiply by 100, plus handle gear ratio/direction
-            double adjTorque = torqueNm / (cfg.gear_ratio * cfg.torque_axis_direction);
+            double adjTorque = torqueNm / (cfg.drive.gear_ratio * cfg.drive.torque_axis_direction);
             return static_cast<int16_t>(adjTorque * 100.0);
         }
 
@@ -69,7 +69,7 @@ namespace hand_control
         {
             // Reverse of convertTorqueRawToNm: 1 raw => 0.01 Nm
             // So multiply by 100, plus handle gear ratio/direction
-            return torqueNm / (cfg.gear_ratio * cfg.torque_axis_direction * cfg.torque_constant);
+            return torqueNm / (cfg.drive.gear_ratio * cfg.drive.torque_axis_direction * cfg.drive.torque_constant);
         }
 
         //------------------------------------------------------------------------------

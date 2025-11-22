@@ -4,11 +4,11 @@ Description=Merai Logger Service
 # Ensure logger starts after the launcher has created /LoggerShm
 # and that it's part of the merai stack.
 After=launcher.service
-Requires=launcher.service
+Wants=launcher.service
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/merai_logger
+ExecStart=/usr/bin/merai_logger
 # Run as a normal (non-RT) process with the default scheduler
 # (No need to specify CPUAffinity or SCHED_FIFO).
 
