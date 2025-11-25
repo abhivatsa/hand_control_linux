@@ -13,13 +13,13 @@ namespace
     constexpr uint16_t CW_DISABLE_VOLTAGE   = 0x0000;
 }
 
-namespace hand_control
+namespace seven_axis_robot
 {
     namespace control
     {
         DriveStateManager::DriveStateManager(
-            hand_control::merai::JointControlCommand* jointCommandPtr,
-            hand_control::merai::JointControlFeedback* jointFeedbackPtr,
+            seven_axis_robot::merai::JointControlCommand* jointCommandPtr,
+            seven_axis_robot::merai::JointControlFeedback* jointFeedbackPtr,
             std::size_t driveCount)
             : jointCommandPtr_(jointCommandPtr),
               jointFeedbackPtr_(jointFeedbackPtr),
@@ -38,7 +38,7 @@ namespace hand_control
             return true;
         }
 
-        hand_control::merai::DriveStatus 
+        seven_axis_robot::merai::DriveStatus 
         DriveStateManager::decodeStatusword(uint16_t statusWord)
         {
             // Based on CiA 402 bit definitions
@@ -50,27 +50,27 @@ namespace hand_control
             bool quickStop        = (statusWord & 0x0020) != 0;  // bit 5
 
             if (fault)
-                return hand_control::merai::DriveStatus::FAULT;
+                return seven_axis_robot::merai::DriveStatus::FAULT;
             if (switchOnDisabled)
-                return hand_control::merai::DriveStatus::SWITCH_ON_DISABLED;
+                return seven_axis_robot::merai::DriveStatus::SWITCH_ON_DISABLED;
             if (!readyToSwitchOn && !switchedOn && !opEnabled)
-                return hand_control::merai::DriveStatus::NOT_READY_TO_SWITCH_ON;
+                return seven_axis_robot::merai::DriveStatus::NOT_READY_TO_SWITCH_ON;
             if (readyToSwitchOn && !switchedOn && !opEnabled)
-                return hand_control::merai::DriveStatus::READY_TO_SWITCH_ON;
+                return seven_axis_robot::merai::DriveStatus::READY_TO_SWITCH_ON;
             if (readyToSwitchOn && switchedOn && !opEnabled)
-                return hand_control::merai::DriveStatus::SWITCHED_ON;
+                return seven_axis_robot::merai::DriveStatus::SWITCHED_ON;
             if (readyToSwitchOn && switchedOn && opEnabled)
             {
                 if (!quickStop)
-                    return hand_control::merai::DriveStatus::QUICK_STOP;
+                    return seven_axis_robot::merai::DriveStatus::QUICK_STOP;
                 else
-                    return hand_control::merai::DriveStatus::OPERATION_ENABLED;
+                    return seven_axis_robot::merai::DriveStatus::OPERATION_ENABLED;
             }
-            return hand_control::merai::DriveStatus::NOT_READY_TO_SWITCH_ON;
+            return seven_axis_robot::merai::DriveStatus::NOT_READY_TO_SWITCH_ON;
         }
 
-        void DriveStateManager::update(const hand_control::merai::DriveCommand* driveCommands,
-                                       hand_control::merai::DriveStatus* driveStatus)
+        void DriveStateManager::update(const seven_axis_robot::merai::DriveCommand* driveCommands,
+                                       seven_axis_robot::merai::DriveStatus* driveStatus)
         {
             if (!jointCommandPtr_ || !jointFeedbackPtr_ || !driveCommands || !driveStatus)
             {
@@ -85,7 +85,7 @@ namespace hand_control
                 driveStatus[i] = decodeStatusword(sw);
 
                 // 2) Decide on the new control word based on drive status + input command
-                hand_control::merai::DriveCommand cmd = driveCommands[i];
+                seven_axis_robot::merai::DriveCommand cmd = driveCommands[i];
                 uint16_t controlWord = CW_DISABLE_VOLTAGE; // default
 
                 // std::cout<<"Joint Data - i "<<i<<std::endl;
@@ -93,32 +93,32 @@ namespace hand_control
 
                 switch (driveStatus[i])
                 {
-                case hand_control::merai::DriveStatus::FAULT:
-                    // std::cout<<"Drive state Fault, cmd == hand_control::merai::DriveCommand::FAULT_RESET : "<<(cmd == hand_control::merai::DriveCommand::FAULT_RESET)<<std::endl;
-                    if (cmd == hand_control::merai::DriveCommand::FAULT_RESET)
+                case seven_axis_robot::merai::DriveStatus::FAULT:
+                    // std::cout<<"Drive state Fault, cmd == seven_axis_robot::merai::DriveCommand::FAULT_RESET : "<<(cmd == seven_axis_robot::merai::DriveCommand::FAULT_RESET)<<std::endl;
+                    if (cmd == seven_axis_robot::merai::DriveCommand::FAULT_RESET)
                         controlWord = CW_FAULT_RESET;
                     else
                         controlWord = CW_DISABLE_VOLTAGE;
                     break;
 
-                case hand_control::merai::DriveStatus::SWITCH_ON_DISABLED:
+                case seven_axis_robot::merai::DriveStatus::SWITCH_ON_DISABLED:
                 // std::cout<<"Drive state SWITCH_ON_DISABLED, DriveStatus::SWITCH_ON_DISABLED, control word Shutdown "<<std::endl;
                     controlWord = CW_SHUTDOWN;
                     break;
 
-                case hand_control::merai::DriveStatus::NOT_READY_TO_SWITCH_ON:
+                case seven_axis_robot::merai::DriveStatus::NOT_READY_TO_SWITCH_ON:
                 // std::cout<<"Drive state NOT_READY_TO_SWITCH_ON"<<std::endl;
                     controlWord = CW_DISABLE_VOLTAGE;
                     break;
 
-                case hand_control::merai::DriveStatus::READY_TO_SWITCH_ON:
+                case seven_axis_robot::merai::DriveStatus::READY_TO_SWITCH_ON:
                 // std::cout<<"Drive state READY_TO_SWITCH_ON"<<std::endl;
                     controlWord = CW_SWITCH_ON;
                     break;
 
-                case hand_control::merai::DriveStatus::SWITCHED_ON:
+                case seven_axis_robot::merai::DriveStatus::SWITCHED_ON:
                 
-                    if (cmd == hand_control::merai::DriveCommand::ALLOW_OPERATION)
+                    if (cmd == seven_axis_robot::merai::DriveCommand::ALLOW_OPERATION)
                     {
                         std::cout<<"command recieved for operation enabled"<<std::endl;
                         controlWord = CW_ENABLE_OPERATION;
@@ -127,19 +127,19 @@ namespace hand_control
                         controlWord = CW_SWITCH_ON;
                     break;
 
-                case hand_control::merai::DriveStatus::OPERATION_ENABLED:
+                case seven_axis_robot::merai::DriveStatus::OPERATION_ENABLED:
                 std::cout<<"Drive state OPERATION_ENABLED"<<std::endl;
-                    if (cmd == hand_control::merai::DriveCommand::ALLOW_OPERATION)
+                    if (cmd == seven_axis_robot::merai::DriveCommand::ALLOW_OPERATION)
                         controlWord = CW_ENABLE_OPERATION;
-                    else if (cmd == hand_control::merai::DriveCommand::FORCE_DISABLE)
+                    else if (cmd == seven_axis_robot::merai::DriveCommand::FORCE_DISABLE)
                         controlWord = CW_SWITCH_ON;
                     else
                         controlWord = CW_ENABLE_OPERATION;
                     break;
 
-                case hand_control::merai::DriveStatus::QUICK_STOP:
+                case seven_axis_robot::merai::DriveStatus::QUICK_STOP:
                 // std::cout<<"Drive state QUICK_STOP"<<std::endl;
-                    if (cmd == hand_control::merai::DriveCommand::ALLOW_OPERATION)
+                    if (cmd == seven_axis_robot::merai::DriveCommand::ALLOW_OPERATION)
                         controlWord = CW_SWITCH_ON;
                     else
                         controlWord = CW_QUICK_STOP;
@@ -158,4 +158,4 @@ namespace hand_control
         }
 
     } // namespace control
-} // namespace hand_control
+} // namespace seven_axis_robot

@@ -11,7 +11,7 @@
 
 #include "merai/Enums.h"  // for e.g. DriveCommand, ControllerID
 
-namespace hand_control
+namespace seven_axis_robot
 {
     namespace control
     {
@@ -50,7 +50,9 @@ namespace hand_control
             }
 
             // 4) Initialize HAL (simulate or real)
-            if (paramServerPtr_->startup.simulateMode)
+            // TODO: Wire simulate/real selection from GUI/runtime input instead of config.
+            const bool simulateMode = false;
+            if (simulateMode)
             {
                 hal_ = std::make_unique<SimHAL>(rtLayout_, paramServerPtr_, loggerMem_);
             }
@@ -275,14 +277,14 @@ namespace hand_control
         //----------------------------------------------------------------------------
         // Read ControllerCommand from shared memory
         //----------------------------------------------------------------------------
-        void Control::readControllerCommand(hand_control::merai::ControllerCommand *outCmd)
+        void Control::readControllerCommand(seven_axis_robot::merai::ControllerCommand *outCmd)
         {
             int frontIdx = rtLayout_->controllerCommandBuffer.frontIndex.load(std::memory_order_acquire);
             *outCmd = rtLayout_->controllerCommandBuffer.buffer[frontIdx];
         }
 
         // Read DriveCommandData from shared memory
-        void Control::readDriveCommand(hand_control::merai::DriveCommandData *outDriveCmd)
+        void Control::readDriveCommand(seven_axis_robot::merai::DriveCommandData *outDriveCmd)
         {
             int frontIdx = rtLayout_->driveCommandBuffer.frontIndex.load(std::memory_order_acquire);
             *outDriveCmd = rtLayout_->driveCommandBuffer.buffer[frontIdx];
@@ -291,7 +293,7 @@ namespace hand_control
         //----------------------------------------------------------------------------
         // Write DriveFeedbackData to shared memory
         //----------------------------------------------------------------------------
-        void Control::writeDriveFeedback(const hand_control::merai::DriveFeedbackData &feedback)
+        void Control::writeDriveFeedback(const seven_axis_robot::merai::DriveFeedbackData &feedback)
         {
             size_t driveCount = paramServerPtr_->driveCount;
             int frontIdx = rtLayout_->driveFeedbackBuffer.frontIndex.load(std::memory_order_acquire);
@@ -308,7 +310,7 @@ namespace hand_control
         }
 
         // Write ControllerFeedback to shared memory
-        void Control::writeControllerFeedback(const hand_control::merai::ControllerFeedback &feedback)
+        void Control::writeControllerFeedback(const seven_axis_robot::merai::ControllerFeedback &feedback)
         {
             int frontIdx = rtLayout_->controllerFeedbackBuffer.frontIndex.load(std::memory_order_acquire);
             int backIdx  = 1 - frontIdx;
@@ -318,4 +320,4 @@ namespace hand_control
         }
 
     } // namespace control
-} // namespace hand_control
+} // namespace seven_axis_robot

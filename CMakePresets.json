@@ -14,7 +14,7 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "BUILD_TESTING": "ON",
-        "MERAI_CONFIG_INSTALL_DIR": "/etc/hand_control_merai"
+        "MERAI_CONFIG_INSTALL_DIR": "/etc/seven_axis_robot_merai"
       }
     }
   ],

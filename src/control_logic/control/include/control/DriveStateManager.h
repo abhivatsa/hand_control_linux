@@ -6,7 +6,7 @@
 // merai includes
 #include "merai/RTMemoryLayout.h" // for DriveCommand, DriveStatus, etc.
 
-namespace hand_control
+namespace seven_axis_robot
 {
     namespace control
     {
@@ -31,8 +31,8 @@ namespace hand_control
              * @param jointFeedbackPtr  Pointer to array of JointControlFeedback (one per drive).
              * @param driveCount        Number of drives.
              */
-            DriveStateManager(hand_control::merai::JointControlCommand* jointCommandPtr,
-                              hand_control::merai::JointControlFeedback* jointFeedbackPtr,
+            DriveStateManager(seven_axis_robot::merai::JointControlCommand* jointCommandPtr,
+                              seven_axis_robot::merai::JointControlFeedback* jointFeedbackPtr,
                               std::size_t driveCount);
 
             /**
@@ -48,20 +48,20 @@ namespace hand_control
              * @param driveCommands  Array of enumerated commands (one per drive).
              * @param driveStatus    Array to store the resulting drive status for each drive.
              */
-            void update(const hand_control::merai::DriveCommand* driveCommands,
-                        hand_control::merai::DriveStatus* driveStatus);
+            void update(const seven_axis_robot::merai::DriveCommand* driveCommands,
+                        seven_axis_robot::merai::DriveStatus* driveStatus);
 
         private:
             /// Helper function for decoding statusWord bits into a DriveStatus enum.
-            hand_control::merai::DriveStatus decodeStatusword(uint16_t statusWord);
+            seven_axis_robot::merai::DriveStatus decodeStatusword(uint16_t statusWord);
 
         private:
             // Pointers to the arrays returned by HAL (but now joint-level data).
-            hand_control::merai::JointControlCommand*  jointCommandPtr_  = nullptr;
-            hand_control::merai::JointControlFeedback* jointFeedbackPtr_ = nullptr;
+            seven_axis_robot::merai::JointControlCommand*  jointCommandPtr_  = nullptr;
+            seven_axis_robot::merai::JointControlFeedback* jointFeedbackPtr_ = nullptr;
 
             std::size_t driveCount_ = 0;
         };
 
     } // namespace control
-} // namespace hand_control
+} // namespace seven_axis_robot

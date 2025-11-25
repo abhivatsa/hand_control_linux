@@ -1,9 +1,8 @@
 {
     "schema_version": 1,
     "units": {
-      "angles": "deg",
-      "velocities": "deg/s",
-      "accelerations": "deg/s^2",
+      "angles": "rad",
+      "velocities": "rad/s",
       "torque": "Nm",
       "length": "m"
     },
@@ -14,51 +13,51 @@
       "links": [
         {
           "name": "base_link",
-          "mass": 10.0,
-          "com": [0.0, 0.0, 0.0],
-          "inertia": [0.1, 0.1, 0.1, 0.0, 0.0, 0.0]
+          "mass": 3.5,
+          "com": [0.0, -0.062, 0.0],
+          "inertia": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         },
         {
           "name": "link1",
-          "mass": 3.7,
-          "com": [0.0, 0.0, 0.0],
-          "inertia": [0.1, 0.1, 0.1, 0.0, 0.0, 0.0]
+          "mass": 3.380,
+          "com": [0.0, 0.125, 0.0],
+          "inertia": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         },
         {
           "name": "link2",
-          "mass": 8.4,
-          "com": [0.0, 0.0, 0.0],
-          "inertia": [0.2, 0.2, 0.2, 0.0, 0.0, 0.0]
+          "mass": 2.5,
+          "com": [0.0, 0.180, 0.0],
+          "inertia": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         },
         {
           "name": "link3",
-          "mass": 2.33,
-          "com": [0.0, 0.0, 0.0],
-          "inertia": [0.05, 0.05, 0.05, 0.0, 0.0, 0.0]
+          "mass": 2.2,
+          "com": [-0.051, 0.135, 0.0],
+          "inertia": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         },
         {
           "name": "link4",
-          "mass": 2.33,
-          "com": [0.0, 0.0, 0.0],
-          "inertia": [0.05, 0.05, 0.05, 0.0, 0.0, 0.0]
+          "mass": 0.711,
+          "com": [0.025, 0.040, 0.042],
+          "inertia": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         },
         {
           "name": "link5",
-          "mass": 1.96,
-          "com": [0.0, 0.0, 0.0],
-          "inertia": [0.03, 0.03, 0.03, 0.0, 0.0, 0.0]
+          "mass": 2.260,
+          "com": [0.0, 0.145, 0.0],
+          "inertia": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         },
         {
           "name": "link6",
-          "mass": 1.23,
-          "com": [0.0, 0.0, 0.0],
-          "inertia": [0.02, 0.02, 0.02, 0.0, 0.0, 0.0]
+          "mass": 1.5,
+          "com": [0.0, 0.109, 0.0],
+          "inertia": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         },
         {
           "name": "tcp_link",
-          "mass": 0.35,
+          "mass": 0.1,
           "com": [0.0, 0.0, 0.0],
-          "inertia": [0.01, 0.01, 0.01, 0.0, 0.0, 0.0]
+          "inertia": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         }
       ],
   
@@ -72,12 +71,12 @@
           "origin_pos": [0.0, 0.0, 0.0],
           "origin_orient": [0.0, 0.0, 0.0],
   
-          "axis": [0.0, 0.0, 1.0],
+          "axis": [0, 1, 0],
   
           "limits": {
-            "position": { "min": -45, "max": 45 },
+            "position": { "min": -3, "max": 3 },
             "velocity": { "min": -180.0, "max": 180.0 },
-            "acceleration": { "min": -360.0, "max": 360.0 }
+            "torque": { "min": -70.0, "max": 70.0 }
           },
   
           "drive": {
@@ -94,7 +93,6 @@
           "limits_active": {
             "position": true,
             "velocity": true,
-            "acceleration": true,
             "torque": true
           },
   
@@ -114,7 +112,7 @@
           "limits": {
             "position": { "min": -110.0, "max": 110.0 },
             "velocity": { "min": -150.0, "max": 150.0 },
-            "acceleration": { "min": -300.0, "max": 300.0 }
+            "torque": { "min": -70.0, "max": 70.0 }
           },
   
           "drive": {
@@ -131,7 +129,6 @@
           "limits_active": {
             "position": true,
             "velocity": true,
-            "acceleration": true,
             "torque": true
           },
   
@@ -151,7 +148,7 @@
           "limits": {
             "position": { "min": -140.0, "max": 140.0 },
             "velocity": { "min": -150.0, "max": 150.0 },
-            "acceleration": { "min": -300.0, "max": 300.0 }
+            "torque": { "min": -70.0, "max": 70.0 }
           },
   
           "drive": {
@@ -168,7 +165,6 @@
           "limits_active": {
             "position": true,
             "velocity": true,
-            "acceleration": true,
             "torque": true
           },
   
@@ -188,7 +184,7 @@
           "limits": {
             "position": { "min": -180.0, "max": 180.0 },
             "velocity": { "min": -180.0, "max": 180.0 },
-            "acceleration": { "min": -360.0, "max": 360.0 }
+            "torque": { "min": -70.0, "max": 70.0 }
           },
   
           "drive": {
@@ -205,7 +201,6 @@
           "limits_active": {
             "position": true,
             "velocity": true,
-            "acceleration": true,
             "torque": true
           },
   
@@ -225,7 +220,7 @@
           "limits": {
             "position": { "min": -180.0, "max": 180.0 },
             "velocity": { "min": -180.0, "max": 180.0 },
-            "acceleration": { "min": -360.0, "max": 360.0 }
+            "torque": { "min": -70.0, "max": 70.0 }
           },
   
           "drive": {
@@ -242,7 +237,6 @@
           "limits_active": {
             "position": true,
             "velocity": true,
-            "acceleration": true,
             "torque": true
           },
   
@@ -262,7 +256,7 @@
           "limits": {
             "position": { "min": -180.0, "max": 180.0 },
             "velocity": { "min": -180.0, "max": 180.0 },
-            "acceleration": { "min": -360.0, "max": 360.0 }
+            "torque": { "min": -70.0, "max": 70.0 }
           },
   
           "drive": {
@@ -279,7 +273,6 @@
           "limits_active": {
             "position": true,
             "velocity": true,
-            "acceleration": true,
             "torque": true
           },
   
@@ -299,7 +292,7 @@
           "limits": {
             "position": { "min": -180.0, "max": 180.0 },
             "velocity": { "min": -180.0, "max": 180.0 },
-            "acceleration": { "min": -360.0, "max": 360.0 }
+            "torque": { "min": -70.0, "max": 70.0 }
           },
   
           "drive": {
@@ -316,7 +309,6 @@
           "limits_active": {
             "position": true,
             "velocity": true,
-            "acceleration": true,
             "torque": true
           },
   

@@ -3,15 +3,15 @@
 #include "control/ControllerManager.h"
 #include "control/controllers/BaseController.h"
 
-namespace hand_control
+namespace seven_axis_robot
 {
     namespace control
     {
 
         ControllerManager::ControllerManager(
-            const hand_control::merai::ParameterServer *paramServerPtr,
-            hand_control::merai::JointMotionFeedback *motionFeedbackPtr,
-            hand_control::merai::JointMotionCommand *motionCommandPtr,
+            const seven_axis_robot::merai::ParameterServer *paramServerPtr,
+            seven_axis_robot::merai::JointMotionFeedback *motionFeedbackPtr,
+            seven_axis_robot::merai::JointMotionCommand *motionCommandPtr,
             std::size_t jointCount)
             : paramServerPtr_(paramServerPtr),
               motionFeedbackPtr_(motionFeedbackPtr),
@@ -36,7 +36,7 @@ namespace hand_control
             // Cleanup if needed
         }
 
-        bool ControllerManager::registerController(hand_control::merai::ControllerID id, std::shared_ptr<BaseController> controller)
+        bool ControllerManager::registerController(seven_axis_robot::merai::ControllerID id, std::shared_ptr<BaseController> controller)
         {
             if (!controller)
             {
@@ -87,8 +87,8 @@ namespace hand_control
             return success;
         }
 
-        void ControllerManager::update(const hand_control::merai::ControllerCommand &cmd,
-                                       hand_control::merai::ControllerFeedback &feedback,
+        void ControllerManager::update(const seven_axis_robot::merai::ControllerCommand &cmd,
+                                       seven_axis_robot::merai::ControllerFeedback &feedback,
                                        double dt)
         {
             // If user requests a switch
@@ -132,10 +132,10 @@ namespace hand_control
             // std::cout<<"bridging : "<<bridging<<", switching : "<<switching<<std::endl;
 
             if (!switching){
-                feedback.feedbackState = hand_control::merai::ControllerFeedbackState::SWITCH_COMPLETED;
+                feedback.feedbackState = seven_axis_robot::merai::ControllerFeedbackState::SWITCH_COMPLETED;
             }
             else{
-                feedback.feedbackState = hand_control::merai::ControllerFeedbackState::SWITCH_IN_PROGRESS;
+                feedback.feedbackState = seven_axis_robot::merai::ControllerFeedbackState::SWITCH_IN_PROGRESS;
             }
 
             
@@ -226,7 +226,7 @@ namespace hand_control
             return false;
         }
 
-        std::shared_ptr<BaseController> ControllerManager::findControllerById(hand_control::merai::ControllerID id)
+        std::shared_ptr<BaseController> ControllerManager::findControllerById(seven_axis_robot::merai::ControllerID id)
         {
             int idx = static_cast<int>(id);
             if (idx < 0 || idx >= static_cast<int>(idToController_.size()))
@@ -236,4 +236,4 @@ namespace hand_control
             return idToController_[idx];
         }
     } // namespace control
-} // namespace hand_control
+} // namespace seven_axis_robot

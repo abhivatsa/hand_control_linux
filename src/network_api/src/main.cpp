@@ -10,18 +10,18 @@ int main(int argc, char *argv[])
     {
         // Example shared memory config
         std::string paramServerShmName = "/ParameterServerShm";
-        size_t paramServerShmSize = sizeof(hand_control::merai::ParameterServer);
+        size_t paramServerShmSize = sizeof(seven_axis_robot::merai::ParameterServer);
 
         std::string rtDataShmName = "/RTDataShm";
-        size_t rtDataShmSize = sizeof(hand_control::merai::RTMemoryLayout);
+        size_t rtDataShmSize = sizeof(seven_axis_robot::merai::RTMemoryLayout);
 
         std::string loggerShmName = "/LoggerShm";
         /// Pointer to your shared memory logger for optional logging.
-        hand_control::merai::multi_ring_logger_memory *loggerMem_;
-        size_t loggerShmSize = sizeof(hand_control::merai::multi_ring_logger_memory);
+        seven_axis_robot::merai::multi_ring_logger_memory *loggerMem_;
+        size_t loggerShmSize = sizeof(seven_axis_robot::merai::multi_ring_logger_memory);
 
         // Create the NetworkAPI object
-        hand_control::network_api::NetworkAPI networkApi(
+        seven_axis_robot::network_api::NetworkAPI networkApi(
             paramServerShmName, paramServerShmSize,
             rtDataShmName, rtDataShmSize,
             loggerShmName, loggerShmSize);

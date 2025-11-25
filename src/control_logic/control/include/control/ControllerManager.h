@@ -8,7 +8,7 @@
 #include "merai/Enums.h"
 #include "control/controllers/BaseController.h"
 
-namespace hand_control
+namespace seven_axis_robot
 {
     namespace control
     {
@@ -44,9 +44,9 @@ namespace hand_control
              * @param jointCount        Number of joints.
              */
             ControllerManager(
-                const hand_control::merai::ParameterServer* paramServerPtr,
-                hand_control::merai::JointMotionFeedback*    motionFeedbackPtr,
-                hand_control::merai::JointMotionCommand*     motionCommandPtr,
+                const seven_axis_robot::merai::ParameterServer* paramServerPtr,
+                seven_axis_robot::merai::JointMotionFeedback*    motionFeedbackPtr,
+                seven_axis_robot::merai::JointMotionCommand*     motionCommandPtr,
                 std::size_t                                  jointCount
             );
 
@@ -57,7 +57,7 @@ namespace hand_control
              * @return True on success, false if invalid ID or a controller is
              *         already registered with that ID.
              */
-            bool registerController(hand_control::merai::ControllerID id,
+            bool registerController(seven_axis_robot::merai::ControllerID id,
                                     std::shared_ptr<BaseController> controller);
 
             /**
@@ -76,26 +76,26 @@ namespace hand_control
              * @param feedback A single ControllerFeedback struct for bridging/switch info.
              * @param dt       The time step in seconds (e.g., 0.001 for 1kHz).
              */
-            void update(const hand_control::merai::ControllerCommand &cmd,
-                        hand_control::merai::ControllerFeedback &feedback,
+            void update(const seven_axis_robot::merai::ControllerCommand &cmd,
+                        seven_axis_robot::merai::ControllerFeedback &feedback,
                         double dt);
 
         private:
             void processControllerSwitch();
             bool requiresBridging(BaseController* oldCtrl, BaseController* newCtrl);
-            std::shared_ptr<BaseController> findControllerById(hand_control::merai::ControllerID id);
+            std::shared_ptr<BaseController> findControllerById(seven_axis_robot::merai::ControllerID id);
 
         private:
-            const hand_control::merai::ParameterServer* paramServerPtr_ = nullptr;
+            const seven_axis_robot::merai::ParameterServer* paramServerPtr_ = nullptr;
 
             // Pointers to the motion-level data from HAL
-            hand_control::merai::JointMotionFeedback* motionFeedbackPtr_ = nullptr;
-            hand_control::merai::JointMotionCommand*  motionCommandPtr_  = nullptr;
+            seven_axis_robot::merai::JointMotionFeedback* motionFeedbackPtr_ = nullptr;
+            seven_axis_robot::merai::JointMotionCommand*  motionCommandPtr_  = nullptr;
             std::size_t jointCount_ = 0;
 
             // Mapping from ControllerID to controller
             std::array<std::shared_ptr<BaseController>,
-                       static_cast<int>(hand_control::merai::ControllerID::E_STOP) + 1> idToController_ {};
+                       static_cast<int>(seven_axis_robot::merai::ControllerID::E_STOP) + 1> idToController_ {};
 
             // The currently active controller
             std::shared_ptr<BaseController> active_controller_{nullptr};
@@ -112,8 +112,8 @@ namespace hand_control
             std::atomic<bool> switch_pending_{false};
 
             // The ID of the next desired controller
-            hand_control::merai::ControllerID target_controller_id_ = hand_control::merai::ControllerID::NONE;
+            seven_axis_robot::merai::ControllerID target_controller_id_ = seven_axis_robot::merai::ControllerID::NONE;
         };
 
     } // namespace control
-} // namespace hand_control
+} // namespace seven_axis_robot

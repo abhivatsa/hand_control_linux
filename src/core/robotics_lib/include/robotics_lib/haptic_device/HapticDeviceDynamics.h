@@ -5,7 +5,7 @@
 #include "math_lib/Matrix.h"          // For Matrix<3,3>, Matrix<4,4>
 #include "math_lib/MatrixVectorOps.h" // If you need matrix*vector operators
 
-namespace hand_control
+namespace seven_axis_robot
 {
     namespace robotics
     {
@@ -14,7 +14,7 @@ namespace hand_control
 
             /**
              * @brief A simple example class for a hand model's inverse dynamics.
-             *        This shows how to use hand_control::math::Vector/Matrix
+             *        This shows how to use seven_axis_robot::math::Vector/Matrix
              *        rather than Eigen or another external library.
              *
              * Note: This class is still set up for 6 DOF, following your previous
@@ -37,10 +37,10 @@ namespace hand_control
                  * @return 0 if success, or error code
                  */
                 int computeInverseDynamics(
-                    const hand_control::math::Vector<6> &jointAngles,
-                    const hand_control::math::Vector<6> &jointVel,
-                    const hand_control::math::Vector<6> &jointAcc,
-                    hand_control::math::Vector<6> &outTorques) const;
+                    const seven_axis_robot::math::Vector<6> &jointAngles,
+                    const seven_axis_robot::math::Vector<6> &jointVel,
+                    const seven_axis_robot::math::Vector<6> &jointAcc,
+                    seven_axis_robot::math::Vector<6> &outTorques) const;
 
             private:
                 /**
@@ -51,7 +51,7 @@ namespace hand_control
                  * @param jointAngle Joint angle in radians
                  * @return 4x4 homogeneous transform
                  */
-                hand_control::math::Matrix<4, 4> computeJointTransform(
+                seven_axis_robot::math::Matrix<4, 4> computeJointTransform(
                     int jointIdx,
                     double jointAngle) const;
 
@@ -61,4 +61,4 @@ namespace hand_control
 
         } // namespace haptic_device
     } // namespace robotics
-} // namespace hand_control
+} // namespace seven_axis_robot

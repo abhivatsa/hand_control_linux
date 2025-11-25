@@ -2,9 +2,9 @@ cmake_minimum_required(VERSION 3.10)
 project(hand_control_core VERSION 1.0.0)
 
 #
-# 0) Optionally find the hand_control_merai package (if your code uses merai_foundation)
+# 0) Optionally find the seven_axis_robot_merai package (if your code uses merai_foundation)
 #
-find_package(hand_control_merai REQUIRED)
+find_package(seven_axis_robot_merai REQUIRED)
 
 #
 # 1) Combine all sources (math_lib + robotics_lib) into one library
@@ -40,7 +40,7 @@ target_include_directories(hand_control_core
 #
 target_link_libraries(hand_control_core
     PUBLIC
-        hand_control_merai::merai_foundation
+        seven_axis_robot_merai::merai_foundation
 )
 
 #

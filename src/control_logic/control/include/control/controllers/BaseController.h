@@ -1,6 +1,6 @@
 #pragma once
 
-namespace hand_control
+namespace seven_axis_robot
 {
     namespace control
     {
@@ -79,4 +79,4 @@ namespace hand_control
         };
 
     } // namespace control
-} // namespace hand_control
+} // namespace seven_axis_robot

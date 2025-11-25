@@ -4,39 +4,15 @@
 #include <cstdint>
 #include <string>
 #include <type_traits>
+#include "merai/Enums.h"
 
-namespace hand_control
+namespace seven_axis_robot
 {
     namespace merai
     {
-        enum class DriveType : uint8_t
-        {
-            Unknown = 0,
-            Servo,
-            Io
-        };
-
-        enum class SyncType : uint8_t
-        {
-            Unknown = 0,
-            RxPdo,
-            TxPdo
-        };
-
-        enum class PdoDataType : uint8_t
-        {
-            Unknown = 0,
-            Int8,
-            Int16,
-            Int32,
-            UInt16,
-            UInt32
-        };
-
         // -------------------------------------------------------------------------
         // 1) EtherCAT Drive Config (unchanged)
         // -------------------------------------------------------------------------
-
         constexpr int MAX_DRIVES = 16;
         constexpr uint32_t PARAM_SERVER_MAGIC = 0x50415241; // 'PARA'
         constexpr uint32_t PARAM_SERVER_VERSION = 1;
@@ -131,7 +107,7 @@ namespace hand_control
             std::array<double, 6> inertia{{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}};
         };
 
-        // For joint "limits" object with subfields "position", "velocity", "acceleration"
+        // For joint "limits" object with subfields "position", "velocity", "torque"
         struct JointLimitRange
         {
             double min = 0.0;
@@ -142,7 +118,7 @@ namespace hand_control
         {
             JointLimitRange position;
             JointLimitRange velocity;
-            JointLimitRange acceleration;
+            JointLimitRange torque;
         };
 
         struct JointConfig
@@ -159,13 +135,13 @@ namespace hand_control
             // "axis": [0.0, 0.0, 1.0]
             std::array<double, 3> axis{{0.0, 0.0, 1.0}};
 
-            // "limits": { "position": {...}, "velocity": {...}, "acceleration": {...} }
+            // "limits": { "position": {...}, "velocity": {...}, "torque": {...} }
             JointLimits limits;
 
             struct DriveParameters
             {
                 double gear_ratio = 1.0;
-                int encoder_counts = 0;
+                int encoder_counts = 1024;
                 int axis_direction = 1;
                 int torque_axis_direction = 1;
                 double rated_torque = 0.0;
@@ -176,23 +152,14 @@ namespace hand_control
 
             DriveParameters drive;
 
-            // "limits_active": { "position": true, "velocity": true, "acceleration": true, "torque": true }
+            // "limits_active": { "position": true, "velocity": true, "torque": true }
             // We'll store them in a struct or booleans:
             bool limit_position_active = false;
             bool limit_velocity_active = false;
-            bool limit_acceleration_active = false;
             bool limit_torque_active = false;
 
             // "position_offset": 0.0
             double position_offset = 0.0;
-        };
-
-        struct startupConfig
-        {
-            long controlLoopNs = 1000000;
-            long fieldbusLoopNs = 1000000;
-            long logicLoopNs = 1000000;
-            bool simulateMode = false;
         };
 
         // -------------------------------------------------------------------------
@@ -214,26 +181,21 @@ namespace hand_control
 
             std::array<JointConfig, MAX_JOINTS> joints;
             int jointCount = 0;
-
-            // C) startup config
-            startupConfig startup;
         };
 
         /**
-         * @brief Parse function that loads the EtherCAT, Robot, and startup config
+         * @brief Parse function that loads the EtherCAT and Robot config
          *        from JSON files, populating the ParameterServer struct.
          *
          * @param ecatConfigFile   Path to EtherCAT JSON (like "ethercat_config.json")
          * @param robotParamFile   Path to robot param JSON
-         * @param startupFile      Path to startup config JSON
          * @return ParameterServer fully populated with data
          */
         ParameterServer parseParameterServer(const std::string &ecatConfigFile,
-                                             const std::string &robotParamFile,
-                                             const std::string &startupFile);
+                                             const std::string &robotParamFile);
 
         static_assert(std::is_trivially_copyable<ParameterServer>::value,
                       "ParameterServer must be trivially copyable for SHM use");
 
     } // namespace merai
-} // namespace hand_control
+} // namespace seven_axis_robot

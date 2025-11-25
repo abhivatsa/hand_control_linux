@@ -3,11 +3,11 @@ project(hand_control_control VERSION 1.0.0)
 
 #
 # 1) Find dependencies
-#    Make sure "hand_control_core" and "hand_control_merai" are installed
+#    Make sure "hand_control_core" and "seven_axis_robot_merai" are installed
 #    so their config files can be found.
 #
 find_package(hand_control_core REQUIRED)
-find_package(hand_control_merai REQUIRED)
+find_package(seven_axis_robot_merai REQUIRED)
 
 #
 # 2) Build the control library
@@ -49,7 +49,7 @@ target_include_directories(hand_control_control_lib
 target_link_libraries(hand_control_control_lib
     PUBLIC
         hand_control_core::core
-        hand_control_merai::merai_foundation
+        seven_axis_robot_merai::merai_foundation
 )
 
 #

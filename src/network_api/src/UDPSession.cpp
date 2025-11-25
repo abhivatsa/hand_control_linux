@@ -3,7 +3,7 @@
 #include <cstring>
 #include <cstdio>
 
-namespace hand_control
+namespace seven_axis_robot
 {
     namespace network_api
     {
@@ -180,4 +180,4 @@ namespace hand_control
         }
 
     } // namespace network_api
-} // namespace hand_control
+} // namespace seven_axis_robot

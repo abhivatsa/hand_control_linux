@@ -3,7 +3,7 @@
 #include "control/controllers/BaseController.h"
 #include "merai/RTMemoryLayout.h" // for JointMotionFeedback, JointMotionCommand
 
-namespace hand_control
+namespace seven_axis_robot
 {
     namespace control
     {
@@ -30,8 +30,8 @@ namespace hand_control
              */
             HomingController(const double* homePositions,
                              int numJoints,
-                             hand_control::merai::JointMotionFeedback* feedbackPtr,
-                             hand_control::merai::JointMotionCommand*  commandPtr);
+                             seven_axis_robot::merai::JointMotionFeedback* feedbackPtr,
+                             seven_axis_robot::merai::JointMotionCommand*  commandPtr);
 
             ~HomingController() override = default;
 
@@ -54,8 +54,8 @@ namespace hand_control
             void holdPosition();
 
         private:
-            hand_control::merai::JointMotionFeedback* feedbackPtr_ = nullptr;
-            hand_control::merai::JointMotionCommand*  commandPtr_  = nullptr;
+            seven_axis_robot::merai::JointMotionFeedback* feedbackPtr_ = nullptr;
+            seven_axis_robot::merai::JointMotionCommand*  commandPtr_  = nullptr;
             int numJoints_{0};
 
             double homePositions_[MAX_JOINTS];  ///< The target homing position for each joint
@@ -72,4 +72,4 @@ namespace hand_control
         };
 
     } // namespace control
-} // namespace hand_control
+} // namespace seven_axis_robot

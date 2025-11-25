@@ -12,7 +12,7 @@
 
 #include "control/hardware_abstraction/BaseHAL.h"
 
-namespace hand_control
+namespace seven_axis_robot
 {
     namespace control
     {
@@ -20,9 +20,9 @@ namespace hand_control
         {
         public:
             RealHAL(
-                hand_control::merai::RTMemoryLayout*           rtLayout,
-                const hand_control::merai::ParameterServer*    paramServerPtr,
-                hand_control::merai::multi_ring_logger_memory* loggerMem);
+                seven_axis_robot::merai::RTMemoryLayout*           rtLayout,
+                const seven_axis_robot::merai::ParameterServer*    paramServerPtr,
+                seven_axis_robot::merai::multi_ring_logger_memory* loggerMem);
 
             ~RealHAL() override = default;
 
@@ -36,12 +36,12 @@ namespace hand_control
             // ---------------------------
             // Control-level data access
             // ---------------------------
-            hand_control::merai::JointControlCommand* getJointControlCommandPtr() override
+            seven_axis_robot::merai::JointControlCommand* getJointControlCommandPtr() override
             {
                 return localJointControlCommand_.data();
             }
 
-            hand_control::merai::JointControlFeedback* getJointControlFeedbackPtr() override
+            seven_axis_robot::merai::JointControlFeedback* getJointControlFeedbackPtr() override
             {
                 return localJointControlFeedback_.data();
             }
@@ -49,12 +49,12 @@ namespace hand_control
             // ---------------------------
             // Motion-level data access
             // ---------------------------
-            hand_control::merai::JointMotionCommand* getJointMotionCommandPtr() override
+            seven_axis_robot::merai::JointMotionCommand* getJointMotionCommandPtr() override
             {
                 return localJointMotionCommand_.data();
             }
 
-            hand_control::merai::JointMotionFeedback* getJointMotionFeedbackPtr() override
+            seven_axis_robot::merai::JointMotionFeedback* getJointMotionFeedbackPtr() override
             {
                 return localJointMotionFeedback_.data();
             }
@@ -62,12 +62,12 @@ namespace hand_control
             // ---------------------------
             // IO data access
             // ---------------------------
-            hand_control::merai::JointFeedbackIO* getJointFeedbackIOPtr() override
+            seven_axis_robot::merai::JointFeedbackIO* getJointFeedbackIOPtr() override
             {
                 return localJointFeedbackIO_.data();
             }
 
-            hand_control::merai::JointCommandIO* getJointCommandIOPtr() override
+            seven_axis_robot::merai::JointCommandIO* getJointCommandIOPtr() override
             {
                 return localJointCommandIO_.data();
             }
@@ -84,9 +84,9 @@ namespace hand_control
             // --------------------------------------------------
             // References to shared memory, config, logger
             // --------------------------------------------------
-            hand_control::merai::RTMemoryLayout*           rtLayout_       = nullptr;
-            const hand_control::merai::ParameterServer*    paramServerPtr_ = nullptr;
-            hand_control::merai::multi_ring_logger_memory* loggerMem_      = nullptr;
+            seven_axis_robot::merai::RTMemoryLayout*           rtLayout_       = nullptr;
+            const seven_axis_robot::merai::ParameterServer*    paramServerPtr_ = nullptr;
+            seven_axis_robot::merai::multi_ring_logger_memory* loggerMem_      = nullptr;
 
             // Number of drives/joints
             int driveCount_ = 0;
@@ -96,26 +96,26 @@ namespace hand_control
             // --------------------------------------------------
 
             // Control commands & feedback
-            std::array<hand_control::merai::JointControlCommand,
-                       hand_control::merai::MAX_SERVO_DRIVES>   localJointControlCommand_;
-            std::array<hand_control::merai::JointControlFeedback,
-                       hand_control::merai::MAX_SERVO_DRIVES>   localJointControlFeedback_;
+            std::array<seven_axis_robot::merai::JointControlCommand,
+                       seven_axis_robot::merai::MAX_SERVO_DRIVES>   localJointControlCommand_;
+            std::array<seven_axis_robot::merai::JointControlFeedback,
+                       seven_axis_robot::merai::MAX_SERVO_DRIVES>   localJointControlFeedback_;
 
             // Motion commands & feedback (in SI units)
-            std::array<hand_control::merai::JointMotionCommand,
-                       hand_control::merai::MAX_SERVO_DRIVES>   localJointMotionCommand_;
-            std::array<hand_control::merai::JointMotionFeedback,
-                       hand_control::merai::MAX_SERVO_DRIVES>   localJointMotionFeedback_;
+            std::array<seven_axis_robot::merai::JointMotionCommand,
+                       seven_axis_robot::merai::MAX_SERVO_DRIVES>   localJointMotionCommand_;
+            std::array<seven_axis_robot::merai::JointMotionFeedback,
+                       seven_axis_robot::merai::MAX_SERVO_DRIVES>   localJointMotionFeedback_;
 
             // IO feedback & command arrays (digital/analog)
-            std::array<hand_control::merai::JointFeedbackIO,
-                       hand_control::merai::MAX_SERVO_DRIVES>   localJointFeedbackIO_;
-            std::array<hand_control::merai::JointCommandIO,
-                       hand_control::merai::MAX_SERVO_DRIVES>   localJointCommandIO_;
+            std::array<seven_axis_robot::merai::JointFeedbackIO,
+                       seven_axis_robot::merai::MAX_SERVO_DRIVES>   localJointFeedbackIO_;
+            std::array<seven_axis_robot::merai::JointCommandIO,
+                       seven_axis_robot::merai::MAX_SERVO_DRIVES>   localJointCommandIO_;
 
             // Local copy of each joint's config (gear ratio, offset, etc.)
-            std::array<hand_control::merai::JointConfig,
-                       hand_control::merai::MAX_SERVO_DRIVES>   localJointConfigs_;
+            std::array<seven_axis_robot::merai::JointConfig,
+                       seven_axis_robot::merai::MAX_SERVO_DRIVES>   localJointConfigs_;
 
         private:
             // --------------------------------------------------
@@ -130,8 +130,8 @@ namespace hand_control
              * @return true if successful, false otherwise
              */
             bool mapAndConvertServoTxData(
-                const std::array<hand_control::merai::ServoTxPdo,
-                                 hand_control::merai::MAX_SERVO_DRIVES>& servoTxArray);
+                const std::array<seven_axis_robot::merai::ServoTxPdo,
+                                 seven_axis_robot::merai::MAX_SERVO_DRIVES>& servoTxArray);
 
             /**
              * @brief Converts local joint commands (in SI) to raw servo units
@@ -141,9 +141,9 @@ namespace hand_control
              * @return true if successful, false otherwise
              */
             bool convertAndMapJointCommandsToServoRxData(
-                std::array<hand_control::merai::ServoRxPdo,
-                           hand_control::merai::MAX_SERVO_DRIVES>& servoRxArray);
+                std::array<seven_axis_robot::merai::ServoRxPdo,
+                           seven_axis_robot::merai::MAX_SERVO_DRIVES>& servoRxArray);
         };
 
     } // namespace control
-} // namespace hand_control
+} // namespace seven_axis_robot

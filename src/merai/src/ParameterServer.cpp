@@ -8,7 +8,7 @@
 #include <algorithm>
 #include <cctype>
 
-namespace hand_control
+namespace seven_axis_robot
 {
 namespace merai
 {
@@ -343,7 +343,7 @@ void parseRobotParameters(ParameterServer& paramServer,
                 }
             }
 
-            // "limits": { "position": {min, max}, "velocity": {...}, "acceleration": {...} }
+            // "limits": { "position": {min, max}, "velocity": {...}, "torque": {...} }
             if (jt.contains("limits"))
             {
                 auto lm = jt["limits"];
@@ -360,11 +360,11 @@ void parseRobotParameters(ParameterServer& paramServer,
                     jc.limits.velocity.min = v.value("min", 0.0);
                     jc.limits.velocity.max = v.value("max", 0.0);
                 }
-                if (lm.contains("acceleration"))
+                if (lm.contains("torque"))
                 {
-                    auto a = lm["acceleration"];
-                    jc.limits.acceleration.min = a.value("min", 0.0);
-                    jc.limits.acceleration.max = a.value("max", 0.0);
+                    auto tq = lm["torque"];
+                    jc.limits.torque.min = tq.value("min", 0.0);
+                    jc.limits.torque.max = tq.value("max", 0.0);
                 }
             }
 
@@ -412,13 +412,12 @@ void parseRobotParameters(ParameterServer& paramServer,
             jc.drive.torque_constant       = get_drive_double("torque_constant", 0.0);
             jc.drive.rated_current         = get_drive_double("rated_current", 0.0);
 
-            // "limits_active": { "position": ..., "velocity": ..., "acceleration": ..., "torque": ... }
+            // "limits_active": { "position": ..., "velocity": ..., "torque": ... }
             if (jt.contains("limits_active"))
             {
                 auto la = jt["limits_active"];
                 jc.limit_position_active     = la.value("position", false);
                 jc.limit_velocity_active     = la.value("velocity", false);
-                jc.limit_acceleration_active = la.value("acceleration", false);
                 jc.limit_torque_active       = la.value("torque", false);
             }
 
@@ -429,32 +428,10 @@ void parseRobotParameters(ParameterServer& paramServer,
 }
 
 // ---------------------------------------------------------------------
-// Helper: parseStartupParameters (unchanged from your existing code)
-// ---------------------------------------------------------------------
-void parseStartupParameters(ParameterServer& paramServer,
-                            const std::string& startupFile)
-{
-    std::ifstream ifs(startupFile);
-    if (!ifs.is_open())
-    {
-        throw std::runtime_error("Could not open startup config file: " + startupFile);
-    }
-
-    nlohmann::json j;
-    ifs >> j;
-
-    paramServer.startup.fieldbusLoopNs = j.value("fieldbus_Loop_ns", 1000000L);
-    paramServer.startup.controlLoopNs  = j.value("control_loop_ns",  1000000L);
-    paramServer.startup.logicLoopNs    = j.value("logic_loop_ns",    10000000L);
-    paramServer.startup.simulateMode   = j.value("simulate_mode",    false);
-}
-
-// ---------------------------------------------------------------------
 // parseParameterServer: a convenience function calling all parsers
 // ---------------------------------------------------------------------
 ParameterServer parseParameterServer(const std::string& ecatConfigFile,
-                                     const std::string& robotParamFile,
-                                     const std::string& startupFile)
+                                     const std::string& robotParamFile)
 {
     ParameterServer paramServer; // zero-initialized
     paramServer.magic = PARAM_SERVER_MAGIC;
@@ -464,11 +441,9 @@ ParameterServer parseParameterServer(const std::string& ecatConfigFile,
     parseEthercatConfig(paramServer, ecatConfigFile);
     // 2) Robot config
     parseRobotParameters(paramServer, robotParamFile);
-    // 3) Startup config
-    parseStartupParameters(paramServer, startupFile);
 
     return paramServer;
 }
 
 } // namespace merai
-} // namespace hand_control
+} // namespace seven_axis_robot

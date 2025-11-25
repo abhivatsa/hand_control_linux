@@ -3,14 +3,14 @@
 
 #include "control/hardware_abstraction/SimHAL.h"
 
-namespace hand_control
+namespace seven_axis_robot
 {
     namespace control
     {
         SimHAL::SimHAL(
-            hand_control::merai::RTMemoryLayout*           rtLayout,
-            const hand_control::merai::ParameterServer*    paramServerPtr,
-            hand_control::merai::multi_ring_logger_memory* loggerMem
+            seven_axis_robot::merai::RTMemoryLayout*           rtLayout,
+            const seven_axis_robot::merai::ParameterServer*    paramServerPtr,
+            seven_axis_robot::merai::multi_ring_logger_memory* loggerMem
         )
             : rtLayout_(rtLayout),
               paramServerPtr_(paramServerPtr),
@@ -34,9 +34,9 @@ namespace hand_control
                 driveCount_ = paramServerPtr_->driveCount;
             }
             // Cap at MAX_SERVO_DRIVES
-            if (driveCount_ > hand_control::merai::MAX_SERVO_DRIVES)
+            if (driveCount_ > seven_axis_robot::merai::MAX_SERVO_DRIVES)
             {
-                driveCount_ = hand_control::merai::MAX_SERVO_DRIVES;
+                driveCount_ = seven_axis_robot::merai::MAX_SERVO_DRIVES;
             }
 
             // 2) Clear local arrays
@@ -122,4 +122,4 @@ namespace hand_control
         }
 
     } // namespace control
-} // namespace hand_control
+} // namespace seven_axis_robot

@@ -21,7 +21,7 @@
 // HapticDeviceModel
 #include "robotics_lib/haptic_device/HapticDeviceModel.h"
 
-namespace hand_control
+namespace seven_axis_robot
 {
     namespace logic
     {
@@ -47,13 +47,13 @@ namespace hand_control
             // ---------------------------------------------------
             // Bridge / Aggregator I/O methods
             // ---------------------------------------------------
-            void readUserCommands(hand_control::merai::UserCommands &out);
-            void readDriveFeedback(hand_control::merai::DriveFeedbackData &out);
-            void readControllerFeedback(hand_control::merai::ControllerFeedback &out);
+            void readUserCommands(seven_axis_robot::merai::UserCommands &out);
+            void readDriveFeedback(seven_axis_robot::merai::DriveFeedbackData &out);
+            void readControllerFeedback(seven_axis_robot::merai::ControllerFeedback &out);
 
-            void writeDriveCommands(hand_control::merai::DriveCommandData &in);
-            void writeControllerCommand(hand_control::merai::ControllerCommand &in);
-            void writeUserFeedback(hand_control::merai::AppState currentState);
+            void writeDriveCommands(seven_axis_robot::merai::DriveCommandData &in);
+            void writeControllerCommand(seven_axis_robot::merai::ControllerCommand &in);
+            void writeUserFeedback(seven_axis_robot::merai::AppState currentState);
 
             // ---------------------------------------------------
             // Periodic scheduling helpers
@@ -74,16 +74,16 @@ namespace hand_control
             bool isHomingCompleted= false;
 
             // Shared Memory for ParameterServer
-            hand_control::merai::RAII_SharedMemory paramServerShm_;
-            const hand_control::merai::ParameterServer *paramServerPtr_ = nullptr;
+            seven_axis_robot::merai::RAII_SharedMemory paramServerShm_;
+            const seven_axis_robot::merai::ParameterServer *paramServerPtr_ = nullptr;
 
             // Shared Memory for real-time layout
-            hand_control::merai::RAII_SharedMemory rtDataShm_;
-            hand_control::merai::RTMemoryLayout *rtLayout_ = nullptr;
+            seven_axis_robot::merai::RAII_SharedMemory rtDataShm_;
+            seven_axis_robot::merai::RTMemoryLayout *rtLayout_ = nullptr;
 
             // Shared Memory for Logger
-            hand_control::merai::RAII_SharedMemory loggerShm_;
-            hand_control::merai::multi_ring_logger_memory *loggerMem_ = nullptr;
+            seven_axis_robot::merai::RAII_SharedMemory loggerShm_;
+            seven_axis_robot::merai::multi_ring_logger_memory *loggerMem_ = nullptr;
 
             // The new StateMachine (replacing old SystemOrchestrator)
             // StateMachine stateMachine_;
@@ -93,12 +93,12 @@ namespace hand_control
             std::unique_ptr<StateMachine> stateMachine_;
 
             // Temp aggregator structures
-            hand_control::merai::UserCommands userCmds;
-            hand_control::merai::DriveFeedbackData driveFdbk;
-            hand_control::merai::ControllerFeedback ctrlFdbk;
+            seven_axis_robot::merai::UserCommands userCmds;
+            seven_axis_robot::merai::DriveFeedbackData driveFdbk;
+            seven_axis_robot::merai::ControllerFeedback ctrlFdbk;
 
             // Haptic device model
-            hand_control::robotics::haptic_device::HapticDeviceModel hapticDeviceModel_;
+            seven_axis_robot::robotics::haptic_device::HapticDeviceModel hapticDeviceModel_;
         };
     } // namespace logic
-} // namespace hand_control
+} // namespace seven_axis_robot

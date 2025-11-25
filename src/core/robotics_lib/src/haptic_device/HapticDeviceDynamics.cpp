@@ -2,14 +2,14 @@
 #include "math_lib/MatrixVectorOps.h"   // Needed if you use operator*(Matrix,Vector)
 #include <cmath> // for sin, cos
 
-namespace hand_control
+namespace seven_axis_robot
 {
     namespace robotics
     {
         namespace haptic_device
         {
 
-            using namespace hand_control::math;
+            using namespace seven_axis_robot::math;
 
             HapticDeviceDynamics::HapticDeviceDynamics(const HapticDeviceModel &model)
                 : model_(model)
@@ -212,6 +212,6 @@ namespace hand_control
                 return T;
             }
 
-        } // namespace hand_control
+        } // namespace seven_axis_robot
     } // namespace robotics
-} // namespace hand_control
+} // namespace seven_axis_robot

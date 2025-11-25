@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-namespace hand_control
+namespace seven_axis_robot
 {
     namespace merai
     {
@@ -77,5 +77,29 @@ namespace hand_control
             SWITCH_FAILED
         };
 
+        enum class DriveType : uint8_t
+        {
+            Unknown = 0,
+            Servo,
+            Io
+        };
+
+        enum class SyncType : uint8_t
+        {
+            Unknown = 0,
+            RxPdo,
+            TxPdo
+        };
+
+        enum class PdoDataType : uint8_t
+        {
+            Unknown = 0,
+            Int8,
+            Int16,
+            Int32,
+            UInt16,
+            UInt32
+        };
+
     } // namespace merai
-} // namespace hand_control
+} // namespace seven_axis_robot

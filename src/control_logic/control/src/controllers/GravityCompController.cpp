@@ -1,13 +1,13 @@
 #include "control/controllers/GravityCompController.h"
 
-namespace hand_control
+namespace seven_axis_robot
 {
     namespace control
     {
         GravityCompController::GravityCompController(
-            const hand_control::robotics::haptic_device::HapticDeviceModel &model,
-            hand_control::merai::JointMotionFeedback* feedbackPtr,
-            hand_control::merai::JointMotionCommand* commandPtr,
+            const seven_axis_robot::robotics::haptic_device::HapticDeviceModel &model,
+            seven_axis_robot::merai::JointMotionFeedback* feedbackPtr,
+            seven_axis_robot::merai::JointMotionCommand* commandPtr,
             std::size_t numJoints)
             : model_(model),
               dynamics_(model),
@@ -61,7 +61,7 @@ namespace hand_control
             // }
 
             // Prepare vectors for inverse dynamics
-            hand_control::math::Vector<6> jointAngles, jointVel, jointAcc;
+            seven_axis_robot::math::Vector<6> jointAngles, jointVel, jointAcc;
             jointAngles.setZero();
             jointVel.setZero();
             jointAcc.setZero(); // for pure gravity comp, assume zero acceleration
@@ -74,7 +74,7 @@ namespace hand_control
             }
 
             // 2) Compute inverse dynamics
-            hand_control::math::Vector<6> outTorques;
+            seven_axis_robot::math::Vector<6> outTorques;
             outTorques.setZero();
 
             int ret = dynamics_.computeInverseDynamics(jointAngles, jointVel, jointAcc, outTorques);
@@ -111,4 +111,4 @@ namespace hand_control
         }
 
     } // namespace control
-} // namespace hand_control
+} // namespace seven_axis_robot

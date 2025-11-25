@@ -4,15 +4,15 @@
 #include "merai/RTMemoryLayout.h"
 #include "merai/ParameterServer.h"
 
-namespace hand_control
+namespace seven_axis_robot
 {
     namespace logic
     {
         // Output struct from StateMachine update that bundles all commands and status.
         struct StateManagerOutput
         {
-            hand_control::merai::DriveCommandData driveCmd;
-            hand_control::merai::ControllerCommand ctrlCmd;
+            seven_axis_robot::merai::DriveCommandData driveCmd;
+            seven_axis_robot::merai::ControllerCommand ctrlCmd;
             merai::AppState appState;
         };
 
@@ -25,7 +25,7 @@ namespace hand_control
         class StateMachine
         {
         public:
-            StateMachine(const hand_control::merai::ParameterServer *paramServerPtr);
+            StateMachine(const seven_axis_robot::merai::ParameterServer *paramServerPtr);
 
             /**
              * @brief Initializes internal flags and sets default state to INIT.
@@ -44,16 +44,16 @@ namespace hand_control
              * @return StateManagerOutput struct containing drive command, controller command, and current application state.
              */
             StateManagerOutput update(bool faultActive, bool isHomingCompleted,
-                                      const hand_control::merai::DriveFeedbackData &driveFdbk,
-                                      const hand_control::merai::UserCommands &userCmds,
-                                      const hand_control::merai::ControllerFeedback &ctrlFdbk);
+                                      const seven_axis_robot::merai::DriveFeedbackData &driveFdbk,
+                                      const seven_axis_robot::merai::UserCommands &userCmds,
+                                      const seven_axis_robot::merai::ControllerFeedback &ctrlFdbk);
 
         private:
-            const hand_control::merai::ParameterServer *paramServerPtr_ = nullptr;
+            const seven_axis_robot::merai::ParameterServer *paramServerPtr_ = nullptr;
             // The current application state
-            hand_control::merai::AppState currentState_ = hand_control::merai::AppState::INIT;
-            hand_control::merai::DriveCommandData driveCmd_ = hand_control::merai::DriveCommandData{};
-            hand_control::merai::ControllerCommand ctrlCmd_ = hand_control::merai::ControllerCommand{};
+            seven_axis_robot::merai::AppState currentState_ = seven_axis_robot::merai::AppState::INIT;
+            seven_axis_robot::merai::DriveCommandData driveCmd_ = seven_axis_robot::merai::DriveCommandData{};
+            seven_axis_robot::merai::ControllerCommand ctrlCmd_ = seven_axis_robot::merai::ControllerCommand{};
 
             // Example: number of drives / joints
             std::size_t driveCount_ = 0;
@@ -65,4 +65,4 @@ namespace hand_control
             bool all_drives_switch_on_disabled = true;
         };
     } // namespace logic
-} // namespace hand_control
+} // namespace seven_axis_robot

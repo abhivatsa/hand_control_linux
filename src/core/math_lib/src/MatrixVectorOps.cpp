@@ -2,7 +2,7 @@
 
 #include "math_lib/MatrixVectorOps.h"
 
-namespace hand_control
+namespace seven_axis_robot
 {
     namespace math
     {

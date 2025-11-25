@@ -6,7 +6,7 @@
 #include <chrono>
 #include <type_traits>
 
-namespace hand_control
+namespace seven_axis_robot
 {
     namespace merai
     {
@@ -207,4 +207,4 @@ namespace hand_control
         static_assert(std::is_trivially_copyable<multi_ring_logger_memory>::value,
                       "multi_ring_logger_memory must be trivially copyable for SHM");
     } // namespace merai
-} // namespace hand_control
+} // namespace seven_axis_robot

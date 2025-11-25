@@ -5,7 +5,7 @@
 #include <thread>
 #include "merai/Enums.h" // for AppState, ControllerID, etc.
 
-namespace hand_control
+namespace seven_axis_robot
 {
     namespace logic
     {
@@ -153,25 +153,25 @@ namespace hand_control
         // -------------------------------------------------
         // Bridge-based I/O (formerly aggregator)
         // -------------------------------------------------
-        void Logic::readUserCommands(hand_control::merai::UserCommands &out)
+        void Logic::readUserCommands(seven_axis_robot::merai::UserCommands &out)
         {
             int frontIdx = rtLayout_->userCommandsBuffer.frontIndex.load(std::memory_order_acquire);
             out = rtLayout_->userCommandsBuffer.buffer[frontIdx];
         }
 
-        void Logic::readDriveFeedback(hand_control::merai::DriveFeedbackData &out)
+        void Logic::readDriveFeedback(seven_axis_robot::merai::DriveFeedbackData &out)
         {
             int frontIdx = rtLayout_->driveFeedbackBuffer.frontIndex.load(std::memory_order_acquire);
             out = rtLayout_->driveFeedbackBuffer.buffer[frontIdx];
         }
 
-        void Logic::readControllerFeedback(hand_control::merai::ControllerFeedback &out)
+        void Logic::readControllerFeedback(seven_axis_robot::merai::ControllerFeedback &out)
         {
             int frontIdx = rtLayout_->controllerFeedbackBuffer.frontIndex.load(std::memory_order_acquire);
             out = rtLayout_->controllerFeedbackBuffer.buffer[frontIdx];
         }
 
-        void Logic::writeDriveCommands(hand_control::merai::DriveCommandData &in)
+        void Logic::writeDriveCommands(seven_axis_robot::merai::DriveCommandData &in)
         {
             int frontIdx = rtLayout_->driveCommandBuffer.frontIndex.load(std::memory_order_acquire);
             int backIdx = 1 - frontIdx;
@@ -189,7 +189,7 @@ namespace hand_control
             rtLayout_->driveCommandBuffer.frontIndex.store(backIdx, std::memory_order_release);
         }
 
-        void Logic::writeControllerCommand(hand_control::merai::ControllerCommand &in)
+        void Logic::writeControllerCommand(seven_axis_robot::merai::ControllerCommand &in)
         {
             int frontIdx = rtLayout_->controllerCommandBuffer.frontIndex.load(std::memory_order_acquire);
             int backIdx = 1 - frontIdx;
@@ -198,7 +198,7 @@ namespace hand_control
             rtLayout_->controllerCommandBuffer.frontIndex.store(backIdx, std::memory_order_release);
         }
 
-        void Logic::writeUserFeedback(hand_control::merai::AppState currentState)
+        void Logic::writeUserFeedback(seven_axis_robot::merai::AppState currentState)
         {
             int frontIdx = rtLayout_->userFeedbackBuffer.frontIndex.load(std::memory_order_acquire);
             int backIdx = 1 - frontIdx;
@@ -235,4 +235,4 @@ namespace hand_control
         }
 
     } // namespace logic
-} // namespace hand_control
+} // namespace seven_axis_robot

@@ -10,7 +10,7 @@
 
 namespace
 {
-    void emit_log(const char* module, const hand_control::merai::shared_log_message& msg)
+    void emit_log(const char* module, const seven_axis_robot::merai::shared_log_message& msg)
     {
         double ts_ms = static_cast<double>(msg.timestamp) / 1e6;
 #ifdef USE_SYSTEMD_JOURNAL
@@ -31,12 +31,12 @@ int main()
 {
     // Create or open the logger shared memory (read/write).
     // Adjust size or readOnly flag as needed.
-    hand_control::merai::RAII_SharedMemory loggerShm(
+    seven_axis_robot::merai::RAII_SharedMemory loggerShm(
         "/LoggerShm",
-        sizeof(hand_control::merai::multi_ring_logger_memory)
+        sizeof(seven_axis_robot::merai::multi_ring_logger_memory)
     );
 
-    auto* loggerPtr = reinterpret_cast<hand_control::merai::multi_ring_logger_memory*>(
+    auto* loggerPtr = reinterpret_cast<seven_axis_robot::merai::multi_ring_logger_memory*>(
         loggerShm.getPtr()
     );
     if (loggerPtr->magic != 0x4C4F4747)
@@ -52,22 +52,22 @@ int main()
 
     while (true)
     {
-        hand_control::merai::shared_log_message msg;
+        seven_axis_robot::merai::shared_log_message msg;
 
         // Fieldbus logs
-        while (hand_control::merai::pop_fieldbus_log(loggerPtr, msg))
+        while (seven_axis_robot::merai::pop_fieldbus_log(loggerPtr, msg))
         {
             emit_log("Fieldbus", msg);
         }
 
         // Control logs
-        while (hand_control::merai::pop_control_log(loggerPtr, msg))
+        while (seven_axis_robot::merai::pop_control_log(loggerPtr, msg))
         {
             emit_log("Control", msg);
         }
 
         // Logic logs
-        while (hand_control::merai::pop_logic_log(loggerPtr, msg))
+        while (seven_axis_robot::merai::pop_logic_log(loggerPtr, msg))
         {
             emit_log("Logic", msg);
         }

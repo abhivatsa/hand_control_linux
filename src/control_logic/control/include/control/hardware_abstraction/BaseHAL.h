@@ -3,7 +3,7 @@
 #include <cstddef>  // for size_t
 #include "merai/RTMemoryLayout.h" // For definitions like JointControlCommand, JointMotionCommand, etc.
 
-namespace hand_control
+namespace seven_axis_robot
 {
     namespace control
     {
@@ -54,13 +54,13 @@ namespace hand_control
              * @brief Provides access to the array of JointControlCommand (controlWord, etc.)
              * @return Pointer to the first element of an array sized getDriveCount().
              */
-            virtual hand_control::merai::JointControlCommand* getJointControlCommandPtr() = 0;
+            virtual seven_axis_robot::merai::JointControlCommand* getJointControlCommandPtr() = 0;
 
             /**
              * @brief Provides access to the array of JointControlFeedback (statusWord, etc.)
              * @return Pointer to the first element of an array sized getDriveCount().
              */
-            virtual hand_control::merai::JointControlFeedback* getJointControlFeedbackPtr() = 0;
+            virtual seven_axis_robot::merai::JointControlFeedback* getJointControlFeedbackPtr() = 0;
 
             // --------------------------------------------------
             // Joint Motion Access
@@ -70,13 +70,13 @@ namespace hand_control
              * @brief Provides access to the array of JointMotionCommand (position, torque, mode).
              * @return Pointer to the first element of an array sized getDriveCount().
              */
-            virtual hand_control::merai::JointMotionCommand* getJointMotionCommandPtr() = 0;
+            virtual seven_axis_robot::merai::JointMotionCommand* getJointMotionCommandPtr() = 0;
 
             /**
              * @brief Provides access to the array of JointMotionFeedback (positionActual, velocityActual, torqueActual).
              * @return Pointer to the first element of an array sized getDriveCount().
              */
-            virtual hand_control::merai::JointMotionFeedback* getJointMotionFeedbackPtr() = 0;
+            virtual seven_axis_robot::merai::JointMotionFeedback* getJointMotionFeedbackPtr() = 0;
 
             // --------------------------------------------------
             // Joint IO Access (optional)
@@ -86,13 +86,13 @@ namespace hand_control
              * @brief Accessor for the array of JointFeedbackIO (digital/analog inputs, etc.).
              * @return Pointer to an array sized getDriveCount(), or nullptr if not used.
              */
-            virtual hand_control::merai::JointFeedbackIO* getJointFeedbackIOPtr() = 0;
+            virtual seven_axis_robot::merai::JointFeedbackIO* getJointFeedbackIOPtr() = 0;
 
             /**
              * @brief Accessor for the array of JointCommandIO (digital/analog outputs, etc.).
              * @return Pointer to an array sized getDriveCount(), or nullptr if not used.
              */
-            virtual hand_control::merai::JointCommandIO* getJointCommandIOPtr() = 0;
+            virtual seven_axis_robot::merai::JointCommandIO* getJointCommandIOPtr() = 0;
 
             // --------------------------------------------------
             // Metadata
@@ -106,4 +106,4 @@ namespace hand_control
         };
 
     } // namespace control
-} // namespace hand_control
+} // namespace seven_axis_robot

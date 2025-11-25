@@ -9,15 +9,15 @@ int main(int argc, char* argv[])
     try
     {
         std::string paramServerShmName = "/ParameterServerShm";
-        size_t paramServerShmSize      = sizeof(hand_control::merai::ParameterServer);
+        size_t paramServerShmSize      = sizeof(seven_axis_robot::merai::ParameterServer);
 
         std::string rtDataShmName = "/RTDataShm";
-        size_t rtDataShmSize      = sizeof(hand_control::merai::RTMemoryLayout);
+        size_t rtDataShmSize      = sizeof(seven_axis_robot::merai::RTMemoryLayout);
 
         std::string loggerShmName = "/LoggerShm";
-        size_t loggerShmSize      = sizeof(hand_control::merai::multi_ring_logger_memory);
+        size_t loggerShmSize      = sizeof(seven_axis_robot::merai::multi_ring_logger_memory);
 
-        hand_control::logic::Logic logicApp(
+        seven_axis_robot::logic::Logic logicApp(
             paramServerShmName, paramServerShmSize,
             rtDataShmName,      rtDataShmSize,
             loggerShmName,      loggerShmSize

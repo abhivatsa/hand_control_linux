@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <ecrt.h>
 
-namespace hand_control
+namespace seven_axis_robot
 {
     namespace fieldbus
     {
@@ -73,4 +73,4 @@ namespace hand_control
             ec_domain_t*       domain_      = nullptr;
         };
     } // namespace fieldbus
-} // namespace hand_control
+} // namespace seven_axis_robot

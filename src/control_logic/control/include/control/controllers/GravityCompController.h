@@ -6,7 +6,7 @@
 #include "math_lib/Vector.h"
 #include "merai/RTMemoryLayout.h" // for DriveCommand, DriveStatus, etc.
 
-namespace hand_control
+namespace seven_axis_robot
 {
     namespace control
     {
@@ -28,9 +28,9 @@ namespace hand_control
              * @param numJoints    Number of joints this controller operates on.
              */
             GravityCompController(
-                const hand_control::robotics::haptic_device::HapticDeviceModel &model,
-                hand_control::merai::JointMotionFeedback* feedbackPtr,
-                hand_control::merai::JointMotionCommand*  commandPtr,
+                const seven_axis_robot::robotics::haptic_device::HapticDeviceModel &model,
+                seven_axis_robot::merai::JointMotionFeedback* feedbackPtr,
+                seven_axis_robot::merai::JointMotionCommand*  commandPtr,
                 std::size_t numJoints);
 
             /**
@@ -70,17 +70,17 @@ namespace hand_control
 
         private:
             // Pointers to motion feedback & command data (SI units)
-            hand_control::merai::JointMotionFeedback* feedbackPtr_ = nullptr;
-            hand_control::merai::JointMotionCommand*  commandPtr_  = nullptr;
+            seven_axis_robot::merai::JointMotionFeedback* feedbackPtr_ = nullptr;
+            seven_axis_robot::merai::JointMotionCommand*  commandPtr_  = nullptr;
             std::size_t numJoints_ = 0;
 
             // Device model and dynamics
-            const hand_control::robotics::haptic_device::HapticDeviceModel &model_;
-            hand_control::robotics::haptic_device::HapticDeviceDynamics dynamics_;
+            const seven_axis_robot::robotics::haptic_device::HapticDeviceModel &model_;
+            seven_axis_robot::robotics::haptic_device::HapticDeviceDynamics dynamics_;
 
             // Optional parameter
             double gravityScale_ = 1.0; // scale factor for torque compensation
         };
 
     } // namespace control
-} // namespace hand_control
+} // namespace seven_axis_robot

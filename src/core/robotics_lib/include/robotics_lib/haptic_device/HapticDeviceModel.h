@@ -4,12 +4,12 @@
 #include <array>
 
 // Use your updated merai/ParameterServer.h
-#include "hand_control_merai/merai/ParameterServer.h"       // Provides hand_control::merai::ParameterServer
+#include "merai/ParameterServer.h"       // Provides seven_axis_robot::merai::ParameterServer
 #include "math_lib/Matrix.h"            // For Matrix<3,3>, etc.
 #include "math_lib/Vector.h"            // For Vector<3> and Vector<6>
 #include "math_lib/MatrixVectorOps.h"
 
-namespace hand_control
+namespace seven_axis_robot
 {
     namespace robotics
     {
@@ -43,7 +43,7 @@ namespace hand_control
                  * @param ps  The ParameterServer struct (populated from JSON).
                  * @return true if at least NUM_LINKS/NUM_JOINTS were present and loaded, else false.
                  */
-                bool loadFromParameterServer(const hand_control::merai::ParameterServer &ps);
+                bool loadFromParameterServer(const seven_axis_robot::merai::ParameterServer &ps);
 
                 // -------------------------------------------------------------------------
                 // Accessors
@@ -52,53 +52,53 @@ namespace hand_control
 
                 // Link data
                 double getLinkMass(int idx) const { return linkMasses_[idx]; }
-                const hand_control::math::Vector<3> &getLinkCOM(int idx) const { return linkCOMs_[idx]; }
-                const hand_control::math::Matrix<3, 3> &getLinkInertia(int idx) const { return linkInertias_[idx]; }
+                const seven_axis_robot::math::Vector<3> &getLinkCOM(int idx) const { return linkCOMs_[idx]; }
+                const seven_axis_robot::math::Matrix<3, 3> &getLinkInertia(int idx) const { return linkInertias_[idx]; }
 
                 // Joint data (parent/child link names, for reference)
                 const std::string &getJointParentLink(int idx) const { return jointParents_[idx]; }
                 const std::string &getJointChildLink(int idx) const { return jointChildren_[idx]; }
 
-                const hand_control::math::Vector<3> &getJointOriginPos(int idx) const { return jointOriginPos_[idx]; }
-                const hand_control::math::Matrix<3, 3> &getJointOriginRot(int idx) const { return jointOriginRot_[idx]; }
+                const seven_axis_robot::math::Vector<3> &getJointOriginPos(int idx) const { return jointOriginPos_[idx]; }
+                const seven_axis_robot::math::Matrix<3, 3> &getJointOriginRot(int idx) const { return jointOriginRot_[idx]; }
 
-                const hand_control::math::Vector<3> &getJointAxis(int idx) const { return jointAxes_[idx]; }
+                const seven_axis_robot::math::Vector<3> &getJointAxis(int idx) const { return jointAxes_[idx]; }
 
                 double getJointMinPosition(int idx) const { return jointMinPos_[idx]; }
                 double getJointMaxPosition(int idx) const { return jointMaxPos_[idx]; }
 
             private:
                 // Utility to build a 3×3 inertia matrix from ixx, iyy, izz, ixy, ixz, iyz
-                hand_control::math::Matrix<3, 3> makeInertiaMatrix(double ixx, double iyy, double izz,
+                seven_axis_robot::math::Matrix<3, 3> makeInertiaMatrix(double ixx, double iyy, double izz,
                                                                      double ixy, double ixz, double iyz) const;
 
                 // Utility to convert Euler angles (roll, pitch, yaw) to a 3×3 rotation matrix
-                hand_control::math::Matrix<3, 3> eulerToRotation(double roll, double pitch, double yaw) const;
+                seven_axis_robot::math::Matrix<3, 3> eulerToRotation(double roll, double pitch, double yaw) const;
 
             private:
                 std::string robotName_;
 
                 // Link data
                 std::array<double, NUM_LINKS> linkMasses_{};
-                std::array<hand_control::math::Vector<3>, NUM_LINKS> linkCOMs_{};
-                std::array<hand_control::math::Matrix<3, 3>, NUM_LINKS> linkInertias_{};
+                std::array<seven_axis_robot::math::Vector<3>, NUM_LINKS> linkCOMs_{};
+                std::array<seven_axis_robot::math::Matrix<3, 3>, NUM_LINKS> linkInertias_{};
 
                 // Joint data
                 std::array<std::string, NUM_JOINTS> jointParents_{};
                 std::array<std::string, NUM_JOINTS> jointChildren_{};
 
                 // origin pos => Vector<3>, origin rot => Matrix<3,3>
-                std::array<hand_control::math::Vector<3>, NUM_JOINTS> jointOriginPos_{};
-                std::array<hand_control::math::Matrix<3, 3>, NUM_JOINTS> jointOriginRot_{};
+                std::array<seven_axis_robot::math::Vector<3>, NUM_JOINTS> jointOriginPos_{};
+                std::array<seven_axis_robot::math::Matrix<3, 3>, NUM_JOINTS> jointOriginRot_{};
 
                 // axis => Vector<3>
-                std::array<hand_control::math::Vector<3>, NUM_JOINTS> jointAxes_{};
+                std::array<seven_axis_robot::math::Vector<3>, NUM_JOINTS> jointAxes_{};
 
                 // joint min & max => store them in Vector<6> each
-                hand_control::math::Vector<6> jointMinPos_{};
-                hand_control::math::Vector<6> jointMaxPos_{};
+                seven_axis_robot::math::Vector<6> jointMinPos_{};
+                seven_axis_robot::math::Vector<6> jointMaxPos_{};
             };
 
         } // namespace haptic_device
     } // namespace robotics
-} // namespace hand_control
+} // namespace seven_axis_robot

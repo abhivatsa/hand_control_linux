@@ -1,6 +1,6 @@
 #include "logic/ErrorManager.h"
 
-namespace hand_control
+namespace seven_axis_robot
 {
     namespace logic
     {
@@ -77,4 +77,4 @@ namespace hand_control
         }
 
     } // namespace logic
-} // namespace hand_control
+} // namespace seven_axis_robot

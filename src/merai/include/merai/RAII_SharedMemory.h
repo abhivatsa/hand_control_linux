@@ -3,7 +3,7 @@
 #include <cstddef>   // size_t
 #include <string>
 
-namespace hand_control
+namespace seven_axis_robot
 {
     namespace merai
     {
@@ -87,4 +87,4 @@ namespace hand_control
             bool   readOnly_ = false;
         };
     } // namespace merai
-} // namespace hand_control
+} // namespace seven_axis_robot

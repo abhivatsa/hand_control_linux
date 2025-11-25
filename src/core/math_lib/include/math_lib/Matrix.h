@@ -4,7 +4,7 @@
 #include <cstddef>
 #include <cmath> // For sqrt, etc.
 
-namespace hand_control
+namespace seven_axis_robot
 {
     namespace math
     {
@@ -256,4 +256,4 @@ namespace hand_control
         };
 
     } // namespace math
-} // namespace hand_control
+} // namespace seven_axis_robot

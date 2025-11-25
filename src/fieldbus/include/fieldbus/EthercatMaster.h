@@ -7,13 +7,13 @@
 #include <string>
 #include <ecrt.h>
 
-#include "fieldbus/drives/BaseDrive.h"        // BaseDrive is in hand_control::fieldbus
-#include "hand_control_merai/merai/RTMemoryLayout.h"             // hand_control::merai::RTMemoryLayout, MAX_SERVO_DRIVES
-#include "hand_control_merai/merai/ParameterServer.h"            // hand_control::merai::ParameterServer
-#include "hand_control_merai/merai/RAII_SharedMemory.h"          // hand_control::merai::RAII_SharedMemory
-#include "hand_control_merai/merai/SharedLogger.h"               // hand_control::merai::multi_ring_logger_memory
+#include "fieldbus/drives/BaseDrive.h"        // BaseDrive is in seven_axis_robot::fieldbus
+#include "merai/RTMemoryLayout.h"             // seven_axis_robot::merai::RTMemoryLayout, MAX_SERVO_DRIVES
+#include "merai/ParameterServer.h"            // seven_axis_robot::merai::ParameterServer
+#include "merai/RAII_SharedMemory.h"          // seven_axis_robot::merai::RAII_SharedMemory
+#include "merai/SharedLogger.h"               // seven_axis_robot::merai::multi_ring_logger_memory
 
-namespace hand_control
+namespace seven_axis_robot
 {
     namespace fieldbus
     {
@@ -83,20 +83,20 @@ namespace hand_control
 
             long loopPeriodNs = 1000000L;  // default 1 ms
 
-            // Array of drives (up to hand_control::merai::MAX_SERVO_DRIVES)
-            std::array<std::unique_ptr<BaseDrive>, hand_control::merai::MAX_SERVO_DRIVES> drives_;
+            // Array of drives (up to seven_axis_robot::merai::MAX_SERVO_DRIVES)
+            std::array<std::unique_ptr<BaseDrive>, seven_axis_robot::merai::MAX_SERVO_DRIVES> drives_;
 
             // SharedMemory for ParameterServer
-            hand_control::merai::RAII_SharedMemory      configShm_;
-            const hand_control::merai::ParameterServer* configPtr_ = nullptr;
+            seven_axis_robot::merai::RAII_SharedMemory      configShm_;
+            const seven_axis_robot::merai::ParameterServer* configPtr_ = nullptr;
 
             // SharedMemory for RTMemoryLayout
-            hand_control::merai::RAII_SharedMemory rtDataShm_;
-            hand_control::merai::RTMemoryLayout*   rtLayout_ = nullptr;
+            seven_axis_robot::merai::RAII_SharedMemory rtDataShm_;
+            seven_axis_robot::merai::RTMemoryLayout*   rtLayout_ = nullptr;
 
             // SharedMemory for logging
-            hand_control::merai::RAII_SharedMemory          loggerShm_;
-            hand_control::merai::multi_ring_logger_memory*  loggerMem_ = nullptr;
+            seven_axis_robot::merai::RAII_SharedMemory          loggerShm_;
+            seven_axis_robot::merai::multi_ring_logger_memory*  loggerMem_ = nullptr;
         };
     } // namespace fieldbus
-} // namespace hand_control
+} // namespace seven_axis_robot

@@ -1,7 +1,7 @@
 #include "robotics_lib/haptic_device/HapticDeviceKinematics.h"
 #include <cmath> // for sin, cos
 
-namespace hand_control
+namespace seven_axis_robot
 {
     namespace robotics
     {
@@ -15,10 +15,10 @@ namespace hand_control
             }
 
             int HapticDeviceKinematics::forwardKinematics(
-                const hand_control::math::Vector<6> &jointAngles,
-                hand_control::math::Matrix<4, 4> &outTransform) const
+                const seven_axis_robot::math::Vector<6> &jointAngles,
+                seven_axis_robot::math::Matrix<4, 4> &outTransform) const
             {
-                using namespace hand_control::math;
+                using namespace seven_axis_robot::math;
 
                 // Start with identity transform (4×4)
                 Matrix<4, 4> Ttotal;
@@ -51,10 +51,10 @@ namespace hand_control
             }
 
             int HapticDeviceKinematics::computeJacobian(
-                const hand_control::math::Vector<6> &jointAngles,
-                hand_control::math::Matrix<6, 6> &outJacobian) const
+                const seven_axis_robot::math::Vector<6> &jointAngles,
+                seven_axis_robot::math::Matrix<6, 6> &outJacobian) const
             {
-                using namespace hand_control::math;
+                using namespace seven_axis_robot::math;
 
                 outJacobian.setZero(); // fill with 0
 
@@ -116,9 +116,9 @@ namespace hand_control
             }
 
             int HapticDeviceKinematics::computeInverseKinematics(
-                const hand_control::math::Vector<6> &currentJointAngles,
-                const hand_control::math::Matrix<4, 4> &desiredPose,
-                hand_control::math::Vector<6> &outJointAngles) const
+                const seven_axis_robot::math::Vector<6> &currentJointAngles,
+                const seven_axis_robot::math::Matrix<4, 4> &desiredPose,
+                seven_axis_robot::math::Vector<6> &outJointAngles) const
             {
                 // Placeholder: always returns success with a trivial “solution”.
                 // In practice, you’d do numerical or analytical IK here.
@@ -134,11 +134,11 @@ namespace hand_control
             // Helper Functions
             // -----------------------------------------------------------------------------
 
-            hand_control::math::Matrix<4, 4> HapticDeviceKinematics::buildHomogeneousTransform(
-                const hand_control::math::Matrix<3, 3> &rot,
-                const hand_control::math::Vector<3> &pos) const
+            seven_axis_robot::math::Matrix<4, 4> HapticDeviceKinematics::buildHomogeneousTransform(
+                const seven_axis_robot::math::Matrix<3, 3> &rot,
+                const seven_axis_robot::math::Vector<3> &pos) const
             {
-                using namespace hand_control::math;
+                using namespace seven_axis_robot::math;
                 Matrix<4, 4> T;
                 T.setIdentity();
 
@@ -158,11 +158,11 @@ namespace hand_control
                 return T;
             }
 
-            hand_control::math::Matrix<3, 3> HapticDeviceKinematics::axisAngleRotation(
-                const hand_control::math::Vector<3> &axis,
+            seven_axis_robot::math::Matrix<3, 3> HapticDeviceKinematics::axisAngleRotation(
+                const seven_axis_robot::math::Vector<3> &axis,
                 double angle) const
             {
-                using namespace hand_control::math;
+                using namespace seven_axis_robot::math;
 
                 // Standard Rodrigues' formula
                 Vector<3> axNorm = axis.normalized();
@@ -186,6 +186,6 @@ namespace hand_control
                 return R;
             }
 
-        } // namespace hand_control
+        } // namespace seven_axis_robot
     } // namespace robotics
-} // namespace hand_control
+} // namespace seven_axis_robot

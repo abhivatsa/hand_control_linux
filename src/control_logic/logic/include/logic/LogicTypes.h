@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-namespace hand_control
+namespace seven_axis_robot
 {
     namespace logic
     {
@@ -42,4 +42,4 @@ namespace hand_control
             // Add more fields as needed...
         };
     } // namespace logic
-} // namespace hand_control
+} // namespace seven_axis_robot

@@ -1,13 +1,13 @@
 #include "logic/SafetyManager.h"
 #include <cmath> // for std::fabs
 
-namespace hand_control
+namespace seven_axis_robot
 {
     namespace logic
     {
-        SafetyManager::SafetyManager(const hand_control::merai::ParameterServer* paramServerPtr,
-                                     hand_control::merai::RTMemoryLayout*        rtLayout,
-                                     const hand_control::robotics::haptic_device::HapticDeviceModel& model)
+        SafetyManager::SafetyManager(const seven_axis_robot::merai::ParameterServer* paramServerPtr,
+                                     seven_axis_robot::merai::RTMemoryLayout*        rtLayout,
+                                     const seven_axis_robot::robotics::haptic_device::HapticDeviceModel& model)
             : paramServerPtr_(paramServerPtr),
               rtLayout_(rtLayout),
               model_(model),
@@ -53,9 +53,9 @@ namespace hand_control
             return true;
         }
 
-        bool SafetyManager::update(const hand_control::merai::DriveFeedbackData& driveFdbk,
-                                   const hand_control::merai::UserCommands&      userCmds,
-                                   const hand_control::merai::ControllerFeedback& ctrlFdbk)
+        bool SafetyManager::update(const seven_axis_robot::merai::DriveFeedbackData& driveFdbk,
+                                   const seven_axis_robot::merai::UserCommands&      userCmds,
+                                   const seven_axis_robot::merai::ControllerFeedback& ctrlFdbk)
         {
             // If already faulted, see if user wants to reset
             if (faulted_)
@@ -79,7 +79,7 @@ namespace hand_control
                 //     If driveFdbk.status[i] == DriveStatus::FAULT => forceFault()
                 for (std::size_t i = 0; i < driveCount_; ++i)
                 {
-                    if (driveFdbk.status[i] == hand_control::merai::DriveStatus::FAULT)
+                    if (driveFdbk.status[i] == seven_axis_robot::merai::DriveStatus::FAULT)
                     {
                         forceFault();
                         break;
@@ -88,7 +88,7 @@ namespace hand_control
 
                 // // (3) Possibly check if ctrlFdbk indicates an error
                 // // If you have an enum like ControllerFeedbackState::ERROR or FAILED
-                // if (ctrlFdbk.feedbackState == hand_control::merai::ControllerFeedbackState::ERROR)
+                // if (ctrlFdbk.feedbackState == seven_axis_robot::merai::ControllerFeedbackState::ERROR)
                 // {
                 //     forceFault();
                 // }
@@ -195,4 +195,4 @@ namespace hand_control
         }
 
     } // namespace logic
-} // namespace hand_control
+} // namespace seven_axis_robot

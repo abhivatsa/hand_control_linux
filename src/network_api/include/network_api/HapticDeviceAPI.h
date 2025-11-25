@@ -4,7 +4,7 @@
 #include "merai/SharedLogger.h"
 #include <cstddef> // for size_t
 
-namespace hand_control
+namespace seven_axis_robot
 {
     namespace network_api
     {
@@ -13,8 +13,8 @@ namespace hand_control
         {
         public:
             /// Constructor: needs a pointer to RTMemoryLayout (for joint data) and to logger memory
-            HapticDeviceAPI(hand_control::merai::RTMemoryLayout *rtLayout,
-                            hand_control::merai::multi_ring_logger_memory *loggerMem);
+            HapticDeviceAPI(seven_axis_robot::merai::RTMemoryLayout *rtLayout,
+                            seven_axis_robot::merai::multi_ring_logger_memory *loggerMem);
 
             /// Logging helper
             void logInfo(const char *msg) const;
@@ -66,15 +66,15 @@ namespace hand_control
 
         private:
             /// Pointer to your real-time layout. We'll read from jointBuffer for feedback.
-            hand_control::merai::RTMemoryLayout *rtLayout_;
+            seven_axis_robot::merai::RTMemoryLayout *rtLayout_;
 
             /// Pointer to your shared memory logger for optional logging.
-            hand_control::merai::multi_ring_logger_memory *loggerMem_;
+            seven_axis_robot::merai::multi_ring_logger_memory *loggerMem_;
 
             /// Helper to safely read the current front feedback array.
             /// If the layout is null, returns nullptr.
-            const hand_control::merai::JointFeedbackData *getCurrentFeedback() const;
+            const seven_axis_robot::merai::JointFeedbackData *getCurrentFeedback() const;
         };
 
     } // namespace network_api
-} // namespace hand_control
+} // namespace seven_axis_robot

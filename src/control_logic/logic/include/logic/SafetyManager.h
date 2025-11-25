@@ -17,7 +17,7 @@
 // e.g., DriveFeedbackData, UserCommands, ControllerFeedback
 // which hold status arrays, eStop flags, etc.
 
-namespace hand_control
+namespace seven_axis_robot
 {
     namespace logic
     {
@@ -36,9 +36,9 @@ namespace hand_control
              * @param rtLayout        For accessing aggregator data if needed (joint states, etc.).
              * @param model           A reference to the haptic device model (6 DOF or otherwise).
              */
-            SafetyManager(const hand_control::merai::ParameterServer* paramServerPtr,
-                          hand_control::merai::RTMemoryLayout*        rtLayout,
-                          const hand_control::robotics::haptic_device::HapticDeviceModel& model);
+            SafetyManager(const seven_axis_robot::merai::ParameterServer* paramServerPtr,
+                          seven_axis_robot::merai::RTMemoryLayout*        rtLayout,
+                          const seven_axis_robot::robotics::haptic_device::HapticDeviceModel& model);
 
             ~SafetyManager() = default;
 
@@ -62,9 +62,9 @@ namespace hand_control
              * @param ctrlFdbk    The controller feedback aggregator data (controller state).
              * @return bool       True if the system is currently faulted, false otherwise.
              */
-            bool update(const hand_control::merai::DriveFeedbackData& driveFdbk,
-                        const hand_control::merai::UserCommands&      userCmds,
-                        const hand_control::merai::ControllerFeedback& ctrlFdbk);
+            bool update(const seven_axis_robot::merai::DriveFeedbackData& driveFdbk,
+                        const seven_axis_robot::merai::UserCommands&      userCmds,
+                        const seven_axis_robot::merai::ControllerFeedback& ctrlFdbk);
 
             /**
              * @brief isFaulted()
@@ -107,15 +107,15 @@ namespace hand_control
             void checkTorqueOrKinematicLimits();
 
         private:
-            const hand_control::merai::ParameterServer* paramServerPtr_ = nullptr;
-            hand_control::merai::RTMemoryLayout*        rtLayout_       = nullptr;
+            const seven_axis_robot::merai::ParameterServer* paramServerPtr_ = nullptr;
+            seven_axis_robot::merai::RTMemoryLayout*        rtLayout_       = nullptr;
 
             // Reference to your haptic device model
-            const hand_control::robotics::haptic_device::HapticDeviceModel& model_;
+            const seven_axis_robot::robotics::haptic_device::HapticDeviceModel& model_;
 
             // Local kinematics/dynamics if needed
-            hand_control::robotics::haptic_device::HapticDeviceKinematics kinematics_;
-            hand_control::robotics::haptic_device::HapticDeviceDynamics   dynamics_;
+            seven_axis_robot::robotics::haptic_device::HapticDeviceKinematics kinematics_;
+            seven_axis_robot::robotics::haptic_device::HapticDeviceDynamics   dynamics_;
 
             // Basic fault flag
             bool faulted_ = false;
@@ -130,4 +130,4 @@ namespace hand_control
         };
 
     } // namespace logic
-} // namespace hand_control
+} // namespace seven_axis_robot

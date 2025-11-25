@@ -1,12 +1,12 @@
 #include "robotics_lib/haptic_device/HapticDeviceModel.h"
 
-namespace hand_control
+namespace seven_axis_robot
 {
     namespace robotics
     {
         namespace haptic_device
         {
-            bool HapticDeviceModel::loadFromParameterServer(const hand_control::merai::ParameterServer &ps)
+            bool HapticDeviceModel::loadFromParameterServer(const seven_axis_robot::merai::ParameterServer &ps)
             {
                 // 1) Check if we have enough links & joints for the hand model
                 if (ps.linkCount < NUM_LINKS || ps.jointCount < NUM_JOINTS)
@@ -23,7 +23,7 @@ namespace hand_control
                     const auto &linkCfg = ps.links[i];
                     linkMasses_[i] = linkCfg.mass;
 
-                    linkCOMs_[i] = hand_control::math::Vector<3>{
+                    linkCOMs_[i] = seven_axis_robot::math::Vector<3>{
                         { linkCfg.com[0], linkCfg.com[1], linkCfg.com[2] }
                     };
 
@@ -46,7 +46,7 @@ namespace hand_control
                     jointParents_[j] = jointCfg.parent.c_str();
                     jointChildren_[j] = jointCfg.child.c_str();
 
-                    jointOriginPos_[j] = hand_control::math::Vector<3>{
+                    jointOriginPos_[j] = seven_axis_robot::math::Vector<3>{
                         { jointCfg.origin_pos[0], jointCfg.origin_pos[1], jointCfg.origin_pos[2] }
                     };
 
@@ -55,7 +55,7 @@ namespace hand_control
                     double yaw = jointCfg.origin_orient[2];
                     jointOriginRot_[j] = eulerToRotation(roll, pitch, yaw);
 
-                    jointAxes_[j] = hand_control::math::Vector<3>{
+                    jointAxes_[j] = seven_axis_robot::math::Vector<3>{
                         { jointCfg.axis[0], jointCfg.axis[1], jointCfg.axis[2] }
                     };
 
@@ -70,11 +70,11 @@ namespace hand_control
             // -------------------------------------------------------------
             // Helper: Build a 3×3 inertia matrix from ixx, iyy, izz, ixy, ixz, iyz
             // -------------------------------------------------------------
-            hand_control::math::Matrix<3, 3> HapticDeviceModel::makeInertiaMatrix(
+            seven_axis_robot::math::Matrix<3, 3> HapticDeviceModel::makeInertiaMatrix(
                 double ixx, double iyy, double izz,
                 double ixy, double ixz, double iyz) const
             {
-                hand_control::math::Matrix<3, 3> I;
+                seven_axis_robot::math::Matrix<3, 3> I;
                 I.setZero();
                 // Diagonal
                 I(0, 0) = ixx;
@@ -90,7 +90,7 @@ namespace hand_control
             // -------------------------------------------------------------
             // Helper: Convert Euler angles (roll, pitch, yaw) to a 3×3 rotation
             // -------------------------------------------------------------
-            hand_control::math::Matrix<3, 3> HapticDeviceModel::eulerToRotation(
+            seven_axis_robot::math::Matrix<3, 3> HapticDeviceModel::eulerToRotation(
                 double roll, double pitch, double yaw) const
             {
                 using std::cos;
@@ -100,7 +100,7 @@ namespace hand_control
                 double cp = cos(pitch), sp = sin(pitch);
                 double cy = cos(yaw),   sy = sin(yaw);
 
-                hand_control::math::Matrix<3, 3> R;
+                seven_axis_robot::math::Matrix<3, 3> R;
                 R.setZero();
 
                 // Example: Z-Y-X rotation
@@ -119,6 +119,6 @@ namespace hand_control
                 return R;
             }
 
-        } // namespace hand_control
+        } // namespace seven_axis_robot
     } // namespace robotics
-} // namespace hand_control
+} // namespace seven_axis_robot

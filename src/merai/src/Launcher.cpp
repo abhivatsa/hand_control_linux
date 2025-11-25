@@ -45,11 +45,9 @@ int main(int argc, char *argv[])
 
         const std::string ecatFile = (configDir / "ethercat_config.json").string();
         const std::string robotFile = (configDir / "robot_parameters.json").string();
-        const std::string startupFile = (configDir / "startup_config.json").string();
-
         // Parse system parameters
-        hand_control::merai::ParameterServer paramServer =
-            hand_control::merai::parseParameterServer(ecatFile, robotFile, startupFile);
+        seven_axis_robot::merai::ParameterServer paramServer =
+            seven_axis_robot::merai::parseParameterServer(ecatFile, robotFile);
 
         std::cout << "Launcher: parsed "
                   << paramServer.driveCount << " drives, "
@@ -58,14 +56,14 @@ int main(int argc, char *argv[])
         // -----------------------------------------------------------
         // 1) Create SHM for ParameterServer (static config data)
         // -----------------------------------------------------------
-        const size_t configShmSize = sizeof(hand_control::merai::ParameterServer);
-        hand_control::merai::RAII_SharedMemory configShm("/ParameterServerShm", configShmSize);
+        const size_t configShmSize = sizeof(seven_axis_robot::merai::ParameterServer);
+        seven_axis_robot::merai::RAII_SharedMemory configShm("/ParameterServerShm", configShmSize);
 
         auto *paramPtr =
-            reinterpret_cast<hand_control::merai::ParameterServer *>(configShm.getPtr());
+            reinterpret_cast<seven_axis_robot::merai::ParameterServer *>(configShm.getPtr());
 
         // Copy the parsed data into shared memory
-        std::memcpy(paramPtr, &paramServer, sizeof(hand_control::merai::ParameterServer));
+        std::memcpy(paramPtr, &paramServer, sizeof(seven_axis_robot::merai::ParameterServer));
 
         std::cout << "Launcher: ParameterServer shared memory created.\n"
                   << "          (name=\"/ParameterServerShm\", size=" << configShmSize << ")\n";
@@ -73,16 +71,16 @@ int main(int argc, char *argv[])
         // -----------------------------------------------------------
         // 2) Create SHM for RTMemoryLayout (real-time data)
         // -----------------------------------------------------------
-        const size_t rtShmSize = sizeof(hand_control::merai::RTMemoryLayout);
-        hand_control::merai::RAII_SharedMemory rtShm("/RTDataShm", rtShmSize);
+        const size_t rtShmSize = sizeof(seven_axis_robot::merai::RTMemoryLayout);
+        seven_axis_robot::merai::RAII_SharedMemory rtShm("/RTDataShm", rtShmSize);
 
         auto *rtLayout =
-            reinterpret_cast<hand_control::merai::RTMemoryLayout *>(rtShm.getPtr());
+            reinterpret_cast<seven_axis_robot::merai::RTMemoryLayout *>(rtShm.getPtr());
 
         // Zero-initialize the real-time buffer region
         std::memset(rtLayout, 0, rtShmSize);
-        rtLayout->magic = hand_control::merai::RT_MEMORY_MAGIC;
-        rtLayout->version = hand_control::merai::RT_MEMORY_VERSION;
+        rtLayout->magic = seven_axis_robot::merai::RT_MEMORY_MAGIC;
+        rtLayout->version = seven_axis_robot::merai::RT_MEMORY_VERSION;
 
         std::cout << "Launcher: RTMemoryLayout shared memory created.\n"
                   << "          (name=\"/RTDataShm\", size=" << rtShmSize << ")\n\n";
@@ -90,16 +88,16 @@ int main(int argc, char *argv[])
         // -----------------------------------------------------------
         // 3) Create SHM for MultiRingLoggerMemory (log messages)
         // -----------------------------------------------------------
-        const size_t loggerShmSize = sizeof(hand_control::merai::multi_ring_logger_memory);
-        hand_control::merai::RAII_SharedMemory loggerShm("/LoggerShm", loggerShmSize);
+        const size_t loggerShmSize = sizeof(seven_axis_robot::merai::multi_ring_logger_memory);
+        seven_axis_robot::merai::RAII_SharedMemory loggerShm("/LoggerShm", loggerShmSize);
 
         auto *multiLoggerPtr =
-            reinterpret_cast<hand_control::merai::multi_ring_logger_memory *>(loggerShm.getPtr());
+            reinterpret_cast<seven_axis_robot::merai::multi_ring_logger_memory *>(loggerShm.getPtr());
 
         // Clear all ring buffers
         std::memset(multiLoggerPtr, 0, loggerShmSize);
-        multiLoggerPtr->magic = hand_control::merai::multi_ring_logger_memory::MAGIC;
-        multiLoggerPtr->version = hand_control::merai::multi_ring_logger_memory::VERSION;
+        multiLoggerPtr->magic = seven_axis_robot::merai::multi_ring_logger_memory::MAGIC;
+        multiLoggerPtr->version = seven_axis_robot::merai::multi_ring_logger_memory::VERSION;
 
         std::cout << "Launcher: Logger shared memory created.\n"
                   << "          (name=\"/LoggerShm\", size=" << loggerShmSize << ")\n\n";

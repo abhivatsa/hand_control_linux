@@ -1,7 +1,7 @@
 #include <iostream>
 #include "merai/SharedLogger.h"
 
-using namespace hand_control::merai;
+using namespace seven_axis_robot::merai;
 
 int main()
 {

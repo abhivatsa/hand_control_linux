@@ -2,13 +2,13 @@
 #include <cmath>
 #include <cstdio>
 #include <iostream>
-namespace hand_control
+namespace seven_axis_robot
 {
     namespace network_api
     {
 
-        HapticDeviceAPI::HapticDeviceAPI(hand_control::merai::RTMemoryLayout *rtLayout,
-                                         hand_control::merai::multi_ring_logger_memory *loggerMem)
+        HapticDeviceAPI::HapticDeviceAPI(seven_axis_robot::merai::RTMemoryLayout *rtLayout,
+                                         seven_axis_robot::merai::multi_ring_logger_memory *loggerMem)
             : rtLayout_(rtLayout), loggerMem_(loggerMem)
         {
             if (!rtLayout_)
@@ -32,7 +32,7 @@ namespace hand_control
         // ---------------------------------------------------------------------
         // Internal helper: get pointer to the current array of feedback data.
         // Return nullptr if rtLayout_ is not available.
-        const hand_control::merai::JointFeedbackData *HapticDeviceAPI::getCurrentFeedback() const
+        const seven_axis_robot::merai::JointFeedbackData *HapticDeviceAPI::getCurrentFeedback() const
         {
             if (!rtLayout_)
                 return nullptr;
@@ -196,4 +196,4 @@ namespace hand_control
         }
 
     } // namespace network_api
-} // namespace hand_control
+} // namespace seven_axis_robot

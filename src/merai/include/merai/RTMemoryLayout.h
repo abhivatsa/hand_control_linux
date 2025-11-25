@@ -8,7 +8,7 @@
 // Include enumerations for DriveCommand, DriveStatus, ControllerID, etc.
 #include "merai/Enums.h"
 
-namespace hand_control
+namespace seven_axis_robot
 {
     namespace merai
     {
@@ -38,16 +38,15 @@ namespace hand_control
         struct ServoRxMotion
         {
             uint8_t modeOfOperation = 8; // Operating mode indicator
-            float targetCurrent = 0;    // Desired Current value
-            int32_t targetPosition = 0;  // Desired position value
-            uint16_t maxCurrent = 1000; // Max Current Input
+            int16_t targetTorque = 0;    // Desired torque value (0x6071)
+            int32_t targetPosition = 0;  // Desired position value (0x607A)
+            uint16_t maxTorque = 0;      // Max torque (0x6072)
         };
 
         // IO-related fields (digital/analog IO, if any)
-        // Currently empty, but reserved for future expansion.
         struct ServoRxIO
         {
-            // uint32_t digitalOutputs = 0; // Placeholder for digital outputs
+            uint32_t digitalOutputs = 0; // 0x60FE:01
         };
 
         // Consolidated Rx PDO that groups the above sub-structs
@@ -71,7 +70,7 @@ namespace hand_control
         {
             int32_t positionActual = 0; // Actual position feedback
             int32_t velocityActual = 0; // Actual velocity feedback
-            float currentActual = 0;   // Actual current feedback
+            int16_t torqueActual = 0;   // Actual torque feedback (0x6077)
         };
 
         // IO-related feedback fields (digital/analog IO inputs, if any)
@@ -79,9 +78,9 @@ namespace hand_control
         struct ServoTxIO
         {
             // e.g. digitalInputs, analogInput, etc.
-            uint32_t digitalInputs = 0; // Placeholder for digital inputs
-            uint16_t analogInput = 0;   // Placeholder for analog input
-            uint16_t error_code = 0;
+            uint32_t digitalInputs = 0; // 0x60FD
+            uint16_t analogInput = 0;   // 0x2401
+            uint16_t error_code = 0;    // 0x603F
         };
 
         // Consolidated Tx PDO that groups the above sub-structs
@@ -190,13 +189,13 @@ namespace hand_control
         // Structure for drive-level command data.
         struct DriveCommandData
         {
-            std::array<hand_control::merai::DriveCommand, MAX_SERVO_DRIVES> commands; // Commands for each drive
+            std::array<seven_axis_robot::merai::DriveCommand, MAX_SERVO_DRIVES> commands; // Commands for each drive
         };
 
         // Structure for drive-level feedback data.
         struct DriveFeedbackData
         {
-            std::array<hand_control::merai::DriveStatus, MAX_SERVO_DRIVES> status; // Status for each drive
+            std::array<seven_axis_robot::merai::DriveStatus, MAX_SERVO_DRIVES> status; // Status for each drive
         };
 
         //====================================================
@@ -207,13 +206,13 @@ namespace hand_control
         struct ControllerCommand
         {
             bool requestSwitch = false;                                                               // Flag to request a controller switch
-            hand_control::merai::ControllerID controllerId = hand_control::merai::ControllerID::NONE; // Target controller ID
+            seven_axis_robot::merai::ControllerID controllerId = seven_axis_robot::merai::ControllerID::NONE; // Target controller ID
         };
 
         // Structure for receiving controller feedback.
         struct ControllerFeedback
         {
-            hand_control::merai::ControllerFeedbackState feedbackState = hand_control::merai::ControllerFeedbackState::IDLE;
+            seven_axis_robot::merai::ControllerFeedbackState feedbackState = seven_axis_robot::merai::ControllerFeedbackState::IDLE;
         };
 
         //====================================================
@@ -226,13 +225,13 @@ namespace hand_control
             bool eStop = false;                                                                // Emergency stop flag
             bool resetFault = false;                                                           // Reset fault command
             bool shutdownRequest = false;                                                      // Shutdown request flag
-            hand_control::merai::UserMode desiredMode = hand_control::merai::UserMode::HOMING; // Desired user mode
+            seven_axis_robot::merai::UserMode desiredMode = seven_axis_robot::merai::UserMode::HOMING; // Desired user mode
         };
 
         // Structure for feedback provided to the user.
         struct UserFeedback
         {
-            hand_control::merai::AppState currentState = hand_control::merai::AppState::HOMING; // Current application state
+            seven_axis_robot::merai::AppState currentState = seven_axis_robot::merai::AppState::HOMING; // Current application state
         };
 
         //====================================================
@@ -284,4 +283,4 @@ namespace hand_control
         static_assert(std::is_trivially_copyable<UserFeedback>::value, "UserFeedback must be trivially copyable");
         static_assert(std::is_trivially_copyable<RTMemoryLayout>::value, "RTMemoryLayout must be trivially copyable");
     } // namespace merai
-} // namespace hand_control
+} // namespace seven_axis_robot

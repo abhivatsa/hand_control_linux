@@ -16,7 +16,7 @@
 
 #include "hand_control_core/robotics_lib/haptic_device/HapticDeviceModel.h"
 
-namespace hand_control
+namespace seven_axis_robot
 {
     namespace control
     {
@@ -53,17 +53,17 @@ namespace hand_control
             void copyJointCommandsFromSharedMemory();
 
             // Reading/writing additional commands/feedback
-            void readControllerCommand(hand_control::merai::ControllerCommand *outCmd);
-            void readDriveCommand(hand_control::merai::DriveCommandData *outDriveCmd);
-            void writeDriveFeedback(const hand_control::merai::DriveFeedbackData &feedback);
-            void writeControllerFeedback(const hand_control::merai::ControllerFeedback &feedback);
+            void readControllerCommand(seven_axis_robot::merai::ControllerCommand *outCmd);
+            void readDriveCommand(seven_axis_robot::merai::DriveCommandData *outDriveCmd);
+            void writeDriveFeedback(const seven_axis_robot::merai::DriveFeedbackData &feedback);
+            void writeControllerFeedback(const seven_axis_robot::merai::ControllerFeedback &feedback);
 
         private:
             // Local copies of user/drive/controller commands & feedback
-            hand_control::merai::ControllerCommand  ctrlCmd;
-            hand_control::merai::DriveCommandData   driveCmd;
-            hand_control::merai::DriveFeedbackData  driveFdbk;
-            hand_control::merai::ControllerFeedback ctrlFdbk;
+            seven_axis_robot::merai::ControllerCommand  ctrlCmd;
+            seven_axis_robot::merai::DriveCommandData   driveCmd;
+            seven_axis_robot::merai::DriveFeedbackData  driveFdbk;
+            seven_axis_robot::merai::ControllerFeedback ctrlFdbk;
 
             // HAL and managers
             std::unique_ptr<BaseHAL> hal_;
@@ -73,18 +73,18 @@ namespace hand_control
             std::atomic_bool stopRequested_{false};
 
             // Shared memory & param server references
-            hand_control::merai::RAII_SharedMemory paramServerShm_;
-            const hand_control::merai::ParameterServer* paramServerPtr_ = nullptr;
+            seven_axis_robot::merai::RAII_SharedMemory paramServerShm_;
+            const seven_axis_robot::merai::ParameterServer* paramServerPtr_ = nullptr;
 
-            hand_control::merai::RAII_SharedMemory rtDataShm_;
-            hand_control::merai::RTMemoryLayout* rtLayout_ = nullptr;
+            seven_axis_robot::merai::RAII_SharedMemory rtDataShm_;
+            seven_axis_robot::merai::RTMemoryLayout* rtLayout_ = nullptr;
 
-            hand_control::merai::RAII_SharedMemory loggerShm_;
-            hand_control::merai::multi_ring_logger_memory* loggerMem_ = nullptr;
+            seven_axis_robot::merai::RAII_SharedMemory loggerShm_;
+            seven_axis_robot::merai::multi_ring_logger_memory* loggerMem_ = nullptr;
 
             // Device model (for controllers like GravityCompController)
-            hand_control::robotics::haptic_device::HapticDeviceModel hapticDeviceModel_;
+            seven_axis_robot::robotics::haptic_device::HapticDeviceModel hapticDeviceModel_;
         };
 
     } // namespace control
-} // namespace hand_control
+} // namespace seven_axis_robot

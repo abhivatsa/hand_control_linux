@@ -3,14 +3,14 @@
 #include <algorithm> // for std::max, std::min
 #include <iostream>
 
-namespace hand_control
+namespace seven_axis_robot
 {
     namespace control
     {
         HomingController::HomingController(const double *homePositions,
                                            int numJoints,
-                                           hand_control::merai::JointMotionFeedback *feedbackPtr,
-                                           hand_control::merai::JointMotionCommand *commandPtr)
+                                           seven_axis_robot::merai::JointMotionFeedback *feedbackPtr,
+                                           seven_axis_robot::merai::JointMotionCommand *commandPtr)
             : feedbackPtr_(feedbackPtr),
               commandPtr_(commandPtr),
               numJoints_(numJoints)
@@ -295,4 +295,4 @@ namespace hand_control
         }
 
     } // namespace control
-} // namespace hand_control
+} // namespace seven_axis_robot

@@ -3,7 +3,7 @@
 Runtime and configuration layer for the hand-control stack: parses JSON configs, exposes them via shared memory, provides a shared logger, and installs launcher/logger systemd services.
 
 ## Contents
-- `include/merai/ParameterServer.h/.cpp` – parse EtherCAT/robot/startup JSON into POD structs (SHM-safe).
+- `include/merai/ParameterServer.h/.cpp` – parse EtherCAT/robot JSON into POD structs (SHM-safe).
 - `include/merai/RTMemoryLayout.h` – POD layout for RT data buffers.
 - `include/merai/SharedLogger.h` + `src/LoggerProcess.cpp` – per-module SPSC rings for logs, logger consumer.
 - `src/Launcher.cpp` – creates and seeds SHM (`/ParameterServerShm`, `/RTDataShm`, `/LoggerShm`).
@@ -20,14 +20,14 @@ From repo root:
 cmake -S src/merai -B build/merai \
   -DCMAKE_BUILD_TYPE=Release \
   -DBUILD_TESTING=ON \
-  -DMERAI_CONFIG_INSTALL_DIR=/etc/hand_control_merai
-cmake --build build/merai --target merai_foundation merai_launcher merai_logger
+  -DMERAI_CONFIG_INSTALL_DIR=/etc/seven_axis_robot_merai
+cmake --build build/merai              # builds libs, binaries, tests
 ctest --test-dir build/merai --output-on-failure   # optional
 ```
 With presets (whole repo):
 ```
 cmake --preset dev
-cmake --build --preset dev --target merai_foundation merai_launcher merai_logger
+cmake --build --preset dev             # builds libs, binaries, tests
 ctest --preset dev --output-on-failure
 ```
 
@@ -39,7 +39,7 @@ sudo dpkg -i hand-control-merai_*.deb
 ```
 
 ## Config Files
-- Installed defaults: `${MERAI_CONFIG_INSTALL_DIR}` (default `/etc/hand_control_merai`).
+- Installed defaults: `${MERAI_CONFIG_INSTALL_DIR}` (default `/etc/seven_axis_robot_merai`).
 - Source defaults (for in-tree runs): `config/` at repo root.
 - Launcher resolves config dir by: env `MERAI_CONFIG_DIR` override → installed dir if exists → source dir.
 

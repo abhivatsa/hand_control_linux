@@ -5,18 +5,24 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/hand_control_fieldbus_exe
+ExecStart=/usr/bin/seven_axis_robot_fieldbus_exe
 
 # If you have a dedicated robot user (recommended over root):
 User=abhishek
 
 Restart=on-failure
+RestartSec=1s
+StartLimitIntervalSec=30
+StartLimitBurst=3
 
 # Real-time scheduling + CPU affinity, if needed:
 LimitRTPRIO=99
 CPUSchedulingPolicy=rr
 CPUSchedulingPriority=90
 CPUAffinity=2
+LimitRTTIME=infinity
+LimitMEMLOCK=infinity
+TasksMax=infinity
 
 [Install]
 WantedBy=multi-user.target

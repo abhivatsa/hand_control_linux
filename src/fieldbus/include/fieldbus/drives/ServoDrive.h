@@ -5,11 +5,11 @@
 #include <ecrt.h>  // for ec_slave_config_t, ec_domain_t
 
 #include "fieldbus/drives/BaseDrive.h"
-#include "merai/ParameterServer.h"   // defines hand_control::merai::DriveConfig
-#include "merai/RTMemoryLayout.h"    // defines hand_control::merai::RTMemoryLayout, ServoRxPdo, ServoTxPdo
-#include "merai/SharedLogger.h"      // defines hand_control::merai::multi_ring_logger_memory
+#include "merai/ParameterServer.h"   // defines seven_axis_robot::merai::DriveConfig
+#include "merai/RTMemoryLayout.h"    // defines seven_axis_robot::merai::RTMemoryLayout, ServoRxPdo, ServoTxPdo
+#include "merai/SharedLogger.h"      // defines seven_axis_robot::merai::multi_ring_logger_memory
 
-namespace hand_control
+namespace seven_axis_robot
 {
     namespace fieldbus
     {
@@ -20,12 +20,12 @@ namespace hand_control
         class ServoDrive : public BaseDrive
         {
         public:
-            ServoDrive(const hand_control::merai::DriveConfig& driveCfg,
+            ServoDrive(const seven_axis_robot::merai::DriveConfig& driveCfg,
                        ec_slave_config_t* sc,
                        ec_domain_t* domain,
-                       hand_control::merai::RTMemoryLayout* rtLayout,
+                       seven_axis_robot::merai::RTMemoryLayout* rtLayout,
                        int driveIndex,
-                       hand_control::merai::multi_ring_logger_memory* loggerMem);
+                       seven_axis_robot::merai::multi_ring_logger_memory* loggerMem);
 
             ~ServoDrive() override = default;
 
@@ -57,17 +57,17 @@ namespace hand_control
         private:
             ec_domain_t* domain_ = nullptr;
 
-            hand_control::merai::DriveConfig driveCfg_;
-            hand_control::merai::RTMemoryLayout* rtLayout_ = nullptr;
+            seven_axis_robot::merai::DriveConfig driveCfg_;
+            seven_axis_robot::merai::RTMemoryLayout* rtLayout_ = nullptr;
             int driveIndex_ = -1;
 
             // Logging pointer
-            hand_control::merai::multi_ring_logger_memory* loggerMem_ = nullptr;
+            seven_axis_robot::merai::multi_ring_logger_memory* loggerMem_ = nullptr;
 
             // Data structures for servo I/O
             // Using the updated sub-struct style
-            hand_control::merai::ServoTxPdo servoTx_; // read from domain -> store in .tx
-            hand_control::merai::ServoRxPdo servoRx_; // read from .rx -> write to domain
+            seven_axis_robot::merai::ServoTxPdo servoTx_; // read from domain -> store in .tx
+            seven_axis_robot::merai::ServoRxPdo servoRx_; // read from .rx -> write to domain
 
             struct ServoOffsets
             {
@@ -75,27 +75,24 @@ namespace hand_control
                 unsigned int statusword                = 0; // 0x6041
                 unsigned int position_actual_value     = 0; // 0x6064
                 unsigned int velocity_actual_value     = 0; // 0x606C
-                unsigned int current_actual_value      = 0; // 0x2076
-                unsigned int digital_input_value       = 0; // 0x2600
-                unsigned int analog_input_value        = 0; // 0x2081
+                unsigned int torque_actual_value       = 0; // 0x6077
+                unsigned int digital_input_value       = 0; // 0x60FD
+                unsigned int analog_input_value        = 0; // 0x2401
                 unsigned int error_code                = 0; // 0x603F
-
-                
-                // Possibly mode_of_operation_display
 
                 // Offsets for outputs (Rx)
                 unsigned int controlword               = 0; // 0x6040
                 unsigned int modes_of_operation        = 0; // 0x6060
                 unsigned int target_position           = 0; // 0x607A
-                unsigned int target_current            = 0; // 0x201A
-                unsigned int max_current               = 0; // 0x6073
+                unsigned int target_torque             = 0; // 0x6071
+                unsigned int max_torque                = 0; // 0x6072
+                unsigned int digital_output_value      = 0; // 0x60FE:01
             } servoOffsets_;
 
-            void* getOffsetPointerByIndex(uint16_t objectIndex);
-            uint16_t hexStringToUint(const std::string& hexStr);
+            void* getOffsetPointerByIndex(uint16_t objectIndex, uint8_t subIndex);
 
             bool registerPdoEntries();
         };
 
     } // namespace fieldbus
-} // namespace hand_control
+} // namespace seven_axis_robot

@@ -4,7 +4,7 @@
 #include "Matrix.h" // We'll use Matrix<3,3>
 #include "Vector.h" // if needed
 
-namespace hand_control
+namespace seven_axis_robot
 {
     namespace math
     {
@@ -167,4 +167,4 @@ namespace hand_control
         };
 
     } // namespace math
-} // namespace hand_control
+} // namespace seven_axis_robot
