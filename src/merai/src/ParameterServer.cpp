@@ -1,4 +1,5 @@
 #include "merai/ParameterServer.h"
+#include "merai/RTMemoryLayout.h"  // for MAX_SERVO_DRIVES (RT-facing limit)
 #include "json.hpp"
 
 #include <fstream>
@@ -252,6 +253,17 @@ void parseRobotParameters(ParameterServer& paramServer,
 
     // 1) Robot name & manipulator_type
     // 2) links
+    if (robotObj.contains("gravity"))
+    {
+        auto g = robotObj["gravity"];
+        if (g.is_array() && g.size() == 3)
+        {
+            paramServer.gravity[0] = g[0].get<double>();
+            paramServer.gravity[1] = g[1].get<double>();
+            paramServer.gravity[2] = g[2].get<double>();
+        }
+    }
+
     if (robotObj.contains("links"))
     {
         auto linkArr = robotObj["links"];
@@ -441,6 +453,24 @@ ParameterServer parseParameterServer(const std::string& ecatConfigFile,
     parseEthercatConfig(paramServer, ecatConfigFile);
     // 2) Robot config
     parseRobotParameters(paramServer, robotParamFile);
+
+    // Clamp counts to what the RT memory layout can hold. Keep the stricter
+    // of MAX_SERVO_DRIVES (RT buffers) and the compile-time limits here.
+    const int rtMax = std::min(MAX_SERVO_DRIVES, MAX_DRIVES);
+    if (paramServer.driveCount > rtMax)
+    {
+        std::cerr << "Warning: driveCount (" << paramServer.driveCount
+                  << ") exceeds RT limit (" << rtMax << "); clamping.\n";
+        paramServer.driveCount = rtMax;
+    }
+
+    const int jointRtMax = std::min(MAX_SERVO_DRIVES, MAX_JOINTS);
+    if (paramServer.jointCount > jointRtMax)
+    {
+        std::cerr << "Warning: jointCount (" << paramServer.jointCount
+                  << ") exceeds RT limit (" << jointRtMax << "); clamping.\n";
+        paramServer.jointCount = jointRtMax;
+    }
 
     return paramServer;
 }

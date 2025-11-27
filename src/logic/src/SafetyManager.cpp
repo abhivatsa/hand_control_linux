@@ -1,5 +1,6 @@
 #include "logic/SafetyManager.h"
 #include <cmath> // for std::fabs
+#include "merai/RTIpc.h"
 
 namespace seven_axis_robot
 {
@@ -114,13 +115,20 @@ namespace seven_axis_robot
                 return false;
             }
             double homing_pos[7] = {0, 0, 0, 0, 0, 0, 0};
-            // We read from the jointBuffer (states) to see if any joint is out of range
-            int frontIdx = rtLayout_->jointBuffer.frontIndex.load(std::memory_order_acquire);
-            auto &jointFeedback = rtLayout_->jointBuffer.buffer[frontIdx].feedback;
+
+            seven_axis_robot::merai::JointData jointData{};
+            auto meta = seven_axis_robot::merai::read_latest(rtLayout_->jointBuffer,
+                                                             jointData,
+                                                             lastJointFdbkSeqHoming_);
+            lastJointFdbkSeqHoming_ = meta.seq;
+            if (!meta.fresh)
+            {
+                return false; // do not declare homing done on stale data
+            }
 
             for (std::size_t i = 0; i < driveCount_; ++i)
             {
-                double pos = jointFeedback[i].motion.positionActual;
+                double pos = jointData.feedback[i].motion.positionActual;
                 if (fabs(homing_pos[i] - pos) > 0.001){
                     return false;
                 }
@@ -146,13 +154,19 @@ namespace seven_axis_robot
             {
                 return;
             }
-            // We read from the jointBuffer (states) to see if any joint is out of range
-            int frontIdx = rtLayout_->jointBuffer.frontIndex.load(std::memory_order_acquire);
-            auto &jointFeedback = rtLayout_->jointBuffer.buffer[frontIdx].feedback;
+            seven_axis_robot::merai::JointData jointData{};
+            auto meta = seven_axis_robot::merai::read_latest(rtLayout_->jointBuffer,
+                                                             jointData,
+                                                             lastJointFdbkSeqLimits_);
+            lastJointFdbkSeqLimits_ = meta.seq;
+            if (!meta.fresh)
+            {
+                return; // no fresh data; skip limit checks this cycle
+            }
 
             for (std::size_t i = 0; i < driveCount_; ++i)
             {
-                double pos = jointFeedback[i].motion.positionActual;
+                double pos = jointData.feedback[i].motion.positionActual;
                 if (pos < jointMin_[i] || pos > jointMax_[i])
                 {
                     forceFault();

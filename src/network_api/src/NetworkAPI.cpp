@@ -90,7 +90,8 @@ namespace seven_axis_robot
         void NetworkAPI::run()
         {
             period_info pinfo;
-            periodic_task_init(&pinfo, 1'000'000L); // 1 ms for 1000Hz
+            // Network is best-effort; run at 100 Hz to reduce RT contention
+            periodic_task_init(&pinfo, 10'000'000L);
 
             while (!stopRequested_.load(std::memory_order_relaxed))
             {
@@ -107,7 +108,7 @@ namespace seven_axis_robot
             stopRequested_.store(true, std::memory_order_relaxed);
         }
 
-        // The actual 1 kHz cyc. function
+        // The actual network periodic function
         void NetworkAPI::cyclicTask()
         {
             // 1) Poll ENet events (connect, receive, etc.)

@@ -9,6 +9,7 @@
     "robot": {
       "name": "seven_axis_robot",
       "manipulator_type": "robotic_arm",
+      "gravity": [0.0, 0.0, -9.81],
   
       "links": [
         {

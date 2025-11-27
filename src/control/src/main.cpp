@@ -1,9 +1,29 @@
 #include <stdexcept>
 #include <cstdlib>  // for EXIT_SUCCESS, EXIT_FAILURE
+#include <sys/mman.h>
+#include <unistd.h>
 
 #include "merai/SharedLogger.h"
 #include "merai/RAII_SharedMemory.h"
 #include "control/Control.h"  // seven_axis_robot::control::Control
+
+namespace
+{
+    void prefault_region(void* ptr, size_t size)
+    {
+        if (!ptr || size == 0)
+        {
+            return;
+        }
+        const long page = sysconf(_SC_PAGESIZE);
+        volatile char* p = static_cast<volatile char*>(ptr);
+        for (size_t i = 0; i < size; i += static_cast<size_t>(page))
+        {
+            (void)p[i];
+        }
+        (void)p[size - 1];
+    }
+}
 
 int main(int argc, char* argv[])
 {
@@ -19,6 +39,12 @@ int main(int argc, char* argv[])
         std::string loggerShmName = "/LoggerShm";
         size_t loggerShmSize      = sizeof(seven_axis_robot::merai::multi_ring_logger_memory);
 
+        // Lock current/future pages to avoid minor faults during RT operation.
+        if (mlockall(MCL_CURRENT | MCL_FUTURE) != 0)
+        {
+            std::perror("[Control Main] mlockall failed");
+        }
+
         // Map logger SHM so we can log from main (Control maps its own handle internally).
         seven_axis_robot::merai::RAII_SharedMemory loggerShm(loggerShmName, loggerShmSize, false);
         auto* loggerMem = reinterpret_cast<seven_axis_robot::merai::multi_ring_logger_memory*>(loggerShm.getPtr());
@@ -27,6 +53,7 @@ int main(int argc, char* argv[])
             std::cerr << "[Control Main] Failed to map logger shared memory.\n";
             return EXIT_FAILURE;
         }
+        prefault_region(loggerMem, loggerShmSize);
 
         // Map RTData just to validate magic/version before Control uses it
         seven_axis_robot::merai::RAII_SharedMemory rtDataShmTmp(rtDataShmName, rtDataShmSize, false);
@@ -36,6 +63,7 @@ int main(int argc, char* argv[])
             std::cerr << "[Control Main] RTMemoryLayout integrity check failed (magic/version mismatch).\n";
             return EXIT_FAILURE;
         }
+        prefault_region(rtLayoutTmp, rtDataShmSize);
 
         // 2) Create the Control object using the three shared memories
         seven_axis_robot::control::Control controlApp(

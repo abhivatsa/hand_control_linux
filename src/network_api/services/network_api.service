@@ -5,9 +5,12 @@ Wants=network-online.target
 
 [Service]
 ExecStart=/usr/bin/network_api_node
-Restart=always
-User=root
-# Could set CPU affinity or real-time priority if needed
+Restart=on-failure
+User=abhishek
+Group=abhishek
+CPUSchedulingPolicy=other
+Nice=5
+CPUAffinity=0 1
 
 [Install]
 WantedBy=multi-user.target

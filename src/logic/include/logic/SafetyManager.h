@@ -2,6 +2,7 @@
 
 #include <cstddef> // for size_t
 #include <cstdint>
+#include <limits>
 
 // Haptic device includes
 #include "robotics_lib/haptic_device/HapticDeviceModel.h"
@@ -123,6 +124,9 @@ namespace seven_axis_robot
             // Example: number of drives / joints
             std::size_t driveCount_ = 0;
             static constexpr int MAX_JOINTS = 7;
+            static constexpr uint64_t kInvalidSeq = std::numeric_limits<uint64_t>::max();
+            uint64_t lastJointFdbkSeqHoming_ = kInvalidSeq;
+            uint64_t lastJointFdbkSeqLimits_ = kInvalidSeq;
 
             // Example min/max joint angle arrays
             double jointMin_[MAX_JOINTS];

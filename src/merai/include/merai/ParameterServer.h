@@ -171,6 +171,9 @@ namespace seven_axis_robot
             uint32_t magic = PARAM_SERVER_MAGIC;
             uint32_t version = PARAM_SERVER_VERSION;
 
+            // World gravity vector (m/s^2), default assumes -Z gravity
+            std::array<double, 3> gravity{{0.0, 0.0, -9.81}};
+
             // A) EtherCAT drive data
             std::array<DriveConfig, MAX_DRIVES> drives;
             int driveCount = 0;

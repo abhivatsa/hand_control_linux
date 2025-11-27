@@ -6,14 +6,20 @@ Requires=fieldbus.service
 [Service]
 Type=simple
 ExecStart=/usr/local/bin/control
-User=youruser
-Group=youruser
+User=abhishek
+Group=abhishek
 Restart=on-failure
 
-LimitRTPRIO=99
-CPUSchedulingPolicy=rr
+CPUSchedulingPolicy=fifo
 CPUSchedulingPriority=85
-CPUAffinity=4 5
+CPUAffinity=3
+LimitRTPRIO=99
+LimitRTTIME=infinity
+LimitMEMLOCK=infinity
+TasksMax=infinity
+RestrictRealtime=no
+AmbientCapabilities=CAP_SYS_NICE
+CapabilityBoundingSet=CAP_SYS_NICE
 
 [Install]
 WantedBy=multi-user.target

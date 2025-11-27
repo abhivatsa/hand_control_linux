@@ -11,7 +11,7 @@ option(BUILD_MERAI "Build merai module" ON)
 # Options for other modules if/when they are added
 option(BUILD_FIELDBUS "Build fieldbus module" ON)
 option(BUILD_LOGIC "Build logic module" OFF)
-option(BUILD_CONTROL "Build control module" OFF)
+option(BUILD_CONTROL "Build control module" ON)
 
 # Enable/disable testing with the standard CTest switch; preserve the legacy BUILD_TESTS
 # option if callers still set it.

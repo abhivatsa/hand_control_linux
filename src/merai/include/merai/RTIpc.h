@@ -43,14 +43,14 @@ namespace seven_axis_robot
 
         inline void publish_servo_tx(ServoBuffers& buf, int backIdx)
         {
-            buf.txSeq.fetch_add(1, std::memory_order_release);
             buf.txFrontIndex.store(backIdx, std::memory_order_release);
+            buf.txSeq.fetch_add(1, std::memory_order_release);
         }
 
         inline void publish_servo_rx(ServoBuffers& buf, int backIdx)
         {
-            buf.rxSeq.fetch_add(1, std::memory_order_release);
             buf.rxFrontIndex.store(backIdx, std::memory_order_release);
+            buf.rxSeq.fetch_add(1, std::memory_order_release);
         }
 
         inline BufferReadMeta read_servo_rx(const ServoBuffers& buf,
@@ -88,8 +88,8 @@ namespace seven_axis_robot
         template <typename T>
         inline void publish(DoubleBuffer<T>& buf, int backIdx)
         {
-            buf.seq.fetch_add(1, std::memory_order_release);
             buf.frontIndex.store(backIdx, std::memory_order_release);
+            buf.seq.fetch_add(1, std::memory_order_release);
         }
 
         template <typename T>

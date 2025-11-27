@@ -6,14 +6,21 @@ Requires=control.service
 [Service]
 Type=simple
 ExecStart=/usr/local/bin/logic
-User=youruser
-Group=youruser
+User=abhishek
+Group=abhishek
 Restart=on-failure
 
+# Run as a low-priority RT task on housekeeping cores (non-isolated)
+CPUSchedulingPolicy=fifo
+CPUSchedulingPriority=60
+CPUAffinity=0 1
 LimitRTPRIO=99
-CPUSchedulingPolicy=rr
-CPUSchedulingPriority=80
-# No CPUAffinity line here
+LimitRTTIME=infinity
+LimitMEMLOCK=infinity
+TasksMax=infinity
+RestrictRealtime=no
+AmbientCapabilities=CAP_SYS_NICE
+CapabilityBoundingSet=CAP_SYS_NICE
 
 [Install]
 WantedBy=multi-user.target

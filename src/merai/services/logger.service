@@ -9,8 +9,12 @@ Wants=launcher.service
 [Service]
 Type=simple
 ExecStart=/usr/bin/merai_logger
-# Run as a normal (non-RT) process with the default scheduler
-# (No need to specify CPUAffinity or SCHED_FIFO).
+User=abhishek
+Group=abhishek
+# Best-effort scheduling; keep it off isolated cores
+CPUSchedulingPolicy=other
+Nice=10
+CPUAffinity=0 1
 
 # If you want it to auto-restart on crash, keep these lines:
 Restart=on-failure

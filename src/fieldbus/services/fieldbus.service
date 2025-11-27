@@ -15,14 +15,17 @@ RestartSec=1s
 StartLimitIntervalSec=30
 StartLimitBurst=3
 
-# Real-time scheduling + CPU affinity, if needed:
-LimitRTPRIO=99
-CPUSchedulingPolicy=rr
+# Real-time scheduling + CPU affinity
+CPUSchedulingPolicy=fifo
 CPUSchedulingPriority=90
 CPUAffinity=2
+LimitRTPRIO=99
 LimitRTTIME=infinity
 LimitMEMLOCK=infinity
 TasksMax=infinity
+RestrictRealtime=no
+AmbientCapabilities=CAP_SYS_NICE
+CapabilityBoundingSet=CAP_SYS_NICE
 
 [Install]
 WantedBy=multi-user.target

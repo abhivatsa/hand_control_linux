@@ -94,8 +94,8 @@ namespace seven_axis_robot
         void Logic::cyclicTask()
         {
             period_info pinfo;
-            // Example: run at 10 ms cycle
-            periodic_task_init(&pinfo, 1'000'000L);
+            // Run logic slower than RT loops to reduce contention (10 ms)
+            periodic_task_init(&pinfo, 10'000'000L);
 
             while (!stopRequested_.load(std::memory_order_relaxed))
             {
