@@ -1,6 +1,6 @@
 # Merai Module
 
-Runtime and configuration layer for the hand-control stack: parses JSON configs, exposes them via shared memory, provides a shared logger, and installs launcher/logger systemd services.
+Runtime and configuration layer for the seven-axis-robot stack: parses JSON configs, exposes them via shared memory, provides a shared logger, and installs launcher/logger systemd services.
 
 ## Contents
 - `include/merai/ParameterServer.h/.cpp` – parse EtherCAT/robot JSON into POD structs (SHM-safe).
@@ -35,7 +35,7 @@ ctest --preset dev --output-on-failure
 From the build directory (`build/` for preset, or `build/merai` if configured directly):
 ```
 cpack   # produces the .deb
-sudo dpkg -i hand-control-merai_*.deb
+sudo dpkg -i seven-axis-robot-merai_*.deb
 ```
 
 ## Config Files

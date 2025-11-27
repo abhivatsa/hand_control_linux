@@ -2,6 +2,7 @@
 #include <iostream>
 #include <cstring> // for std::strcmp, std::strtoul
 #include "fieldbus/drives/ServoDrive.h"
+#include "merai/RTIpc.h"
 
 namespace seven_axis_robot
 {
@@ -254,11 +255,11 @@ namespace seven_axis_robot
             servoTx_.io.error_code =
                 EC_READ_U16(domainPd + servoOffsets_.error_code);
 
-            // Copy to rtLayout => servoBuffer.tx
+            // Copy to rtLayout => servoBuffer.tx (write to back buffer)
             if (rtLayout_)
             {
-                int frontIdx = rtLayout_->servoBuffer.frontIndex.load(std::memory_order_acquire);
-                auto &txPdo = rtLayout_->servoBuffer.buffer[frontIdx].tx[driveIndex_];
+                int backIdx  = cycleCtx_.servoTxBackIdx;
+                auto &txPdo = rtLayout_->servoBuffer.buffer[backIdx].tx[driveIndex_];
 
                 txPdo.ctrl.statusWord = servoTx_.ctrl.statusWord;
                 txPdo.motion.positionActual = servoTx_.motion.positionActual;
@@ -281,7 +282,7 @@ namespace seven_axis_robot
             // Read from rtLayout => servoBuffer.rx
             if (rtLayout_)
             {
-                int frontIdx = rtLayout_->servoBuffer.frontIndex.load(std::memory_order_acquire);
+                int frontIdx = cycleCtx_.servoRxFrontIdx;
                 auto &rxPdo = rtLayout_->servoBuffer.buffer[frontIdx].rx[driveIndex_];
 
                 servoRx_.ctrl.controlWord = rxPdo.ctrl.controlWord;
@@ -291,6 +292,9 @@ namespace seven_axis_robot
                 servoRx_.motion.maxTorque = rxPdo.motion.maxTorque;
                 servoRx_.io.digitalOutputs = rxPdo.io.digitalOutputs;
             }
+
+            // Optional: mark freshness; if stale, you could zero outputs or keep last
+            rxFresh_ = cycleCtx_.servoRxFresh;
 
             // Write into EtherCAT domain memory
             EC_WRITE_U16(domainPd + servoOffsets_.controlword,

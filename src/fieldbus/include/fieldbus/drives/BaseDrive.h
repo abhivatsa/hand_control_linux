@@ -28,11 +28,24 @@ namespace seven_axis_robot
         public:
             virtual ~BaseDrive() = default;
 
+            struct CycleShmContext
+            {
+                int servoTxFrontIdx = 0;
+                int servoTxBackIdx  = 0;
+                int servoRxFrontIdx = 0;
+                int servoRxBackIdx  = 0;
+                uint64_t servoRxSeq = 0;
+                bool servoRxFresh = true;
+            };
+
             virtual void initialize() = 0;
             virtual bool configurePdos() = 0;
             virtual bool readInputs(uint8_t* domainPd) = 0;
             virtual bool writeOutputs(uint8_t* domainPd) = 0;
             virtual void handleState(const DriveUserSignals& signals) = 0;
+
+            // Optional per-cycle shared memory context (indices, etc.)
+            virtual void setCycleContext(const CycleShmContext& /*ctx*/) { }
 
             // Accessors
             inline uint16_t alias() const

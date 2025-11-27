@@ -947,7 +947,8 @@ INPUT       = src \
             core \
             communication \
             fieldbus \
-            control_logic \
+            control \
+            logic \
             merai \
 
 # This tag can be used to specify the character encoding of the source files

@@ -3,6 +3,7 @@
 #include <array>
 #include <atomic>
 #include <cstdint>
+#include <limits>
 #include <memory>
 #include <string>
 #include <ecrt.h>
@@ -97,6 +98,12 @@ namespace seven_axis_robot
             // SharedMemory for logging
             seven_axis_robot::merai::RAII_SharedMemory          loggerShm_;
             seven_axis_robot::merai::multi_ring_logger_memory*  loggerMem_ = nullptr;
+
+            // IPC freshness tracking
+            static constexpr uint64_t kInvalidSeq = std::numeric_limits<uint64_t>::max();
+            uint64_t lastServoRxSeq_ = kInvalidSeq;
+            bool servoRxFresh_ = false;
+            seven_axis_robot::merai::ServoSharedData servoRxShadow_{};
         };
     } // namespace fieldbus
 } // namespace seven_axis_robot

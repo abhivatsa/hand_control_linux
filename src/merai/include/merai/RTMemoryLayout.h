@@ -101,6 +101,16 @@ namespace seven_axis_robot
             std::array<ServoTxPdo, MAX_SERVO_DRIVES> tx;
         };
 
+        // Dedicated double buffer for servo data with split indices
+        struct ServoBuffers
+        {
+            ServoSharedData buffer[2];
+            std::atomic<int> txFrontIndex{0}; // owned/published by fieldbus producer
+            std::atomic<int> rxFrontIndex{0}; // owned/published by control producer
+            std::atomic<uint64_t> txSeq{0};   // sequence counter for Tx publishes
+            std::atomic<uint64_t> rxSeq{0};   // sequence counter for Rx publishes
+        };
+
         ///-------------------------------
         /// Joint Command Structures
         ///-------------------------------
@@ -213,6 +223,13 @@ namespace seven_axis_robot
         struct ControllerFeedback
         {
             seven_axis_robot::merai::ControllerFeedbackState feedbackState = seven_axis_robot::merai::ControllerFeedbackState::IDLE;
+            seven_axis_robot::merai::ControllerID activeControllerId = seven_axis_robot::merai::ControllerID::NONE;
+            seven_axis_robot::merai::ControllerSwitchResult switchResult = seven_axis_robot::merai::ControllerSwitchResult::IDLE;
+            uint64_t loopOverrunCount = 0;
+            uint64_t halErrorCount = 0;
+            bool loopOverrun = false;
+            bool controllerCommandFresh = true;
+            bool driveCommandFresh = true;
         };
 
         //====================================================
@@ -243,6 +260,7 @@ namespace seven_axis_robot
         {
             T buffer[2];                    // Two buffers for double buffering
             std::atomic<int> frontIndex{0}; // Index of the buffer currently being used for reading (0 or 1)
+            std::atomic<uint64_t> seq{0};   // Monotonic publish counter
         };
 
         // Layout of the shared real-time memory.
@@ -253,7 +271,7 @@ namespace seven_axis_robot
             uint32_t version = RT_MEMORY_VERSION;
 
             // Servo fieldbus data: both transmit and receive PDOs.
-            DoubleBuffer<ServoSharedData> servoBuffer;
+            ServoBuffers servoBuffer;
 
             // High-level joint data: commands and state feedback for each joint.
             DoubleBuffer<JointData> jointBuffer;

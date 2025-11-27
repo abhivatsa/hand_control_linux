@@ -8,6 +8,7 @@
 #include "fieldbus/EthercatMaster.h"
 #include "fieldbus/drives/ServoDrive.h"
 #include "fieldbus/drives/IODrive.h"
+#include "merai/RTIpc.h"
 
 namespace seven_axis_robot
 {
@@ -34,6 +35,11 @@ namespace seven_axis_robot
             if (!rtLayout_)
             {
                 throw std::runtime_error("EthercatMaster: failed to map RTMemoryLayout memory.");
+            }
+            if (rtLayout_->magic != seven_axis_robot::merai::RT_MEMORY_MAGIC ||
+                rtLayout_->version != seven_axis_robot::merai::RT_MEMORY_VERSION)
+            {
+                throw std::runtime_error("EthercatMaster: RTMemoryLayout integrity check failed (magic/version mismatch).");
             }
 
             loggerMem_ = reinterpret_cast<seven_axis_robot::merai::multi_ring_logger_memory*>(loggerShm_.getPtr());
@@ -189,6 +195,36 @@ namespace seven_axis_robot
 
             while (running_)
             {
+                // Determine current/back buffer indices for this cycle (Tx owned by fieldbus)
+                int servoTxFrontIdx = 0;
+                int servoTxBackIdx = 0;
+                int servoRxFrontIdx = 0;
+                int servoRxBackIdx = 0;
+                uint64_t servoRxSeq = 0;
+                bool servoRxFresh = true;
+                if (rtLayout_)
+                {
+                    servoTxFrontIdx = rtLayout_->servoBuffer.txFrontIndex.load(std::memory_order_acquire);
+                    servoTxBackIdx = seven_axis_robot::merai::servo_tx_back_index(rtLayout_->servoBuffer);
+                    auto rxMeta = seven_axis_robot::merai::read_servo_rx(
+                        rtLayout_->servoBuffer, servoRxShadow_, lastServoRxSeq_);
+                    servoRxFrontIdx = rxMeta.frontIndex;
+                    servoRxBackIdx = seven_axis_robot::merai::servo_rx_back_index(rtLayout_->servoBuffer);
+                    servoRxSeq = rxMeta.seq;
+                    servoRxFresh = rxMeta.fresh;
+                    lastServoRxSeq_ = rxMeta.seq;
+                    servoRxFresh_ = rxMeta.fresh;
+                }
+
+                BaseDrive::CycleShmContext cycleCtx{
+                    servoTxFrontIdx,
+                    servoTxBackIdx,
+                    servoRxFrontIdx,
+                    servoRxBackIdx,
+                    servoRxSeq,
+                    servoRxFresh
+                };
+
                 if (ecrt_master_receive(master_) < 0)
                 {
                     break;
@@ -205,6 +241,7 @@ namespace seven_axis_robot
                 {
                     if (drive)
                     {
+                        drive->setCycleContext(cycleCtx);
                         drive->readInputs(domainPd_);
                     }
                 }
@@ -228,6 +265,12 @@ namespace seven_axis_robot
                         drive->writeOutputs(domainPd_);
                         // cnt++;
                     }
+                }
+
+                // Publish the freshly written servo Tx data for the consumer
+                if (rtLayout_)
+                {
+                    seven_axis_robot::merai::publish_servo_tx(rtLayout_->servoBuffer, servoTxBackIdx);
                 }
 
                 // Queue the domain

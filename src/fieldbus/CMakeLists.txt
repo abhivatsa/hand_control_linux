@@ -83,10 +83,10 @@ install(
 )
 
 # ----------------------------------------------------------------------------
-# 7) Export the package config (hand_control_fieldbusConfig.cmake)
+# 7) Export the package config (seven_axis_robot_fieldbusConfig.cmake)
 #    So that other projects can do:
-#       find_package(hand_control_fieldbus REQUIRED)
-#       target_link_libraries(... hand_control_fieldbus::hand_control_fieldbus_lib ...)
+#       find_package(seven_axis_robot_fieldbus REQUIRED)
+#       target_link_libraries(... seven_axis_robot_fieldbus::seven_axis_robot_fieldbus_lib ...)
 # ----------------------------------------------------------------------------
 install(EXPORT FieldbusTargets
     FILE seven_axis_robot_fieldbusConfig.cmake

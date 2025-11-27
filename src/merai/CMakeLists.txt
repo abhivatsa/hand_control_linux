@@ -201,4 +201,10 @@ if(BUILD_TESTING)
     )
     target_link_libraries(merai_logger_tests PRIVATE merai_foundation)
     add_test(NAME merai_logger_tests COMMAND merai_logger_tests)
+
+    add_executable(merai_rtipc_tests
+        tests/RTIpcTests.cpp
+    )
+    target_link_libraries(merai_rtipc_tests PRIVATE merai_foundation)
+    add_test(NAME merai_rtipc_tests COMMAND merai_rtipc_tests)
 endif()

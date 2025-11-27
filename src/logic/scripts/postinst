@@ -1,0 +1,11 @@
+ #!/bin/bash
+set -e
+
+# This script runs automatically after the .deb is installed.
+# We run 'systemctl daemon-reload' so systemd sees the new/updated .service file.
+
+if command -v systemctl >/dev/null 2>&1; then
+    systemctl daemon-reload || true
+fi
+
+exit 0

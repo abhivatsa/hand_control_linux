@@ -1,0 +1,151 @@
+#include "control/DriveStateManager.h"
+
+// For convenience, bring in the CiA-402 control word definitions
+namespace
+{
+    // Control word definitions (CiA 402)
+    constexpr uint16_t CW_FAULT_RESET       = 0x0080;
+    constexpr uint16_t CW_SHUTDOWN          = 0x0006;
+    constexpr uint16_t CW_SWITCH_ON         = 0x0007;
+    constexpr uint16_t CW_ENABLE_OPERATION  = 0x000F;
+    constexpr uint16_t CW_QUICK_STOP        = 0x000B;
+    constexpr uint16_t CW_DISABLE_VOLTAGE   = 0x0000;
+}
+
+namespace seven_axis_robot
+{
+    namespace control
+    {
+        DriveStateManager::DriveStateManager(
+            seven_axis_robot::merai::JointControlCommand* jointCommandPtr,
+            seven_axis_robot::merai::JointControlFeedback* jointFeedbackPtr,
+            std::size_t driveCount,
+            seven_axis_robot::merai::multi_ring_logger_memory* loggerMem)
+            : jointCommandPtr_(jointCommandPtr),
+              jointFeedbackPtr_(jointFeedbackPtr),
+              driveCount_(driveCount),
+              loggerMem_(loggerMem)
+        {
+        }
+
+        bool DriveStateManager::init()
+        {
+            // Check pointers
+            if (!jointCommandPtr_ || !jointFeedbackPtr_ || driveCount_ == 0)
+            {
+                seven_axis_robot::merai::log_error(loggerMem_, "Control", 2000, "[DriveStateManager] Invalid pointers or drive count");
+                return false;
+            }
+            return true;
+        }
+
+        seven_axis_robot::merai::DriveStatus 
+        DriveStateManager::decodeStatusword(uint16_t statusWord)
+        {
+            // Based on CiA 402 bit definitions
+            bool fault            = (statusWord & 0x0008) != 0;  // bit 3
+            bool switchOnDisabled = (statusWord & 0x0040) != 0;  // bit 6
+            bool readyToSwitchOn  = (statusWord & 0x0001) != 0;  // bit 0
+            bool switchedOn       = (statusWord & 0x0002) != 0;  // bit 1
+            bool opEnabled        = (statusWord & 0x0004) != 0;  // bit 2
+            bool quickStopBitSet  = (statusWord & 0x0020) != 0;  // bit 5 (0 = quick stop active)
+
+            if (fault)
+                return seven_axis_robot::merai::DriveStatus::FAULT;
+            if (switchOnDisabled)
+                return seven_axis_robot::merai::DriveStatus::SWITCH_ON_DISABLED;
+            if (!readyToSwitchOn && !switchedOn && !opEnabled)
+                return seven_axis_robot::merai::DriveStatus::NOT_READY_TO_SWITCH_ON;
+            if (readyToSwitchOn && !switchedOn && !opEnabled)
+                return seven_axis_robot::merai::DriveStatus::READY_TO_SWITCH_ON;
+            if (readyToSwitchOn && switchedOn && !opEnabled)
+                return seven_axis_robot::merai::DriveStatus::SWITCHED_ON;
+            if (readyToSwitchOn && switchedOn && opEnabled)
+            {
+                if (!quickStopBitSet)
+                    return seven_axis_robot::merai::DriveStatus::QUICK_STOP;
+                else
+                    return seven_axis_robot::merai::DriveStatus::OPERATION_ENABLED;
+            }
+            return seven_axis_robot::merai::DriveStatus::NOT_READY_TO_SWITCH_ON;
+        }
+
+        void DriveStateManager::update(const seven_axis_robot::merai::DriveCommand* driveCommands,
+                                       seven_axis_robot::merai::DriveStatus* driveStatus)
+        {
+            if (!jointCommandPtr_ || !jointFeedbackPtr_ || !driveCommands || !driveStatus)
+            {
+                // Handle null pointers
+                return;
+            }
+
+            for (std::size_t i = 0; i < driveCount_; ++i)
+            {
+                // 1) Decode the status word (CiA-402) from JointControlFeedback
+                uint16_t sw = jointFeedbackPtr_[i].statusWord;
+                driveStatus[i] = decodeStatusword(sw);
+
+                // 2) Decide on the new control word based on drive status + input command
+                seven_axis_robot::merai::DriveCommand cmd = driveCommands[i];
+                uint16_t controlWord = CW_DISABLE_VOLTAGE; // default
+
+                switch (driveStatus[i])
+                {
+                case seven_axis_robot::merai::DriveStatus::FAULT:
+                    if (cmd == seven_axis_robot::merai::DriveCommand::FAULT_RESET)
+                        controlWord = CW_FAULT_RESET;
+                    else
+                        controlWord = CW_DISABLE_VOLTAGE;
+                    break;
+
+                case seven_axis_robot::merai::DriveStatus::SWITCH_ON_DISABLED:
+                    controlWord = CW_SHUTDOWN;
+                    break;
+
+                case seven_axis_robot::merai::DriveStatus::NOT_READY_TO_SWITCH_ON:
+                    controlWord = CW_DISABLE_VOLTAGE;
+                    break;
+
+                case seven_axis_robot::merai::DriveStatus::READY_TO_SWITCH_ON:
+                    controlWord = CW_SWITCH_ON;
+                    break;
+
+                case seven_axis_robot::merai::DriveStatus::SWITCHED_ON:
+
+                    if (cmd == seven_axis_robot::merai::DriveCommand::ALLOW_OPERATION)
+                    {
+                        controlWord = CW_ENABLE_OPERATION;
+                    }
+                    else
+                    {
+                        controlWord = CW_SWITCH_ON;
+                    }
+                    break;
+
+                case seven_axis_robot::merai::DriveStatus::OPERATION_ENABLED:
+                    if (cmd == seven_axis_robot::merai::DriveCommand::ALLOW_OPERATION)
+                        controlWord = CW_ENABLE_OPERATION;
+                    else if (cmd == seven_axis_robot::merai::DriveCommand::FORCE_DISABLE)
+                        controlWord = CW_SWITCH_ON;
+                    else
+                        controlWord = CW_ENABLE_OPERATION;
+                    break;
+
+                case seven_axis_robot::merai::DriveStatus::QUICK_STOP:
+                    if (cmd == seven_axis_robot::merai::DriveCommand::ALLOW_OPERATION)
+                        controlWord = CW_SWITCH_ON;
+                    else
+                        controlWord = CW_QUICK_STOP;
+                    break;
+
+                default:
+                    controlWord = CW_DISABLE_VOLTAGE;
+                    break;
+                }
+                // 3) Write the computed control word into JointControlCommand
+                jointCommandPtr_[i].controlWord = controlWord;
+            }
+        }
+
+    } // namespace control
+} // namespace seven_axis_robot

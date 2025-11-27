@@ -53,6 +53,7 @@ namespace seven_axis_robot
              *  - Further logic if needed (e.g. drive state transitions).
              */
             void handleState(const DriveUserSignals& signals) override;
+            void setCycleContext(const CycleShmContext& ctx) override { cycleCtx_ = ctx; }
             
         private:
             ec_domain_t* domain_ = nullptr;
@@ -68,6 +69,8 @@ namespace seven_axis_robot
             // Using the updated sub-struct style
             seven_axis_robot::merai::ServoTxPdo servoTx_; // read from domain -> store in .tx
             seven_axis_robot::merai::ServoRxPdo servoRx_; // read from .rx -> write to domain
+            CycleShmContext cycleCtx_; // set per cycle by master
+            bool rxFresh_ = true;
 
             struct ServoOffsets
             {

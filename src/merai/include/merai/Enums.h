@@ -77,6 +77,14 @@ namespace seven_axis_robot
             SWITCH_FAILED
         };
 
+        enum class ControllerSwitchResult : uint8_t
+        {
+            IDLE = 0,
+            IN_PROGRESS,
+            SUCCEEDED,
+            FAILED
+        };
+
         enum class DriveType : uint8_t
         {
             Unknown = 0,
