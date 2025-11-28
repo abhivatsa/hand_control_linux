@@ -17,22 +17,22 @@ int main()
 
         const std::string ecatFile = (cfg / "ethercat_config.json").string();
         const std::string robotFile = (cfg / "robot_parameters.json").string();
-        seven_axis_robot::merai::ParameterServer ps =
-            seven_axis_robot::merai::parseParameterServer(ecatFile, robotFile);
+        merai::ParameterServer ps =
+            merai::parseParameterServer(ecatFile, robotFile);
 
         // Basic sanity checks
-        if (ps.magic != seven_axis_robot::merai::PARAM_SERVER_MAGIC ||
-            ps.version != seven_axis_robot::merai::PARAM_SERVER_VERSION)
+        if (ps.magic != merai::PARAM_SERVER_MAGIC ||
+            ps.version != merai::PARAM_SERVER_VERSION)
         {
             std::cerr << "ParameterServer magic/version mismatch\n";
             return 1;
         }
-        if (ps.driveCount <= 0 || ps.driveCount > seven_axis_robot::merai::MAX_DRIVES)
+        if (ps.driveCount <= 0 || ps.driveCount > merai::MAX_DRIVES)
         {
             std::cerr << "Unexpected driveCount: " << ps.driveCount << "\n";
             return 1;
         }
-        if (ps.jointCount <= 0 || ps.jointCount > seven_axis_robot::merai::MAX_JOINTS)
+        if (ps.jointCount <= 0 || ps.jointCount > merai::MAX_JOINTS)
         {
             std::cerr << "Unexpected jointCount: " << ps.jointCount << "\n";
             return 1;

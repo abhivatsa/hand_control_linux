@@ -5,7 +5,7 @@
 # Usage: sudo merai [start|stop|restart|status]
 
 TARGET="merai_stack.target"
-SERVICES=("launcher.service" "fieldbus.service" "control.service" "logic.service")
+SERVICES=("launcher.service" "logger.service" "fieldbus.service" "control.service" "logic.service")
 
 case "$1" in
     start)

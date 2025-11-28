@@ -1,13 +1,20 @@
 cmake_minimum_required(VERSION 3.10)
-project(seven_axis_robot_control VERSION 1.0.0)
+project(seven_axis_robot_control VERSION 1.0.0 LANGUAGES CXX)
+
+include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
 
 #
 # 1) Find dependencies
-#    Make sure "seven_axis_robot_core" and "seven_axis_robot_merai" are installed
-#    so their config files can be found.
+#    Prefer in-tree targets first; fall back to find_package when building out of tree.
+#    Requires "robot_core" (robot_core::core) and "merai" (merai::merai).
 #
-find_package(seven_axis_robot_core REQUIRED)
-find_package(seven_axis_robot_merai REQUIRED)
+if(NOT TARGET robot_core::core)
+    find_package(robot_core REQUIRED)
+endif()
+if(NOT TARGET merai::merai)
+    find_package(merai REQUIRED)
+endif()
 
 #
 # 2) Build the control library
@@ -28,28 +35,30 @@ add_library(seven_axis_robot_control_lib STATIC
 )
 
 #
-# 3) Require C++17
+# 3) Require C++20 (for std::span, etc.)
 #
-target_compile_features(seven_axis_robot_control_lib PUBLIC cxx_std_17)
+target_compile_features(seven_axis_robot_control_lib PUBLIC cxx_std_20)
 
+#
 #
 # 4) Include paths for local headers
 #    (Installs to a unique directory to avoid collisions)
+#    Build interface: control/include
+#    Install interface: ${CMAKE_INSTALL_INCLUDEDIR}/seven_axis_robot_control
 #
 target_include_directories(seven_axis_robot_control_lib
     PUBLIC
-        # If this CMakeLists is inside the 'control/' folder:
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-        $<INSTALL_INTERFACE:include/seven_axis_robot_control>
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/seven_axis_robot_control>
 )
 
 #
-# 5) Link with core (single library) and merai foundation
+# 5) Link with core (single library) and merai
 #
 target_link_libraries(seven_axis_robot_control_lib
     PUBLIC
-        seven_axis_robot_core::core
-        seven_axis_robot_merai::merai_foundation
+        robot_core::core
+        merai::merai
 )
 
 #
@@ -77,9 +86,9 @@ endif()
 #
 install(TARGETS seven_axis_robot_control_lib seven_axis_robot_control_exe
     EXPORT ControlTargets
-    ARCHIVE DESTINATION lib
-    LIBRARY DESTINATION lib
-    RUNTIME DESTINATION bin
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 
 #
@@ -87,18 +96,41 @@ install(TARGETS seven_axis_robot_control_lib seven_axis_robot_control_exe
 #
 install(
     DIRECTORY include/
-    DESTINATION include/seven_axis_robot_control
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/seven_axis_robot_control
 )
 
 #
-# 9) Export the library config so other projects can do:
-#    find_package(seven_axis_robot_control REQUIRED)
-#    target_link_libraries(... seven_axis_robot_control::seven_axis_robot_control_lib ...)
+# 9) CMake package export (supports find_package(seven_axis_robot_control))
+#    and a version file similar to other modules.
 #
-install(EXPORT ControlTargets
-    FILE seven_axis_robot_controlConfig.cmake
+set(CONTROL_CMAKE_CONFIG_DIR "${CMAKE_INSTALL_LIBDIR}/cmake/seven_axis_robot_control")
+
+install(
+    EXPORT ControlTargets
+    FILE seven_axis_robot_controlTargets.cmake
     NAMESPACE seven_axis_robot_control::
-    DESTINATION lib/cmake/seven_axis_robot_control
+    DESTINATION ${CONTROL_CMAKE_CONFIG_DIR}
+)
+
+configure_package_config_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/cmake/seven_axis_robot_controlConfig.cmake.in
+    ${CMAKE_CURRENT_BINARY_DIR}/seven_axis_robot_controlConfig.cmake
+    INSTALL_DESTINATION ${CONTROL_CMAKE_CONFIG_DIR}
+    NO_SET_AND_CHECK_MACRO
+    NO_CHECK_REQUIRED_COMPONENTS_MACRO
+)
+
+write_basic_package_version_file(
+    ${CMAKE_CURRENT_BINARY_DIR}/seven_axis_robot_controlConfigVersion.cmake
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY SameMajorVersion
+)
+
+install(
+    FILES
+        ${CMAKE_CURRENT_BINARY_DIR}/seven_axis_robot_controlConfig.cmake
+        ${CMAKE_CURRENT_BINARY_DIR}/seven_axis_robot_controlConfigVersion.cmake
+    DESTINATION ${CONTROL_CMAKE_CONFIG_DIR}
 )
 
 #
@@ -129,7 +161,7 @@ set(CPACK_DEBIAN_PACKAGE_DESCRIPTION
 )
 
 # If your control libs specifically depend on the 'core' or 'merai' .deb packages:
-# set(CPACK_DEBIAN_PACKAGE_DEPENDS "seven-axis-robot-core (>= 1.0.0), seven-axis-robot-merai (>= 1.0.0)")
+# set(CPACK_DEBIAN_PACKAGE_DEPENDS "seven-axis-robot-core (>= 1.0.0), merai (>= 1.0.0)")
 
 # Post-install script
 set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA

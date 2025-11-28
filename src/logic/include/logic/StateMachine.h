@@ -5,15 +5,13 @@
 #include "merai/ParameterServer.h"
 #include "merai/SharedLogger.h"
 
-namespace seven_axis_robot
-{
     namespace logic
     {
         // Output struct from StateMachine update that bundles all commands and status.
         struct StateManagerOutput
         {
-            seven_axis_robot::merai::DriveCommandData driveCmd;
-            seven_axis_robot::merai::ControllerCommand ctrlCmd;
+            merai::DriveCommandData driveCmd;
+            merai::ControllerCommand ctrlCmd;
             merai::AppState appState;
         };
 
@@ -26,8 +24,8 @@ namespace seven_axis_robot
         class StateMachine
         {
         public:
-            StateMachine(const seven_axis_robot::merai::ParameterServer *paramServerPtr,
-                         seven_axis_robot::merai::multi_ring_logger_memory* loggerMem);
+            StateMachine(const merai::ParameterServer *paramServerPtr,
+                         merai::multi_ring_logger_memory* loggerMem);
 
             /**
              * @brief Initializes internal flags and sets default state to INIT.
@@ -46,17 +44,17 @@ namespace seven_axis_robot
              * @return StateManagerOutput struct containing drive command, controller command, and current application state.
              */
             StateManagerOutput update(bool faultActive, bool isHomingCompleted,
-                                      const seven_axis_robot::merai::DriveFeedbackData &driveFdbk,
-                                      const seven_axis_robot::merai::UserCommands &userCmds,
-                                      const seven_axis_robot::merai::ControllerFeedback &ctrlFdbk);
+                                      const merai::DriveFeedbackData &driveFdbk,
+                                      const merai::UserCommands &userCmds,
+                                      const merai::ControllerFeedback &ctrlFdbk);
 
         private:
-            const seven_axis_robot::merai::ParameterServer *paramServerPtr_ = nullptr;
-            seven_axis_robot::merai::multi_ring_logger_memory* loggerMem_ = nullptr;
+            const merai::ParameterServer *paramServerPtr_ = nullptr;
+            merai::multi_ring_logger_memory* loggerMem_ = nullptr;
             // The current application state
-            seven_axis_robot::merai::AppState currentState_ = seven_axis_robot::merai::AppState::INIT;
-            seven_axis_robot::merai::DriveCommandData driveCmd_ = seven_axis_robot::merai::DriveCommandData{};
-            seven_axis_robot::merai::ControllerCommand ctrlCmd_ = seven_axis_robot::merai::ControllerCommand{};
+            merai::AppState currentState_ = merai::AppState::INIT;
+            merai::DriveCommandData driveCmd_ = merai::DriveCommandData{};
+            merai::ControllerCommand ctrlCmd_ = merai::ControllerCommand{};
 
             // Example: number of drives / joints
             std::size_t driveCount_ = 0;
@@ -68,4 +66,3 @@ namespace seven_axis_robot
             bool all_drives_switch_on_disabled = true;
         };
     } // namespace logic
-} // namespace seven_axis_robot

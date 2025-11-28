@@ -5,8 +5,6 @@
 #include "merai/Enums.h" // for AppState, ControllerID, etc.
 #include "merai/RTIpc.h"
 
-namespace seven_axis_robot
-{
     namespace logic
     {
         Logic::Logic(const std::string &paramServerShmName,
@@ -34,7 +32,7 @@ namespace seven_axis_robot
             if (!loggerMem_)
                 throw std::runtime_error("[Logic] Failed to map logger memory.");
 
-            seven_axis_robot::merai::log_info(loggerMem_, "Logic", 3100, "[Logic] Shared memory attached");
+            merai::log_info(loggerMem_, "Logic", 3100, "[Logic] Shared memory attached");
         }
 
         Logic::~Logic()
@@ -52,14 +50,14 @@ namespace seven_axis_robot
             // 1) Initialize the StateMachine
             if (!stateMachine_->init())
             {
-                seven_axis_robot::merai::log_error(loggerMem_, "Logic", 3101, "[Logic] StateMachine init failed");
+                merai::log_error(loggerMem_, "Logic", 3101, "[Logic] StateMachine init failed");
                 return false;
             }
 
-            // 2) Load Haptic Device Model from paramServer
-            if (!hapticDeviceModel_.loadFromParameterServer(*paramServerPtr_))
+            // 2) Load robot model from ParameterServer
+            if (!robotModel_.loadFromParameterServer(*paramServerPtr_))
             {
-                seven_axis_robot::merai::log_error(loggerMem_, "Logic", 3102, "[Logic] HapticDeviceModel load failed");
+                merai::log_error(loggerMem_, "Logic", 3102, "[Logic] RobotModel load failed");
                 return false;
             }
 
@@ -67,22 +65,22 @@ namespace seven_axis_robot
             safetyManager_ = std::make_unique<SafetyManager>(
                 paramServerPtr_,
                 rtLayout_,
-                hapticDeviceModel_
+                robotModel_
             );
-            
+
             if (!safetyManager_->init())
             {
-                seven_axis_robot::merai::log_error(loggerMem_, "Logic", 3103, "[Logic] SafetyManager init failed");
+                merai::log_error(loggerMem_, "Logic", 3103, "[Logic] SafetyManager init failed");
                 return false;
             }
 
-            seven_axis_robot::merai::log_info(loggerMem_, "Logic", 3104, "[Logic] init complete");
+            merai::log_info(loggerMem_, "Logic", 3104, "[Logic] init complete");
             return true;
         }
 
         void Logic::run()
         {
-            seven_axis_robot::merai::log_info(loggerMem_, "Logic", 3105, "[Logic] Entering main loop");
+            merai::log_info(loggerMem_, "Logic", 3105, "[Logic] Entering main loop");
             cyclicTask();
         }
 
@@ -129,7 +127,7 @@ namespace seven_axis_robot
                 // 6) Check if user requested shutdown
                 if (userCmds.shutdownRequest)
                 {
-                    seven_axis_robot::merai::log_info(loggerMem_, "Logic", 3106, "[Logic] Shutdown requested by user");
+                    merai::log_info(loggerMem_, "Logic", 3106, "[Logic] Shutdown requested by user");
                     break;
                 }
 
@@ -137,34 +135,28 @@ namespace seven_axis_robot
                 wait_rest_of_period(&pinfo);
             }
 
-            seven_axis_robot::merai::log_info(loggerMem_, "Logic", 3107, "[Logic] Exiting main loop");
+            merai::log_info(loggerMem_, "Logic", 3107, "[Logic] Exiting main loop");
         }
 
         // -------------------------------------------------
         // Bridge-based I/O (formerly aggregator)
         // -------------------------------------------------
-        void Logic::readUserCommands(seven_axis_robot::merai::UserCommands &out)
+        void Logic::readUserCommands(merai::UserCommands &out)
         {
-            auto meta = merai::read_latest(rtLayout_->userCommandsBuffer, out, lastUserCmdSeq_);
-            userCmdFresh_.store(meta.fresh, std::memory_order_relaxed);
-            lastUserCmdSeq_ = meta.seq;
+            merai::read_snapshot(rtLayout_->userCommandsBuffer, out);
         }
 
-        void Logic::readDriveFeedback(seven_axis_robot::merai::DriveFeedbackData &out)
+        void Logic::readDriveFeedback(merai::DriveFeedbackData &out)
         {
-            auto meta = merai::read_latest(rtLayout_->driveFeedbackBuffer, out, lastDriveFdbkSeq_);
-            driveFdbkFresh_.store(meta.fresh, std::memory_order_relaxed);
-            lastDriveFdbkSeq_ = meta.seq;
+            merai::read_snapshot(rtLayout_->driveFeedbackBuffer, out);
         }
 
-        void Logic::readControllerFeedback(seven_axis_robot::merai::ControllerFeedback &out)
+        void Logic::readControllerFeedback(merai::ControllerFeedback &out)
         {
-            auto meta = merai::read_latest(rtLayout_->controllerFeedbackBuffer, out, lastControllerFdbkSeq_);
-            controllerFdbkFresh_.store(meta.fresh, std::memory_order_relaxed);
-            lastControllerFdbkSeq_ = meta.seq;
+            merai::read_snapshot(rtLayout_->controllerFeedbackBuffer, out);
         }
 
-        void Logic::writeDriveCommands(seven_axis_robot::merai::DriveCommandData &in)
+        void Logic::writeDriveCommands(merai::DriveCommandData &in)
         {
             int backIdx = merai::back_index(rtLayout_->driveCommandBuffer);
 
@@ -181,7 +173,7 @@ namespace seven_axis_robot
             merai::publish(rtLayout_->driveCommandBuffer, backIdx);
         }
 
-        void Logic::writeControllerCommand(seven_axis_robot::merai::ControllerCommand &in)
+        void Logic::writeControllerCommand(merai::ControllerCommand &in)
         {
             int backIdx = merai::back_index(rtLayout_->controllerCommandBuffer);
 
@@ -189,7 +181,7 @@ namespace seven_axis_robot
             merai::publish(rtLayout_->controllerCommandBuffer, backIdx);
         }
 
-        void Logic::writeUserFeedback(seven_axis_robot::merai::AppState currentState)
+        void Logic::writeUserFeedback(merai::AppState currentState)
         {
             int backIdx = merai::back_index(rtLayout_->userFeedbackBuffer);
 
@@ -225,4 +217,3 @@ namespace seven_axis_robot
         }
 
     } // namespace logic
-} // namespace seven_axis_robot

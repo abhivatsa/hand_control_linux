@@ -1,15 +1,21 @@
 #include <memory>
+#include <span>
+#include <chrono>
 #include "control/ControllerManager.h"
+#include "control/ControlData.h"
 #include "control/controllers/BaseController.h"
 
-using seven_axis_robot::merai::ControllerCommand;
-using seven_axis_robot::merai::ControllerFeedback;
-using seven_axis_robot::merai::ControllerID;
-using seven_axis_robot::merai::ControllerSwitchResult;
+using merai::ControllerCommand;
+using merai::ControllerFeedback;
+using merai::ControllerID;
+using merai::ControllerSwitchResult;
+
+using control::ControlCycleInputs;
+using control::ControlCycleOutputs;
 
 namespace
 {
-    class DummyController : public seven_axis_robot::control::BaseController
+    class DummyController : public control::BaseController
     {
     public:
         explicit DummyController(bool startSuccess = true) : startSuccess_(startSuccess) {}
@@ -17,23 +23,26 @@ namespace
         bool init() override
         {
             initCount++;
-            state_ = ControllerState::INIT;
+            state_ = control::ControllerState::INIT;
             return true;
         }
 
-        bool start() override
+        bool start(std::span<const merai::JointMotionFeedback> /*motionFbk*/,
+                   std::span<merai::JointMotionCommand> /*motionCmd*/) override
         {
             startCount++;
             if (!startSuccess_)
             {
-                state_ = ControllerState::STOPPED;
+                state_ = control::ControllerState::STOPPED;
                 return false;
             }
-            state_ = ControllerState::RUNNING;
+            state_ = control::ControllerState::RUNNING;
             return true;
         }
 
-        void update(double /*dt*/) override
+        void update(std::span<const merai::JointMotionFeedback> /*motionFbk*/,
+                    std::span<merai::JointMotionCommand> /*motionCmd*/,
+                    double /*dt*/) override
         {
             updateCount++;
         }
@@ -41,7 +50,7 @@ namespace
         void stop() override
         {
             stopCount++;
-            state_ = ControllerState::STOPPED;
+            state_ = control::ControllerState::STOPPED;
         }
 
         void teardown() override { teardownCount++; }
@@ -59,20 +68,22 @@ namespace
 
 int main()
 {
-    seven_axis_robot::merai::ParameterServer ps{};
+    merai::ParameterServer ps{};
     ps.driveCount = 2;
     ps.jointCount = 2;
 
-    seven_axis_robot::merai::JointMotionFeedback feedback[seven_axis_robot::merai::MAX_SERVO_DRIVES]{};
-    seven_axis_robot::merai::JointMotionCommand commands[seven_axis_robot::merai::MAX_SERVO_DRIVES]{};
-    seven_axis_robot::merai::multi_ring_logger_memory dummyLogger{};
+    merai::JointMotionFeedback feedback[merai::MAX_SERVO_DRIVES]{};
+    merai::JointMotionCommand commands[merai::MAX_SERVO_DRIVES]{};
+    merai::JointControlFeedback controlFeedback[merai::MAX_SERVO_DRIVES]{};
+    merai::JointControlCommand controlCommands[merai::MAX_SERVO_DRIVES]{};
+    merai::JointFeedbackIO ioFeedback[merai::MAX_SERVO_DRIVES]{};
+    merai::multi_ring_logger_memory dummyLogger{};
 
-    seven_axis_robot::control::ControllerManager mgr(
+    control::ControllerManager mgr(
         &ps,
-        feedback,
-        commands,
         2,
-        &dummyLogger);
+        &dummyLogger,
+        0.001);
 
     auto okController = std::make_shared<DummyController>(true);
     auto failingController = std::make_shared<DummyController>(false);
@@ -86,7 +97,7 @@ int main()
         return 1;
     }
 
-    seven_axis_robot::control::ControllerManager::ModeCompatibilityPolicy policy{};
+    control::ControllerManager::ModeCompatibilityPolicy policy{};
     policy.allowedModes = {8};
     mgr.setModeCompatibilityPolicy(policy);
 
@@ -99,7 +110,23 @@ int main()
     ControllerCommand command{};
     command.requestSwitch = true;
     command.controllerId = ControllerID::GRAVITY_COMP;
-    mgr.update(command, feedbackOut, 0.001);
+
+    ControlCycleInputs in{
+        .jointControlFbk = std::span<const merai::JointControlFeedback>(controlFeedback, 2),
+        .jointMotionFbk = std::span<const merai::JointMotionFeedback>(feedback, 2),
+        .jointIoFbk = std::span<const merai::JointFeedbackIO>(ioFeedback, 2),
+        .driveCmd = {},
+        .ctrlCmd = command,
+        .timestamp = std::chrono::steady_clock::now(),
+    };
+
+    ControlCycleOutputs out{
+        .jointControlCmd = std::span<merai::JointControlCommand>(controlCommands, 2),
+        .jointMotionCmd = std::span<merai::JointMotionCommand>(commands, 2),
+    };
+
+    mgr.update(in, out);
+    feedbackOut = out.ctrlFbk;
 
     if (feedbackOut.switchResult != ControllerSwitchResult::SUCCEEDED ||
         feedbackOut.activeControllerId != ControllerID::GRAVITY_COMP ||
@@ -109,7 +136,10 @@ int main()
     }
 
     ControllerCommand idle{};
-    mgr.update(idle, feedbackOut, 0.001);
+    in.ctrlCmd = idle;
+    in.timestamp = std::chrono::steady_clock::now();
+    mgr.update(in, out);
+    feedbackOut = out.ctrlFbk;
     if (okController->updateCount == 0)
     {
         return 1;
@@ -118,7 +148,10 @@ int main()
     ControllerCommand incompatible{};
     incompatible.requestSwitch = true;
     incompatible.controllerId = ControllerID::HOMING;
-    mgr.update(incompatible, feedbackOut, 0.001);
+    in.ctrlCmd = incompatible;
+    in.timestamp = std::chrono::steady_clock::now();
+    mgr.update(in, out);
+    feedbackOut = out.ctrlFbk;
     if (feedbackOut.switchResult != ControllerSwitchResult::FAILED ||
         feedbackOut.activeControllerId != ControllerID::GRAVITY_COMP)
     {
@@ -129,14 +162,17 @@ int main()
         return 1;
     }
 
-    seven_axis_robot::control::ControllerManager::ModeCompatibilityPolicy relaxedPolicy{};
+    control::ControllerManager::ModeCompatibilityPolicy relaxedPolicy{};
     relaxedPolicy.allowedModes = {8, 10};
     mgr.setModeCompatibilityPolicy(relaxedPolicy);
 
     ControllerCommand failing{};
     failing.requestSwitch = true;
     failing.controllerId = ControllerID::HOMING;
-    mgr.update(failing, feedbackOut, 0.001);
+    in.ctrlCmd = failing;
+    in.timestamp = std::chrono::steady_clock::now();
+    mgr.update(in, out);
+    feedbackOut = out.ctrlFbk;
     if (feedbackOut.switchResult != ControllerSwitchResult::FAILED ||
         feedbackOut.activeControllerId != ControllerID::NONE ||
         okController->stopCount != 1)

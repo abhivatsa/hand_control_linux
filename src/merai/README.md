@@ -20,7 +20,7 @@ From repo root:
 cmake -S src/merai -B build/merai \
   -DCMAKE_BUILD_TYPE=Release \
   -DBUILD_TESTING=ON \
-  -DMERAI_CONFIG_INSTALL_DIR=/etc/seven_axis_robot_merai
+  -DMERAI_CONFIG_INSTALL_DIR=/etc/merai
 cmake --build build/merai              # builds libs, binaries, tests
 ctest --test-dir build/merai --output-on-failure   # optional
 ```
@@ -35,11 +35,11 @@ ctest --preset dev --output-on-failure
 From the build directory (`build/` for preset, or `build/merai` if configured directly):
 ```
 cpack   # produces the .deb
-sudo dpkg -i seven-axis-robot-merai_*.deb
+sudo dpkg -i merai-robotics_*.deb
 ```
 
 ## Config Files
-- Installed defaults: `${MERAI_CONFIG_INSTALL_DIR}` (default `/etc/seven_axis_robot_merai`).
+- Installed defaults: `${MERAI_CONFIG_INSTALL_DIR}` (default `/etc/merai`).
 - Source defaults (for in-tree runs): `config/` at repo root.
 - Launcher resolves config dir by: env `MERAI_CONFIG_DIR` override → installed dir if exists → source dir.
 

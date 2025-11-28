@@ -2,18 +2,14 @@
 #include <cmath> // for std::fabs
 #include "merai/RTIpc.h"
 
-namespace seven_axis_robot
-{
     namespace logic
     {
-        SafetyManager::SafetyManager(const seven_axis_robot::merai::ParameterServer* paramServerPtr,
-                                     seven_axis_robot::merai::RTMemoryLayout*        rtLayout,
-                                     const seven_axis_robot::robotics::haptic_device::HapticDeviceModel& model)
+        SafetyManager::SafetyManager(const merai::ParameterServer* paramServerPtr,
+                                     merai::RTMemoryLayout*        rtLayout,
+                                     const robot_lib::RobotModel&  model)
             : paramServerPtr_(paramServerPtr),
               rtLayout_(rtLayout),
-              model_(model),
-              kinematics_(model),
-              dynamics_(model)
+              model_(model)
         {
             // No dynamic memory or std::string usage in RT
         }
@@ -54,9 +50,9 @@ namespace seven_axis_robot
             return true;
         }
 
-        bool SafetyManager::update(const seven_axis_robot::merai::DriveFeedbackData& driveFdbk,
-                                   const seven_axis_robot::merai::UserCommands&      userCmds,
-                                   const seven_axis_robot::merai::ControllerFeedback& ctrlFdbk)
+        bool SafetyManager::update(const merai::DriveFeedbackData& driveFdbk,
+                                   const merai::UserCommands&      userCmds,
+                                   const merai::ControllerFeedback& ctrlFdbk)
         {
             // If already faulted, see if user wants to reset
             if (faulted_)
@@ -80,7 +76,7 @@ namespace seven_axis_robot
                 //     If driveFdbk.status[i] == DriveStatus::FAULT => forceFault()
                 for (std::size_t i = 0; i < driveCount_; ++i)
                 {
-                    if (driveFdbk.status[i] == seven_axis_robot::merai::DriveStatus::FAULT)
+                    if (driveFdbk.status[i] == merai::DriveStatus::FAULT)
                     {
                         forceFault();
                         break;
@@ -89,7 +85,7 @@ namespace seven_axis_robot
 
                 // // (3) Possibly check if ctrlFdbk indicates an error
                 // // If you have an enum like ControllerFeedbackState::ERROR or FAILED
-                // if (ctrlFdbk.feedbackState == seven_axis_robot::merai::ControllerFeedbackState::ERROR)
+                // if (ctrlFdbk.feedbackState == merai::ControllerFeedbackState::ERROR)
                 // {
                 //     forceFault();
                 // }
@@ -116,19 +112,13 @@ namespace seven_axis_robot
             }
             double homing_pos[7] = {0, 0, 0, 0, 0, 0, 0};
 
-            seven_axis_robot::merai::JointData jointData{};
-            auto meta = seven_axis_robot::merai::read_latest(rtLayout_->jointBuffer,
-                                                             jointData,
-                                                             lastJointFdbkSeqHoming_);
-            lastJointFdbkSeqHoming_ = meta.seq;
-            if (!meta.fresh)
-            {
-                return false; // do not declare homing done on stale data
-            }
+            std::array<merai::JointFeedbackData,
+                       merai::MAX_SERVO_DRIVES> jointFeedback{};
+            merai::read_snapshot(rtLayout_->jointFeedbackBuffer, jointFeedback);
 
             for (std::size_t i = 0; i < driveCount_; ++i)
             {
-                double pos = jointData.feedback[i].motion.positionActual;
+                double pos = jointFeedback[i].motion.positionActual;
                 if (fabs(homing_pos[i] - pos) > 0.001){
                     return false;
                 }
@@ -154,19 +144,14 @@ namespace seven_axis_robot
             {
                 return;
             }
-            seven_axis_robot::merai::JointData jointData{};
-            auto meta = seven_axis_robot::merai::read_latest(rtLayout_->jointBuffer,
-                                                             jointData,
-                                                             lastJointFdbkSeqLimits_);
-            lastJointFdbkSeqLimits_ = meta.seq;
-            if (!meta.fresh)
-            {
-                return; // no fresh data; skip limit checks this cycle
-            }
+            std::array<merai::JointFeedbackData,
+                       merai::MAX_SERVO_DRIVES> jointFeedback{};
+            merai::read_snapshot(rtLayout_->jointFeedbackBuffer,
+                                 jointFeedback);
 
             for (std::size_t i = 0; i < driveCount_; ++i)
             {
-                double pos = jointData.feedback[i].motion.positionActual;
+                double pos = jointFeedback[i].motion.positionActual;
                 if (pos < jointMin_[i] || pos > jointMax_[i])
                 {
                     forceFault();
@@ -183,8 +168,8 @@ namespace seven_axis_robot
             }
 
             // For example, read joint states to see if torque > threshold
-            int frontIdx = rtLayout_->jointBuffer.frontIndex.load(std::memory_order_acquire);
-            auto &jointFeedback = rtLayout_->jointBuffer.buffer[frontIdx].feedback;
+            int activeIdx = rtLayout_->jointFeedbackBuffer.activeIndex.load(std::memory_order_acquire);
+            auto &jointFeedback = rtLayout_->jointFeedbackBuffer.buffer[activeIdx];
 
             for (int i = 0; i < driveCount_; i++)
             {
@@ -209,4 +194,3 @@ namespace seven_axis_robot
         }
 
     } // namespace logic
-} // namespace seven_axis_robot

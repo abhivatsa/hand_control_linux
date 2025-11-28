@@ -1,10 +1,10 @@
-# Fieldbus Module (seven_axis_robot_fieldbus)
+# Fieldbus Module (fieldbus)
 
 EtherCAT master and drive handling for the seven-axis robot. Attaches to shared memory produced by `merai_launcher`, configures drives from `ParameterServer`, and runs the cyclic EtherCAT loop.
 
 ## Components
-- Library: `seven_axis_robot_fieldbus_lib` (EthercatMaster, ServoDrive, IoDrive).
-- Executable: `seven_axis_robot_fieldbus_exe`.
+- Library: `fieldbus` (EthercatMaster, ServoDrive, IoDrive).
+- Executable: `fieldbus_exe`.
 - Service: `services/fieldbus.service` (systemd, RT priority/affinity).
 - Test: `servo_drive_pdo_tests` (headless PDO mapping sanity with stubbed ecrt).
 
@@ -26,7 +26,7 @@ ctest --preset dev --output-on-failure   # runs stubbed test
 - Logging: Uses shared logger; no stdio in the RT loop.
 
 ## Packaging
-- Targets/headers install under `seven_axis_robot_fieldbus` namespace/path; systemd service installs to `lib/systemd/system`.
+- Targets/headers install under the `fieldbus` namespace; systemd service installs to `lib/systemd/system`.
 
 ## Notes
 - IoDrive exists as a placeholder; implement PDO offsets/mapping when an IO drive is chosen.

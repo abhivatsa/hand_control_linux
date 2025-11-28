@@ -8,37 +8,32 @@
 #include <systemd/sd-journal.h>
 #endif
 
-namespace
+void emit_log(const char *module, const merai::shared_log_message &msg)
 {
-    void emit_log(const char* module, const seven_axis_robot::merai::shared_log_message& msg)
-    {
-        double ts_ms = static_cast<double>(msg.timestamp) / 1e6;
+    double ts_ms = static_cast<double>(msg.timestamp) / 1e6;
 #ifdef USE_SYSTEMD_JOURNAL
-        sd_journal_send("MESSAGE=%s", msg.text,
-                        "PRIORITY=%d", static_cast<int>(msg.level),
-                        "CODE=%d", msg.code,
-                        "MODULE=%s", module,
-                        "TIMESTAMP_MS=%.3f", ts_ms,
-                        nullptr);
+    sd_journal_send("MESSAGE=%s", msg.text,
+                    "PRIORITY=%d", static_cast<int>(msg.level),
+                    "CODE=%d", msg.code,
+                    "MODULE=%s", module,
+                    "TIMESTAMP_MS=%.3f", ts_ms,
+                    nullptr);
 #else
-        (void)module;
-        (void)ts_ms;
+    (void)module;
+    (void)ts_ms;
 #endif
-    }
 }
 
 int main()
 {
-    // Create or open the logger shared memory (read/write).
-    // Adjust size or readOnly flag as needed.
-    seven_axis_robot::merai::RAII_SharedMemory loggerShm(
+    // Open the logger shared memory read-only (writer allocates/truncates elsewhere).
+    merai::RAII_SharedMemory loggerShm(
         "/LoggerShm",
-        sizeof(seven_axis_robot::merai::multi_ring_logger_memory)
-    );
+        sizeof(merai::multi_ring_logger_memory),
+        true);
 
-    auto* loggerPtr = reinterpret_cast<seven_axis_robot::merai::multi_ring_logger_memory*>(
-        loggerShm.getPtr()
-    );
+    auto *loggerPtr = reinterpret_cast<merai::multi_ring_logger_memory *>(
+        loggerShm.getPtr());
     if (loggerPtr->magic != 0x4C4F4747)
     {
         std::cerr << "[Logger] Invalid magic in shared memory. Exiting.\n";
@@ -52,22 +47,22 @@ int main()
 
     while (true)
     {
-        seven_axis_robot::merai::shared_log_message msg;
+        merai::shared_log_message msg;
 
         // Fieldbus logs
-        while (seven_axis_robot::merai::pop_fieldbus_log(loggerPtr, msg))
+        while (merai::pop_fieldbus_log(loggerPtr, msg))
         {
             emit_log("Fieldbus", msg);
         }
 
         // Control logs
-        while (seven_axis_robot::merai::pop_control_log(loggerPtr, msg))
+        while (merai::pop_control_log(loggerPtr, msg))
         {
             emit_log("Control", msg);
         }
 
         // Logic logs
-        while (seven_axis_robot::merai::pop_logic_log(loggerPtr, msg))
+        while (merai::pop_logic_log(loggerPtr, msg))
         {
             emit_log("Logic", msg);
         }

@@ -2,24 +2,17 @@
 
 #include <cstddef> // for size_t
 #include <cstdint>
-#include <limits>
-
-// Haptic device includes
-#include "robotics_lib/haptic_device/HapticDeviceModel.h"
-#include "robotics_lib/haptic_device/HapticDeviceKinematics.h"
-#include "robotics_lib/haptic_device/HapticDeviceDynamics.h"
 
 // Shared memory structures
 #include "merai/ParameterServer.h"
 #include "merai/RTMemoryLayout.h"
 #include "merai/Enums.h"
+#include "robotics_lib/RobotModel.h"
 
 // The data structures from RTMemoryLayout
 // e.g., DriveFeedbackData, UserCommands, ControllerFeedback
 // which hold status arrays, eStop flags, etc.
 
-namespace seven_axis_robot
-{
     namespace logic
     {
         /**
@@ -35,11 +28,11 @@ namespace seven_axis_robot
              *
              * @param paramServerPtr  For reading joint limits, gear ratios, etc.
              * @param rtLayout        For accessing aggregator data if needed (joint states, etc.).
-             * @param model           A reference to the haptic device model (6 DOF or otherwise).
+             * @param model           Reference to the robot model (kinematics/dynamics).
              */
-            SafetyManager(const seven_axis_robot::merai::ParameterServer* paramServerPtr,
-                          seven_axis_robot::merai::RTMemoryLayout*        rtLayout,
-                          const seven_axis_robot::robotics::haptic_device::HapticDeviceModel& model);
+            SafetyManager(const merai::ParameterServer* paramServerPtr,
+                          merai::RTMemoryLayout*        rtLayout,
+                          const robot_lib::RobotModel&  model);
 
             ~SafetyManager() = default;
 
@@ -63,9 +56,9 @@ namespace seven_axis_robot
              * @param ctrlFdbk    The controller feedback aggregator data (controller state).
              * @return bool       True if the system is currently faulted, false otherwise.
              */
-            bool update(const seven_axis_robot::merai::DriveFeedbackData& driveFdbk,
-                        const seven_axis_robot::merai::UserCommands&      userCmds,
-                        const seven_axis_robot::merai::ControllerFeedback& ctrlFdbk);
+            bool update(const merai::DriveFeedbackData& driveFdbk,
+                        const merai::UserCommands&      userCmds,
+                        const merai::ControllerFeedback& ctrlFdbk);
 
             /**
              * @brief isFaulted()
@@ -94,7 +87,7 @@ namespace seven_axis_robot
 
             /**
              * @brief checkJointLimits()
-             *  - Reads the jointBuffer from rtLayout_ to get current positions,
+             *  - Reads jointFeedbackBuffer from rtLayout_ to get current positions,
              *    compares them with joint min/max from the paramServer, sets fault if out of range.
              */
             void checkJointLimits();
@@ -108,15 +101,11 @@ namespace seven_axis_robot
             void checkTorqueOrKinematicLimits();
 
         private:
-            const seven_axis_robot::merai::ParameterServer* paramServerPtr_ = nullptr;
-            seven_axis_robot::merai::RTMemoryLayout*        rtLayout_       = nullptr;
+            const merai::ParameterServer* paramServerPtr_ = nullptr;
+            merai::RTMemoryLayout*        rtLayout_       = nullptr;
 
-            // Reference to your haptic device model
-            const seven_axis_robot::robotics::haptic_device::HapticDeviceModel& model_;
-
-            // Local kinematics/dynamics if needed
-            seven_axis_robot::robotics::haptic_device::HapticDeviceKinematics kinematics_;
-            seven_axis_robot::robotics::haptic_device::HapticDeviceDynamics   dynamics_;
+            // Robot model reference (for future kinematic/dynamic checks)
+            const robot_lib::RobotModel&  model_;
 
             // Basic fault flag
             bool faulted_ = false;
@@ -124,9 +113,6 @@ namespace seven_axis_robot
             // Example: number of drives / joints
             std::size_t driveCount_ = 0;
             static constexpr int MAX_JOINTS = 7;
-            static constexpr uint64_t kInvalidSeq = std::numeric_limits<uint64_t>::max();
-            uint64_t lastJointFdbkSeqHoming_ = kInvalidSeq;
-            uint64_t lastJointFdbkSeqLimits_ = kInvalidSeq;
 
             // Example min/max joint angle arrays
             double jointMin_[MAX_JOINTS];
@@ -134,4 +120,3 @@ namespace seven_axis_robot
         };
 
     } // namespace logic
-} // namespace seven_axis_robot

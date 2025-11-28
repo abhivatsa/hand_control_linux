@@ -4,7 +4,6 @@
 #include <cstddef>
 #include <memory> // for std::unique_ptr
 #include <time.h>
-#include <limits>
 
 // merai / Common headers
 #include "merai/ParameterServer.h"
@@ -19,11 +18,8 @@
 // Safety Manager
 #include "logic/SafetyManager.h"
 
-// HapticDeviceModel
-#include "robotics_lib/haptic_device/HapticDeviceModel.h"
+#include "robotics_lib/RobotModel.h"
 
-namespace seven_axis_robot
-{
     namespace logic
     {
         class Logic
@@ -48,13 +44,13 @@ namespace seven_axis_robot
             // ---------------------------------------------------
             // Bridge / Aggregator I/O methods
             // ---------------------------------------------------
-            void readUserCommands(seven_axis_robot::merai::UserCommands &out);
-            void readDriveFeedback(seven_axis_robot::merai::DriveFeedbackData &out);
-            void readControllerFeedback(seven_axis_robot::merai::ControllerFeedback &out);
+            void readUserCommands(merai::UserCommands &out);
+            void readDriveFeedback(merai::DriveFeedbackData &out);
+            void readControllerFeedback(merai::ControllerFeedback &out);
 
-            void writeDriveCommands(seven_axis_robot::merai::DriveCommandData &in);
-            void writeControllerCommand(seven_axis_robot::merai::ControllerCommand &in);
-            void writeUserFeedback(seven_axis_robot::merai::AppState currentState);
+            void writeDriveCommands(merai::DriveCommandData &in);
+            void writeControllerCommand(merai::ControllerCommand &in);
+            void writeUserFeedback(merai::AppState currentState);
 
             // ---------------------------------------------------
             // Periodic scheduling helpers
@@ -75,16 +71,19 @@ namespace seven_axis_robot
             bool isHomingCompleted= false;
 
             // Shared Memory for ParameterServer
-            seven_axis_robot::merai::RAII_SharedMemory paramServerShm_;
-            const seven_axis_robot::merai::ParameterServer *paramServerPtr_ = nullptr;
+            merai::RAII_SharedMemory paramServerShm_;
+            const merai::ParameterServer *paramServerPtr_ = nullptr;
 
             // Shared Memory for real-time layout
-            seven_axis_robot::merai::RAII_SharedMemory rtDataShm_;
-            seven_axis_robot::merai::RTMemoryLayout *rtLayout_ = nullptr;
+            merai::RAII_SharedMemory rtDataShm_;
+            merai::RTMemoryLayout *rtLayout_ = nullptr;
 
             // Shared Memory for Logger
-            seven_axis_robot::merai::RAII_SharedMemory loggerShm_;
-            seven_axis_robot::merai::multi_ring_logger_memory *loggerMem_ = nullptr;
+            merai::RAII_SharedMemory loggerShm_;
+            merai::multi_ring_logger_memory *loggerMem_ = nullptr;
+
+            // Robot model (for safety/logic if needed)
+            robot_lib::RobotModel robotModel_;
 
             // The new StateMachine (replacing old SystemOrchestrator)
             // StateMachine stateMachine_;
@@ -94,21 +93,9 @@ namespace seven_axis_robot
             std::unique_ptr<StateMachine> stateMachine_;
 
             // Temp aggregator structures
-            seven_axis_robot::merai::UserCommands userCmds;
-            seven_axis_robot::merai::DriveFeedbackData driveFdbk;
-            seven_axis_robot::merai::ControllerFeedback ctrlFdbk;
+            merai::UserCommands userCmds;
+            merai::DriveFeedbackData driveFdbk;
+            merai::ControllerFeedback ctrlFdbk;
 
-            // Haptic device model
-            seven_axis_robot::robotics::haptic_device::HapticDeviceModel hapticDeviceModel_;
-
-            // IPC freshness tracking
-            static constexpr uint64_t kInvalidSeq = std::numeric_limits<uint64_t>::max();
-            uint64_t lastUserCmdSeq_ = kInvalidSeq;
-            uint64_t lastDriveFdbkSeq_ = kInvalidSeq;
-            uint64_t lastControllerFdbkSeq_ = kInvalidSeq;
-            std::atomic<bool> userCmdFresh_{false};
-            std::atomic<bool> driveFdbkFresh_{false};
-            std::atomic<bool> controllerFdbkFresh_{false};
         };
     } // namespace logic
-} // namespace seven_axis_robot

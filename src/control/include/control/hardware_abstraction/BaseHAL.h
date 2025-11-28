@@ -1,10 +1,9 @@
 #pragma once
 
 #include <cstddef>  // for size_t
+#include <span>
 #include "merai/RTMemoryLayout.h" // For definitions like JointControlCommand, JointMotionCommand, etc.
 
-namespace seven_axis_robot
-{
     namespace control
     {
         /**
@@ -54,13 +53,13 @@ namespace seven_axis_robot
              * @brief Provides access to the array of JointControlCommand (controlWord, etc.)
              * @return Pointer to the first element of an array sized getDriveCount().
              */
-            virtual seven_axis_robot::merai::JointControlCommand* getJointControlCommandPtr() = 0;
+            virtual merai::JointControlCommand* getJointControlCommandPtr() = 0;
 
             /**
              * @brief Provides access to the array of JointControlFeedback (statusWord, etc.)
              * @return Pointer to the first element of an array sized getDriveCount().
              */
-            virtual seven_axis_robot::merai::JointControlFeedback* getJointControlFeedbackPtr() = 0;
+            virtual merai::JointControlFeedback* getJointControlFeedbackPtr() = 0;
 
             // --------------------------------------------------
             // Joint Motion Access
@@ -70,13 +69,13 @@ namespace seven_axis_robot
              * @brief Provides access to the array of JointMotionCommand (position, torque, mode).
              * @return Pointer to the first element of an array sized getDriveCount().
              */
-            virtual seven_axis_robot::merai::JointMotionCommand* getJointMotionCommandPtr() = 0;
+            virtual merai::JointMotionCommand* getJointMotionCommandPtr() = 0;
 
             /**
              * @brief Provides access to the array of JointMotionFeedback (positionActual, velocityActual, torqueActual).
              * @return Pointer to the first element of an array sized getDriveCount().
              */
-            virtual seven_axis_robot::merai::JointMotionFeedback* getJointMotionFeedbackPtr() = 0;
+            virtual merai::JointMotionFeedback* getJointMotionFeedbackPtr() = 0;
 
             // --------------------------------------------------
             // Joint IO Access (optional)
@@ -86,13 +85,13 @@ namespace seven_axis_robot
              * @brief Accessor for the array of JointFeedbackIO (digital/analog inputs, etc.).
              * @return Pointer to an array sized getDriveCount(), or nullptr if not used.
              */
-            virtual seven_axis_robot::merai::JointFeedbackIO* getJointFeedbackIOPtr() = 0;
+            virtual merai::JointFeedbackIO* getJointFeedbackIOPtr() = 0;
 
             /**
              * @brief Accessor for the array of JointCommandIO (digital/analog outputs, etc.).
              * @return Pointer to an array sized getDriveCount(), or nullptr if not used.
              */
-            virtual seven_axis_robot::merai::JointCommandIO* getJointCommandIOPtr() = 0;
+            virtual merai::JointCommandIO* getJointCommandIOPtr() = 0;
 
             // --------------------------------------------------
             // Metadata
@@ -103,7 +102,18 @@ namespace seven_axis_robot
              * @return The drive/joint count.
              */
             virtual size_t getDriveCount() const = 0;
+
+            // --------------------------------------------------
+            // Span-based accessors for pipeline
+            // --------------------------------------------------
+            virtual std::span<const merai::JointControlFeedback> jointControlFeedback() const = 0;
+            virtual std::span<const merai::JointMotionFeedback> jointMotionFeedback() const = 0;
+            virtual std::span<const merai::JointFeedbackIO> jointIOFeedback() const = 0;
+
+            virtual std::span<merai::JointControlCommand> jointControlCommand() = 0;
+            virtual std::span<merai::JointMotionCommand> jointMotionCommand() = 0;
+
+            virtual bool publishJointFeedbackToShm() = 0;
         };
 
     } // namespace control
-} // namespace seven_axis_robot

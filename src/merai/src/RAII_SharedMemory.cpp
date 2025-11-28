@@ -7,8 +7,6 @@
 #include <cerrno>      // errno
 #include <cstring>     // strerror
 
-namespace seven_axis_robot
-{
     namespace merai
     {
         RAII_SharedMemory::RAII_SharedMemory(const std::string& name,
@@ -89,4 +87,3 @@ namespace seven_axis_robot
             // }
         }
     } // namespace merai
-} // namespace seven_axis_robot

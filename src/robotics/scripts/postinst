@@ -1,0 +1,8 @@
+#!/bin/bash
+set -e
+# post-install for seven-axis-robot-core
+# (Nothing required, but keep daemon-reload in case other packages drop units)
+if command -v systemctl >/dev/null 2>&1; then
+    systemctl daemon-reload || true
+fi
+exit 0

@@ -91,12 +91,6 @@
             "torque_constant": 0.05967
           },
   
-          "limits_active": {
-            "position": true,
-            "velocity": true,
-            "torque": true
-          },
-  
           "position_offset": 260.0
         },
         {
@@ -125,12 +119,6 @@
             "enable_drive": true,
             "rated_current": 3.1,
             "torque_constant": 0.05967
-          },
-  
-          "limits_active": {
-            "position": true,
-            "velocity": true,
-            "torque": true
           },
   
           "position_offset": 3900.0
@@ -163,12 +151,6 @@
             "torque_constant": 0.05967
           },
   
-          "limits_active": {
-            "position": true,
-            "velocity": true,
-            "torque": true
-          },
-  
           "position_offset": 3700.0
         },
         {
@@ -197,12 +179,6 @@
             "enable_drive": true,
             "rated_current": 0.651,
             "torque_constant": 0.017357
-          },
-  
-          "limits_active": {
-            "position": true,
-            "velocity": true,
-            "torque": true
           },
   
           "position_offset": 2130.0
@@ -235,12 +211,6 @@
             "torque_constant": 0.017357
           },
   
-          "limits_active": {
-            "position": true,
-            "velocity": true,
-            "torque": true
-          },
-  
           "position_offset": 2048.0
         },
         {
@@ -271,12 +241,6 @@
             "torque_constant": 0.02121
           },
   
-          "limits_active": {
-            "position": true,
-            "velocity": true,
-            "torque": true
-          },
-  
           "position_offset": 2191.0
         },
         {
@@ -305,12 +269,6 @@
             "enable_drive": true,
             "rated_current": 0.321,
             "torque_constant": 0.0169
-          },
-  
-          "limits_active": {
-            "position": true,
-            "velocity": true,
-            "torque": true
           },
   
           "position_offset": 2048.0

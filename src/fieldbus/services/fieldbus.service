@@ -5,7 +5,7 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/seven_axis_robot_fieldbus_exe
+ExecStart=/usr/bin/fieldbus_exe
 
 # If you have a dedicated robot user (recommended over root):
 User=abhishek
@@ -16,6 +16,7 @@ StartLimitIntervalSec=30
 StartLimitBurst=3
 
 # Real-time scheduling + CPU affinity
+# Real-time settings (tune as needed)
 CPUSchedulingPolicy=fifo
 CPUSchedulingPriority=90
 CPUAffinity=2

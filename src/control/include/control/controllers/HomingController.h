@@ -4,75 +4,72 @@
 #include "merai/RTMemoryLayout.h" // for JointMotionFeedback, JointMotionCommand
 #include "merai/SharedLogger.h"
 
-namespace seven_axis_robot
+namespace control
 {
-    namespace control
+    /**
+     * @brief A simple controller that moves all joints from their current position
+     *        to a fixed "home" position using a trapezoidal position trajectory.
+     *
+     * In this “motion-only” approach, we read from JointMotionFeedback (positions, velocities)
+     * and write new position commands to JointMotionCommand. We ignore control word / status word
+     * or any I/O signals.
+     */
+    class HomingController : public BaseController
     {
+    public:
+        static constexpr int MAX_JOINTS = 7;
+
         /**
-         * @brief A simple controller that moves all joints from their current position
-         *        to a fixed "home" position using a trapezoidal position trajectory.
+         * @brief Constructor.
          *
-         * In this “motion-only” approach, we read from JointMotionFeedback (positions, velocities)
-         * and write new position commands to JointMotionCommand. We ignore control word / status word
-         * or any I/O signals.
+         * @param homePositions  Array of joint positions to serve as the homing target.
+         * @param numJoints      Number of active joints (<= MAX_JOINTS).
+         * @param feedbackPtr    Pointer to array of JointMotionFeedback (one per joint).
+         * @param commandPtr     Pointer to array of JointMotionCommand (one per joint).
          */
-        class HomingController : public BaseController
-        {
-        public:
-            static constexpr int MAX_JOINTS = 7;
+        HomingController(const double *homePositions,
+                         int numJoints,
+                         merai::multi_ring_logger_memory *loggerMem);
 
-            /**
-             * @brief Constructor.
-             *
-             * @param homePositions  Array of joint positions to serve as the homing target.
-             * @param numJoints      Number of active joints (<= MAX_JOINTS).
-             * @param feedbackPtr    Pointer to array of JointMotionFeedback (one per joint).
-             * @param commandPtr     Pointer to array of JointMotionCommand (one per joint).
-             */
-            HomingController(const double* homePositions,
-                             int numJoints,
-                             seven_axis_robot::merai::JointMotionFeedback* feedbackPtr,
-                             seven_axis_robot::merai::JointMotionCommand*  commandPtr,
-                             seven_axis_robot::merai::multi_ring_logger_memory* loggerMem);
+        ~HomingController() override = default;
 
-            ~HomingController() override = default;
+        bool init() override;
+        bool start(std::span<const merai::JointMotionFeedback> motionFbk,
+                   std::span<merai::JointMotionCommand> motionCmd) override;
+        void update(std::span<const merai::JointMotionFeedback> motionFbk,
+                    std::span<merai::JointMotionCommand> motionCmd,
+                    double dt) override;
+        void stop() override;
+        void teardown() override;
 
-            bool init() override;
-            bool start() override;
-            void update(double dt) override;
-            void stop() override;
-            void teardown() override;
+    private:
+        /**
+         * @brief Plan the trapezoidal trajectory to move from current positions -> homePositions_.
+         * @param currentPos Array of current joint positions.
+         */
+        void planTrajectory(const double *currentPos);
 
-        private:
-            /**
-             * @brief Plan the trapezoidal trajectory to move from current positions -> homePositions_.
-             * @param currentPos Array of current joint positions.
-             */
-            void planTrajectory(const double* currentPos);
+        /**
+         * @brief Helper to hold position when the trajectory is inactive or done.
+         */
+        void holdPosition(std::span<const merai::JointMotionFeedback> motionFbk,
+                          std::span<merai::JointMotionCommand> motionCmd);
 
-            /**
-             * @brief Helper to hold position when the trajectory is inactive or done.
-             */
-            void holdPosition();
+    private:
+        int numJoints_{0};
+        merai::multi_ring_logger_memory *loggerMem_ = nullptr;
 
-        private:
-            seven_axis_robot::merai::JointMotionFeedback* feedbackPtr_ = nullptr;
-            seven_axis_robot::merai::JointMotionCommand*  commandPtr_  = nullptr;
-            int numJoints_{0};
-            seven_axis_robot::merai::multi_ring_logger_memory* loggerMem_ = nullptr;
+        double homePositions_[MAX_JOINTS]; ///< The target homing position for each joint
+        double iniPositions_[MAX_JOINTS];  ///< Positions at the start of homing
+        double jointAcc_[MAX_JOINTS];      ///< Computed trapezoid acceleration (sign included)
 
-            double homePositions_[MAX_JOINTS];  ///< The target homing position for each joint
-            double iniPositions_[MAX_JOINTS];   ///< Positions at the start of homing
-            double jointAcc_[MAX_JOINTS];       ///< Computed trapezoid acceleration (sign included)
+        double segmentTime_{0.0}; ///< Current time in the homing trajectory
+        bool isActive_{false};    ///< True if a homing trajectory is in progress
 
-            double segmentTime_{0.0};           ///< Current time in the homing trajectory
-            bool  isActive_{false};             ///< True if a homing trajectory is in progress
+        // Times for the trapezoidal motion
+        double globalAccTime_{0.0};
+        double globalCruiseTime_{0.0};
+        double maxTime_{0.0}; // total time for the entire homing motion
+    };
 
-            // Times for the trapezoidal motion
-            double globalAccTime_{0.0};
-            double globalCruiseTime_{0.0};
-            double maxTime_{0.0}; // total time for the entire homing motion
-        };
-
-    } // namespace control
-} // namespace seven_axis_robot
+} // namespace control

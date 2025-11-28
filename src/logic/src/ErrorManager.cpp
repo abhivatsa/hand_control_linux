@@ -1,7 +1,5 @@
 #include "logic/ErrorManager.h"
 
-namespace seven_axis_robot
-{
     namespace logic
     {
         bool ErrorManager::init()
@@ -77,4 +75,3 @@ namespace seven_axis_robot
         }
 
     } // namespace logic
-} // namespace seven_axis_robot

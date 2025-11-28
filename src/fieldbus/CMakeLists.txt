@@ -1,122 +1,121 @@
 cmake_minimum_required(VERSION 3.10)
-project(seven_axis_robot_fieldbus VERSION 1.0.0)
+project(fieldbus VERSION 1.0.0 LANGUAGES CXX)
+
+include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
 
 # ----------------------------------------------------------------------------
-# 1) Find EtherLab (or EtherCAT), plus merai (provides SHM layouts, logger)
-#    Adjust names to match your actual find scripts / config files
+# Dependencies
 # ----------------------------------------------------------------------------
 find_package(EtherCAT REQUIRED)
-
-# If merai was added as a subdirectory, the target/alias already exists.
-if(NOT TARGET seven_axis_robot_merai::merai_foundation)
-    find_package(seven_axis_robot_merai REQUIRED)
+if(NOT TARGET merai::merai)
+    find_package(merai REQUIRED)
 endif()
 
 # ----------------------------------------------------------------------------
-# 2) Create a STATIC library for the fieldbus code
+# Library
 # ----------------------------------------------------------------------------
-add_library(seven_axis_robot_fieldbus_lib STATIC
+add_library(fieldbus STATIC
     src/EthercatMaster.cpp
     src/drives/ServoDrive.cpp
     src/drives/IODrive.cpp
-    # Add more .cpp files as needed
 )
 
-target_compile_features(seven_axis_robot_fieldbus_lib PUBLIC cxx_std_17)
+add_library(fieldbus::fieldbus ALIAS fieldbus)
+target_compile_features(fieldbus PUBLIC cxx_std_20)
 
-# If you absolutely need ../../external_libraries just for building,
-# mark it PRIVATE so it won't cause conflicts in the exported config:
-target_include_directories(seven_axis_robot_fieldbus_lib
+target_include_directories(fieldbus
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-        $<INSTALL_INTERFACE:include/seven_axis_robot_fieldbus>
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/../../external_libraries
 )
 
-# Link your external libraries (EtherLab + merai_foundation)
-target_link_libraries(seven_axis_robot_fieldbus_lib
+target_link_libraries(fieldbus
     PUBLIC
-        EtherLab::ethercat           # or EtherCAT::EtherCAT if your find script calls it that
-        seven_axis_robot_merai::merai_foundation
+        EtherLab::ethercat
+        merai::merai
 )
 
-# Export name => seven_axis_robot_fieldbus::seven_axis_robot_fieldbus_lib
-set_target_properties(seven_axis_robot_fieldbus_lib PROPERTIES
-    EXPORT_NAME seven_axis_robot_fieldbus_lib
-)
+set_target_properties(fieldbus PROPERTIES EXPORT_NAME fieldbus)
 
 # ----------------------------------------------------------------------------
-# 3) Create the 'seven_axis_robot_fieldbus_exe' (optional main.cpp)
+# Executable (optional main)
 # ----------------------------------------------------------------------------
-add_executable(seven_axis_robot_fieldbus_exe src/main.cpp)
-target_link_libraries(seven_axis_robot_fieldbus_exe PRIVATE
-    seven_axis_robot_fieldbus_lib
-    EtherLab::ethercat
-)
+add_executable(fieldbus_exe src/main.cpp)
+target_link_libraries(fieldbus_exe PRIVATE fieldbus EtherLab::ethercat)
 
 # ----------------------------------------------------------------------------
-# 4) Install the library & executable
+# Install rules
 # ----------------------------------------------------------------------------
-install(TARGETS seven_axis_robot_fieldbus_lib seven_axis_robot_fieldbus_exe
-    EXPORT FieldbusTargets
-    ARCHIVE DESTINATION lib
-    LIBRARY DESTINATION lib
-    RUNTIME DESTINATION bin
+install(TARGETS fieldbus fieldbus_exe
+    EXPORT fieldbusTargets
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 
-# ----------------------------------------------------------------------------
-# 5) Install the systemd service (optional)
-# ----------------------------------------------------------------------------
 install(
-    FILES
-        ${CMAKE_CURRENT_SOURCE_DIR}/services/fieldbus.service
-    DESTINATION lib/systemd/system
+    FILES services/fieldbus.service
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/systemd/system
 )
 
-# ----------------------------------------------------------------------------
-# 6) Install headers to a distinct path to avoid collisions
-# ----------------------------------------------------------------------------
 install(
     DIRECTORY include/
-    DESTINATION include/seven_axis_robot_fieldbus
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
 
 # ----------------------------------------------------------------------------
-# 7) Export the package config (seven_axis_robot_fieldbusConfig.cmake)
-#    So that other projects can do:
-#       find_package(seven_axis_robot_fieldbus REQUIRED)
-#       target_link_libraries(... seven_axis_robot_fieldbus::seven_axis_robot_fieldbus_lib ...)
+# Package config
 # ----------------------------------------------------------------------------
-install(EXPORT FieldbusTargets
-    FILE seven_axis_robot_fieldbusConfig.cmake
-    NAMESPACE seven_axis_robot_fieldbus::
-    DESTINATION lib/cmake/seven_axis_robot_fieldbus
+set(FIELDBUS_CMAKE_CONFIG_DIR "${CMAKE_INSTALL_LIBDIR}/cmake/fieldbus")
+
+install(
+    EXPORT fieldbusTargets
+    FILE fieldbusTargets.cmake
+    NAMESPACE fieldbus::
+    DESTINATION ${FIELDBUS_CMAKE_CONFIG_DIR}
+)
+
+configure_package_config_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/cmake/fieldbusConfig.cmake.in
+    ${CMAKE_CURRENT_BINARY_DIR}/fieldbusConfig.cmake
+    INSTALL_DESTINATION ${FIELDBUS_CMAKE_CONFIG_DIR}
+    NO_SET_AND_CHECK_MACRO
+    NO_CHECK_REQUIRED_COMPONENTS_MACRO
+)
+
+write_basic_package_version_file(
+    ${CMAKE_CURRENT_BINARY_DIR}/fieldbusConfigVersion.cmake
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY SameMajorVersion
+)
+
+install(
+    FILES
+        ${CMAKE_CURRENT_BINARY_DIR}/fieldbusConfig.cmake
+        ${CMAKE_CURRENT_BINARY_DIR}/fieldbusConfigVersion.cmake
+    DESTINATION ${FIELDBUS_CMAKE_CONFIG_DIR}
 )
 
 # ----------------------------------------------------------------------------
-# 8) CPack configuration for creating a .deb package
+# CPack
 # ----------------------------------------------------------------------------
 set(CPACK_GENERATOR "DEB")
-set(CPACK_PACKAGE_NAME "seven-axis-robot-fieldbus")
+set(CPACK_PACKAGE_NAME "fieldbus")
 set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
 set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Abhishek Vatsa <abhi.vatsa16@gmail.com>")
 set(CPACK_PACKAGE_CONTACT "Abhishek Vatsa <abhi.vatsa16@gmail.com>")
 set(CPACK_DEBIAN_PACKAGE_SECTION "devel")
 set(CPACK_DEBIAN_PACKAGE_PRIORITY "optional")
 set(CPACK_DEBIAN_ARCHITECTURE "${CMAKE_SYSTEM_PROCESSOR}")
-set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Fieldbus library for real-time seven-axis robot control")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Fieldbus library and service for real-time robot control")
 set(CPACK_DEBIAN_PACKAGE_DESCRIPTION
-    "This package provides the fieldbus library (EthercatMaster, IoDrive, ServoDrive, etc.)\n"
-    "for real-time seven-axis robot applications."
+    "The fieldbus package provides EtherCAT master logic, drive handling, and\n"
+    "a systemd service for real-time robot control."
 )
-
-# If your libs depend on other packages:
-# set(CPACK_DEBIAN_PACKAGE_DEPENDS "some_other_package (>= 1.0.0)")
-
 set(CPACK_PACKAGING_INSTALL_PREFIX "/usr")
-
-# If you have a post-install script
 set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA "${CMAKE_CURRENT_SOURCE_DIR}/scripts/postinst")
 
 include(CPack)

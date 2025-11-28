@@ -1,118 +1,122 @@
 #include "control/controllers/GravityCompController.h"
+#include <algorithm>
+#include "math_lib/Vector.h"
 
-namespace seven_axis_robot
+namespace control
 {
-    namespace control
+    GravityCompController::GravityCompController(const robot_lib::RobotModel &model,
+                                                 std::size_t numJoints)
+        : numJoints_(numJoints),
+          model_(model),
+          dynamics_(model)
     {
-        GravityCompController::GravityCompController(
-            const seven_axis_robot::robotics::haptic_device::HapticDeviceModel &model,
-            seven_axis_robot::merai::JointMotionFeedback* feedbackPtr,
-            seven_axis_robot::merai::JointMotionCommand* commandPtr,
-            std::size_t numJoints)
-            : model_(model),
-              dynamics_(model),
-              feedbackPtr_(feedbackPtr),
-              commandPtr_(commandPtr),
-              numJoints_(numJoints)
+        // Constructor only stores references and parameters. No heavy logic here.
+    }
+
+    bool GravityCompController::init()
+    {
+        // Validate parameters
+        if (numJoints_ == 0)
         {
-            // Constructor only stores pointers and parameters. No heavy logic here.
+            return false; // or handle error
         }
 
-        bool GravityCompController::init()
-        {
-            // Validate pointers
-            if (!feedbackPtr_ || !commandPtr_ || numJoints_ == 0)
-            {
-                return false; // or handle error
-            }
+        state_ = ControllerState::INIT;
+        return true;
+    }
 
-            state_ = ControllerState::INIT;
-            return true;
+    bool GravityCompController::start(std::span<const merai::JointMotionFeedback> /*motionFbk*/,
+                                      std::span<merai::JointMotionCommand> motionCmd)
+    {
+        // Transition to RUNNING if allowed
+        if (state_ == ControllerState::INIT || state_ == ControllerState::STOPPED)
+        {
+            state_ = ControllerState::RUNNING;
+        }
+        else
+        {
+            return false;
         }
 
-        bool GravityCompController::start()
+        for (int i = 0; i < static_cast<int>(numJoints_) && i < static_cast<int>(motionCmd.size()); ++i)
         {
-            // Transition to RUNNING if allowed
-            if (state_ == ControllerState::INIT || state_ == ControllerState::STOPPED)
-            {
-                state_ = ControllerState::RUNNING;
-            }
-            else
-            {
-                return false;
-            }
-            
-            for (int i = 0; i < numJoints_; ++i)
-            {
-                commandPtr_[i].modeOfOperation = -3;
-            }
-            return true;
+            motionCmd[static_cast<std::size_t>(i)].modeOfOperation = -3;
+        }
+        return true;
+    }
+
+    void GravityCompController::update(std::span<const merai::JointMotionFeedback> motionFbk,
+                                       std::span<merai::JointMotionCommand> motionCmd,
+                                       double dt)
+    {
+        // Only compute torques if RUNNING
+        if (state_ != ControllerState::RUNNING)
+        {
+            return;
         }
 
-        void GravityCompController::update(double dt)
+        // Use the robot dynamics model for gravity compensation.
+        using robot::math::Vector;
+
+        const int maxDof = static_cast<int>(robot_lib::RobotModel::NUM_JOINTS);
+        int dof = static_cast<int>(std::min<std::size_t>(numJoints_, motionFbk.size()));
+        dof = std::min(dof, maxDof);
+
+        Vector<7> jointAngles;
+        Vector<7> jointVel;
+        Vector<7> jointAcc;
+        jointAngles.setZero();
+        jointVel.setZero();
+        jointAcc.setZero(); // for pure gravity comp, assume zero acceleration
+
+        // 1) Read joint positions & velocities into your math vectors
+        for (int i = 0; i < dof; ++i)
         {
-            // Only compute torques if RUNNING
-            if (state_ != ControllerState::RUNNING)
-            {
-                return;
-            }
+            jointAngles[i] = motionFbk[static_cast<std::size_t>(i)].positionActual;
+            jointVel[i] = motionFbk[static_cast<std::size_t>(i)].velocityActual;
+        }
 
-            // If numJoints_ can exceed 6, adapt your math library or clamp dof to 6
-            int dof = static_cast<int>(numJoints_);
-            // if (numJoints_ > 6)
-            // {
-            //     numJoints_ = 6;
-            // }
+        // 2) Compute inverse dynamics
+        Vector<7> outTorques;
+        outTorques.setZero();
 
-            // Prepare vectors for inverse dynamics
-            seven_axis_robot::math::Vector<6> jointAngles, jointVel, jointAcc;
-            jointAngles.setZero();
-            jointVel.setZero();
-            jointAcc.setZero(); // for pure gravity comp, assume zero acceleration
-
-            // 1) Read joint positions & velocities into your math vectors
+        int ret = dynamics_.computeInverseDynamics(jointAngles, jointVel, jointAcc, outTorques);
+        if (ret != 0)
+        {
+            // fallback: zero torques if there's an error code
             for (int i = 0; i < dof; ++i)
             {
-                jointAngles[i] = feedbackPtr_[i].positionActual;
-                jointVel[i]    = feedbackPtr_[i].velocityActual;
-            }
-
-            // 2) Compute inverse dynamics
-            seven_axis_robot::math::Vector<6> outTorques;
-            outTorques.setZero();
-
-            int ret = dynamics_.computeInverseDynamics(jointAngles, jointVel, jointAcc, outTorques);
-            if (ret != 0)
-            {
-                // fallback: zero torques if there's an error code
-                for (int i = 0; i < dof; ++i)
+                if (i < static_cast<int>(motionCmd.size()))
                 {
-                    commandPtr_[i].targetTorque = 0.0;
+                    motionCmd[static_cast<std::size_t>(i)].targetTorque = 0.0;
                 }
-                return;
             }
-
-            // 3) Write torques to the command array
-            for (int i = 0; i < dof; ++i)
-            {
-                commandPtr_[i].targetTorque = gravityScale_ * outTorques[i];
-            }
+            return;
         }
 
-        void GravityCompController::stop()
+        // 3) Write torques to the command array
+        for (int i = 0; i < dof; ++i)
         {
-            // Transition to STOPPED if running
-            if (state_ == ControllerState::RUNNING)
+            if (i < static_cast<int>(motionCmd.size()))
             {
-                state_ = ControllerState::STOPPED;
+                motionCmd[static_cast<std::size_t>(i)].targetTorque = gravityScale_ * outTorques[i];
             }
         }
+    }
 
-        void GravityCompController::teardown()
+    void GravityCompController::stop()
+    {
+        // Transition to STOPPED if running
+        if (state_ == ControllerState::RUNNING)
         {
-            // Cleanup if needed
-            state_ = ControllerState::UNINIT;
+            state_ = ControllerState::STOPPED;
         }
+    }
 
-    } // namespace control
-} // namespace seven_axis_robot
+    void GravityCompController::teardown()
+    {
+        // Cleanup if needed
+        state_ = ControllerState::UNINIT;
+    }
+
+} // namespace control

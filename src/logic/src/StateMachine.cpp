@@ -1,11 +1,9 @@
 #include "logic/StateMachine.h"
 
-namespace seven_axis_robot
-{
     namespace logic
     {
-        StateMachine::StateMachine(const seven_axis_robot::merai::ParameterServer *paramServerPtr,
-                                   seven_axis_robot::merai::multi_ring_logger_memory* loggerMem)
+        StateMachine::StateMachine(const merai::ParameterServer *paramServerPtr,
+                                   merai::multi_ring_logger_memory* loggerMem)
             : paramServerPtr_(paramServerPtr),
               loggerMem_(loggerMem)
         {
@@ -31,9 +29,9 @@ namespace seven_axis_robot
         }
 
         StateManagerOutput StateMachine::update(bool faultActive, bool isHomingCompleted,
-                                                const seven_axis_robot::merai::DriveFeedbackData &driveFdbk,
-                                                const seven_axis_robot::merai::UserCommands &userCmds,
-                                                const seven_axis_robot::merai::ControllerFeedback &ctrlFdbk)
+                                                const merai::DriveFeedbackData &driveFdbk,
+                                                const merai::UserCommands &userCmds,
+                                                const merai::ControllerFeedback &ctrlFdbk)
         {
             StateManagerOutput output;
 
@@ -45,15 +43,15 @@ namespace seven_axis_robot
 
                 for (int i = 0; i < driveCount_; i++)
                 {
-                    driveCmd_.commands[i] = seven_axis_robot::merai::DriveCommand::FORCE_DISABLE;
+                    driveCmd_.commands[i] = merai::DriveCommand::FORCE_DISABLE;
                 }
 
                 ctrlCmd_.requestSwitch = true;
-                ctrlCmd_.controllerId = seven_axis_robot::merai::ControllerID::E_STOP;
+                ctrlCmd_.controllerId = merai::ControllerID::E_STOP;
 
                 state_transistion = true;
 
-                seven_axis_robot::merai::log_error(loggerMem_, "Logic", 3000, "[StateMachine] Entering FAULT (unrecoverable)");
+                merai::log_error(loggerMem_, "Logic", 3000, "[StateMachine] Entering FAULT (unrecoverable)");
             }
 
             // 2) State transitions based on current state and homing status
@@ -68,16 +66,16 @@ namespace seven_axis_robot
                 for (int i = 0; i < driveCount_; i++)
                 {
 
-                    if ((driveFdbk.status[i] != seven_axis_robot::merai::DriveStatus::SWITCHED_ON) && (driveFdbk.status[i] != seven_axis_robot::merai::DriveStatus::OPERATION_ENABLED))
+                    if ((driveFdbk.status[i] != merai::DriveStatus::SWITCHED_ON) && (driveFdbk.status[i] != merai::DriveStatus::OPERATION_ENABLED))
                     {
 
-                        if ((driveFdbk.status[i] != seven_axis_robot::merai::DriveStatus::SWITCH_ON_DISABLED) && (driveFdbk.status[i] != seven_axis_robot::merai::DriveStatus::READY_TO_SWITCH_ON))
+                        if ((driveFdbk.status[i] != merai::DriveStatus::SWITCH_ON_DISABLED) && (driveFdbk.status[i] != merai::DriveStatus::READY_TO_SWITCH_ON))
                         {
-                            driveCmd_.commands[i] = seven_axis_robot::merai::DriveCommand::FORCE_DISABLE;
+                            driveCmd_.commands[i] = merai::DriveCommand::FORCE_DISABLE;
                         }
                         else
                         {
-                            driveCmd_.commands[i] = seven_axis_robot::merai::DriveCommand::SWITCH_ON;
+                            driveCmd_.commands[i] = merai::DriveCommand::SWITCH_ON;
                         }
 
                         all_drives_switched_on = false;
@@ -88,18 +86,18 @@ namespace seven_axis_robot
                 {                    
                     for (int i = 0; i < driveCount_; i++)
                     {
-                        if (driveFdbk.status[i] != seven_axis_robot::merai::DriveStatus::OPERATION_ENABLED)
+                        if (driveFdbk.status[i] != merai::DriveStatus::OPERATION_ENABLED)
                         {
-                            driveCmd_.commands[i] = seven_axis_robot::merai::DriveCommand::ALLOW_OPERATION;
+                            driveCmd_.commands[i] = merai::DriveCommand::ALLOW_OPERATION;
                             all_drive_operation_enable = false;
                         }
                     }
 
-                    if (all_drive_operation_enable == true)// && ctrlFdbk.feedbackState != seven_axis_robot::merai::ControllerFeedbackState::SWITCH_COMPLETED)
+                    if (all_drive_operation_enable == true)// && ctrlFdbk.feedbackState != merai::ControllerFeedbackState::SWITCH_COMPLETED)
                     {
                         currentState_ = merai::AppState::HOMING;
                         ctrlCmd_.requestSwitch = true;
-                        ctrlCmd_.controllerId = seven_axis_robot::merai::ControllerID::HOMING;
+                        ctrlCmd_.controllerId = merai::ControllerID::HOMING;
                         state_transistion = true;
                         break;
                     }
@@ -108,13 +106,13 @@ namespace seven_axis_robot
                 if (state_transistion == true)
                 {
                     ctrlCmd_.requestSwitch = true;
-                    ctrlCmd_.controllerId = seven_axis_robot::merai::ControllerID::NONE;
+                    ctrlCmd_.controllerId = merai::ControllerID::NONE;
                     state_transistion = false;
                 }
                 else
                 {
                     ctrlCmd_.requestSwitch = false;
-                    ctrlCmd_.controllerId = seven_axis_robot::merai::ControllerID::NONE;
+                    ctrlCmd_.controllerId = merai::ControllerID::NONE;
                 }
 
                 break;
@@ -124,7 +122,7 @@ namespace seven_axis_robot
                 if (isHomingCompleted)
                 {
                     ctrlCmd_.requestSwitch = true;
-                    ctrlCmd_.controllerId = seven_axis_robot::merai::ControllerID::GRAVITY_COMP;
+                    ctrlCmd_.controllerId = merai::ControllerID::GRAVITY_COMP;
                     state_transistion = true;
                     currentState_ = merai::AppState::ACTIVE;
                     break;
@@ -133,12 +131,12 @@ namespace seven_axis_robot
                 if (state_transistion == true)
                 {
                     ctrlCmd_.requestSwitch = true;
-                    ctrlCmd_.controllerId = seven_axis_robot::merai::ControllerID::HOMING;
+                    ctrlCmd_.controllerId = merai::ControllerID::HOMING;
                     state_transistion = false;
                 }
                 else{
                     ctrlCmd_.requestSwitch = false;
-                    ctrlCmd_.controllerId = seven_axis_robot::merai::ControllerID::HOMING;
+                    ctrlCmd_.controllerId = merai::ControllerID::HOMING;
                 }
 
                 break;
@@ -153,12 +151,12 @@ namespace seven_axis_robot
                 // if (state_transistion == true)
                 // {
                 //     ctrlCmd_.requestSwitch = true;
-                //     ctrlCmd_.controllerId = seven_axis_robot::merai::ControllerID::E_STOP;
+                //     ctrlCmd_.controllerId = merai::ControllerID::E_STOP;
                 //     state_transistion = false;
 
                 //     for (int i = 0; i < driveCount_; i++)
                 //     {
-                //         driveCmd_.commands[i] = seven_axis_robot::merai::DriveCommand::FORCE_DISABLE;
+                //         driveCmd_.commands[i] = merai::DriveCommand::FORCE_DISABLE;
                 //     }
                 // }
 
@@ -166,13 +164,13 @@ namespace seven_axis_robot
 
                 for (int i = 0; i < driveCount_; i++)
                 {
-                    if (driveFdbk.status[i] == seven_axis_robot::merai::DriveStatus::FAULT){
-                        driveCmd_.commands[i] = seven_axis_robot::merai::DriveCommand::FAULT_RESET;
+                    if (driveFdbk.status[i] == merai::DriveStatus::FAULT){
+                        driveCmd_.commands[i] = merai::DriveCommand::FAULT_RESET;
                         all_drives_switch_on_disabled = false;
                     }
-                    else if (driveFdbk.status[i] != seven_axis_robot::merai::DriveStatus::SWITCH_ON_DISABLED)
+                    else if (driveFdbk.status[i] != merai::DriveStatus::SWITCH_ON_DISABLED)
                     {
-                        driveCmd_.commands[i] = seven_axis_robot::merai::DriveCommand::FORCE_DISABLE;
+                        driveCmd_.commands[i] = merai::DriveCommand::FORCE_DISABLE;
                         all_drives_switch_on_disabled = false;
                     }
 
@@ -181,7 +179,7 @@ namespace seven_axis_robot
                 if (all_drives_switch_on_disabled)
                 {
                     ctrlCmd_.requestSwitch = true;
-                    ctrlCmd_.controllerId = seven_axis_robot::merai::ControllerID::NONE;
+                    ctrlCmd_.controllerId = merai::ControllerID::NONE;
                     currentState_ = merai::AppState::INIT;
                 }
                 break;
@@ -200,4 +198,3 @@ namespace seven_axis_robot
             return output;
         }
     } // namespace logic
-} // namespace seven_axis_robot

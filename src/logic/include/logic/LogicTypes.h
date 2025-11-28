@@ -4,8 +4,6 @@
 #include <string>
 #include <vector>
 
-namespace seven_axis_robot
-{
     namespace logic
     {
         /**
@@ -42,4 +40,3 @@ namespace seven_axis_robot
             // Add more fields as needed...
         };
     } // namespace logic
-} // namespace seven_axis_robot

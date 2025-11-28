@@ -4,8 +4,6 @@
 #include <cstdint>   // for int32_t
 #include "logic/Severity.h" // Include the severity enum
 
-namespace seven_axis_robot
-{
     namespace logic
     {
         /**
@@ -78,4 +76,3 @@ namespace seven_axis_robot
         };
 
     } // namespace logic
-} // namespace seven_axis_robot

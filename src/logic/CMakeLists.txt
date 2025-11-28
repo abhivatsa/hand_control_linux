@@ -1,12 +1,17 @@
 cmake_minimum_required(VERSION 3.10)
-project(seven_axis_robot_logic VERSION 1.0.0)
+project(seven_axis_robot_logic VERSION 1.0.0 LANGUAGES CXX)
 
 #
 # 1) Find dependencies
-#    Make sure "seven_axis_robot_core" and "seven_axis_robot_merai" are installed
+#    Prefer in-tree targets first; fall back to find_package when building out of tree.
+#    Requires "robot_core" (robot_core::core) and "merai" (merai::merai).
 #
-find_package(seven_axis_robot_core REQUIRED)
-find_package(seven_axis_robot_merai REQUIRED)
+if(NOT TARGET robot_core::core)
+    find_package(robot_core REQUIRED)
+endif()
+if(NOT TARGET merai::merai)
+    find_package(merai REQUIRED)
+endif()
 
 #
 # 2) Build the logic library
@@ -21,9 +26,9 @@ add_library(seven_axis_robot_logic_lib STATIC
 )
 
 #
-# 3) Require C++17
+# 3) Require C++20 (for std::span in controllers)
 #
-target_compile_features(seven_axis_robot_logic_lib PUBLIC cxx_std_17)
+target_compile_features(seven_axis_robot_logic_lib PUBLIC cxx_std_20)
 
 #
 # 4) Include paths for local headers
@@ -40,8 +45,8 @@ target_include_directories(seven_axis_robot_logic_lib
 #
 target_link_libraries(seven_axis_robot_logic_lib
     PUBLIC
-        seven_axis_robot_core::core
-        seven_axis_robot_merai::merai_foundation
+        robot_core::core
+        merai::merai
 )
 
 #
@@ -112,7 +117,7 @@ set(CPACK_DEBIAN_PACKAGE_DESCRIPTION
 )
 
 # If your logic depends on specific versions of the 'core' or 'merai' .deb packages:
-# set(CPACK_DEBIAN_PACKAGE_DEPENDS "seven-axis-robot-core (>= 1.0.0), seven-axis-robot-merai (>= 1.0.0)")
+# set(CPACK_DEBIAN_PACKAGE_DEPENDS "seven-axis-robot-core (>= 1.0.0), merai (>= 1.0.0)")
 
 # Post-install script (if any)
 set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA
