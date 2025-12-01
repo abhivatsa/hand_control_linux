@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 3.10)
-project(seven_axis_robot_logic VERSION 1.0.0 LANGUAGES CXX)
+project(logic VERSION 1.0.0 LANGUAGES CXX)
+
+include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
 
 #
 # 1) Find dependencies
@@ -17,7 +20,7 @@ endif()
 # 2) Build the logic library
 #    The sources below come from "logic/src/..."
 #
-add_library(seven_axis_robot_logic_lib STATIC
+add_library(logic_lib STATIC
     src/Logic.cpp
     src/StateMachine.cpp
     src/SafetyManager.cpp
@@ -28,22 +31,22 @@ add_library(seven_axis_robot_logic_lib STATIC
 #
 # 3) Require C++20 (for std::span in controllers)
 #
-target_compile_features(seven_axis_robot_logic_lib PUBLIC cxx_std_20)
+target_compile_features(logic_lib PUBLIC cxx_std_20)
 
 #
 # 4) Include paths for local headers
 #    (Installs to a unique directory to avoid collisions)
 #
-target_include_directories(seven_axis_robot_logic_lib
+target_include_directories(logic_lib
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-        $<INSTALL_INTERFACE:include/seven_axis_robot_logic>
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/logic>
 )
 
 #
 # 5) Link with core and merai
 #
-target_link_libraries(seven_axis_robot_logic_lib
+target_link_libraries(logic_lib
     PUBLIC
         robot_core::core
         merai::merai
@@ -52,41 +55,64 @@ target_link_libraries(seven_axis_robot_logic_lib
 #
 # 6) Optional main executable from "logic/src/main.cpp"
 #
-add_executable(seven_axis_robot_logic_exe
+add_executable(logic
     src/main.cpp
 )
-target_link_libraries(seven_axis_robot_logic_exe
+target_link_libraries(logic
     PRIVATE
-        seven_axis_robot_logic_lib
+        logic_lib
 )
 
 #
 # 7) Install the library & executable
 #
-install(TARGETS seven_axis_robot_logic_lib seven_axis_robot_logic_exe
+install(TARGETS logic_lib logic
     EXPORT LogicTargets
-    ARCHIVE DESTINATION lib
-    LIBRARY DESTINATION lib
-    RUNTIME DESTINATION bin
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 
 #
-# 8) Install the headers under /usr/include/seven_axis_robot_logic
+# 8) Install the headers under /usr/include/logic
 #
 install(
     DIRECTORY include/
-    DESTINATION include/seven_axis_robot_logic
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/logic
 )
 
 #
 # 9) Export the library config so other projects can do:
-#    find_package(seven_axis_robot_logic REQUIRED)
-#    target_link_libraries(... seven_axis_robot_logic::seven_axis_robot_logic_lib ...)
+#    find_package(logic REQUIRED)
+#    target_link_libraries(... logic::logic_lib ...)
 #
+set(LOGIC_CMAKE_CONFIG_DIR "${CMAKE_INSTALL_LIBDIR}/cmake/logic")
+
 install(EXPORT LogicTargets
-    FILE seven_axis_robot_logicConfig.cmake
-    NAMESPACE seven_axis_robot_logic::
-    DESTINATION lib/cmake/seven_axis_robot_logic
+    FILE logicTargets.cmake
+    NAMESPACE logic::
+    DESTINATION ${LOGIC_CMAKE_CONFIG_DIR}
+)
+
+configure_package_config_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/cmake/logicConfig.cmake.in
+    ${CMAKE_CURRENT_BINARY_DIR}/logicConfig.cmake
+    INSTALL_DESTINATION ${LOGIC_CMAKE_CONFIG_DIR}
+    NO_SET_AND_CHECK_MACRO
+    NO_CHECK_REQUIRED_COMPONENTS_MACRO
+)
+
+write_basic_package_version_file(
+    ${CMAKE_CURRENT_BINARY_DIR}/logicConfigVersion.cmake
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY SameMajorVersion
+)
+
+install(
+    FILES
+        ${CMAKE_CURRENT_BINARY_DIR}/logicConfig.cmake
+        ${CMAKE_CURRENT_BINARY_DIR}/logicConfigVersion.cmake
+    DESTINATION ${LOGIC_CMAKE_CONFIG_DIR}
 )
 
 #

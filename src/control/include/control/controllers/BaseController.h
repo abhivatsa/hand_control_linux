@@ -7,10 +7,12 @@ namespace control
 {
     enum class ControllerState
     {
-        UNINIT,
-        INIT,
+        INACTIVE,
+        STARTING,
         RUNNING,
-        STOPPED
+        STOPPING,
+        STOPPED,
+        ERROR
     };
 
     /**
@@ -53,6 +55,15 @@ namespace control
                             double dt) = 0;
 
         /**
+         * @brief requestStop
+         *  Non-blocking request to stop; default calls stop() synchronously.
+         */
+        virtual void requestStop()
+        {
+            stop();
+        }
+
+        /**
          * @brief stop
          *  Called when switching away from this controller to a new one.
          *  Typically sets internal state_ to STOPPED if running.
@@ -66,16 +77,22 @@ namespace control
         virtual void teardown() = 0;
 
         /**
-         * @brief getState
-         *  Returns the current internal state (UNINIT, INIT, RUNNING, STOPPED).
+         * @brief state
+         *  Returns the current internal state.
          */
-        ControllerState getState() const
+        virtual ControllerState state() const
         {
             return state_;
         }
 
+        // Legacy accessor retained for compatibility with existing callers.
+        ControllerState getState() const
+        {
+            return state();
+        }
+
     protected:
-        ControllerState state_{ControllerState::UNINIT};
+        ControllerState state_{ControllerState::INACTIVE};
     };
 
 } // namespace control

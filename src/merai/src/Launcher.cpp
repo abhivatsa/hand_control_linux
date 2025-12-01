@@ -1,34 +1,47 @@
 #include <iostream>
-#include <cstring> // for std::memset
-#include <fcntl.h> // for shm_unlink
+#include <cstring>      // std::memcpy, std::memset
+#include <cstdlib>      // std::getenv
+#include <filesystem>
+#include <type_traits>
+
+#include <fcntl.h>      // shm_unlink
+#include <sys/mman.h>   // shm_unlink
 
 #include "merai/ParameterServer.h"
 #include "merai/RTMemoryLayout.h"
 #include "merai/SharedLogger.h"
 #include "merai/RAII_SharedMemory.h"
-#include <sys/mman.h>
-#include <cstdlib>
-#include <filesystem>
 
-int main(int argc, char *argv[])
+int main(int argc, char* argv[])
 {
     try
     {
-        // (Optional) Remove existing shared memory objects to start fresh.
+        // Ensure types we memcpy/memset into SHM are POD-style.
+        static_assert(std::is_trivially_copyable<merai::ParameterServer>::value,
+                      "ParameterServer must be trivially copyable for SHM.");
+        static_assert(std::is_trivially_copyable<merai::RTMemoryLayout>::value,
+                      "RTMemoryLayout must be trivially copyable for SHM.");
+        static_assert(std::is_trivially_copyable<merai::multi_ring_logger_memory>::value,
+                      "multi_ring_logger_memory must be trivially copyable for SHM.");
+
+        // Start from a clean slate.
         ::shm_unlink("/ParameterServerShm");
         ::shm_unlink("/RTDataShm");
         ::shm_unlink("/LoggerShm");
 
-        // Resolve config directory: env override -> installed path -> source path
+        // -----------------------------------------------------------
+        // Resolve config directory
+        // -----------------------------------------------------------
         std::filesystem::path configDir;
-        if (const char *envDir = std::getenv("MERAI_CONFIG_DIR"))
+        if (const char* envDir = std::getenv("MERAI_CONFIG_DIR"))
         {
             configDir = envDir;
         }
         else
         {
-            std::filesystem::path installDir = MERAI_CONFIG_DIR_INSTALL;
-            std::filesystem::path sourceDir = MERAI_CONFIG_DIR_SOURCE;
+            const std::filesystem::path installDir = MERAI_CONFIG_DIR_INSTALL;
+            const std::filesystem::path sourceDir  = MERAI_CONFIG_DIR_SOURCE;
+
             if (std::filesystem::exists(installDir))
             {
                 configDir = installDir;
@@ -39,77 +52,77 @@ int main(int argc, char *argv[])
             }
             else
             {
-                throw std::runtime_error("Could not locate config directory. Set MERAI_CONFIG_DIR.");
+                throw std::runtime_error(
+                    "Launcher: Could not locate config directory. Set MERAI_CONFIG_DIR.");
             }
         }
 
-        const std::string ecatFile = (configDir / "ethercat_config.json").string();
+        const std::string ecatFile  = (configDir / "ethercat_config.json").string();
         const std::string robotFile = (configDir / "robot_parameters.json").string();
-        // Parse system parameters
+
+        // Parse system parameters into a POD config
         merai::ParameterServer paramServer =
             merai::parseParameterServer(ecatFile, robotFile);
 
         std::cout << "Launcher: parsed "
-                  << paramServer.driveCount << " drives, "
-                  << paramServer.jointCount << " joints.\n";
+                  << paramServer.driveCount  << " drives, "
+                  << paramServer.jointCount  << " joints.\n";
 
         // -----------------------------------------------------------
-        // 1) Create SHM for ParameterServer (static config data)
+        // 1) ParameterServer SHM (static config data)
         // -----------------------------------------------------------
-        const size_t configShmSize = sizeof(merai::ParameterServer);
+        const std::size_t configShmSize = sizeof(merai::ParameterServer);
         merai::RAII_SharedMemory configShm("/ParameterServerShm", configShmSize);
 
-        auto *paramPtr =
-            reinterpret_cast<merai::ParameterServer *>(configShm.getPtr());
+        auto* paramPtr =
+            static_cast<merai::ParameterServer*>(configShm.getPtr());
 
-        // Copy the parsed data into shared memory
         std::memcpy(paramPtr, &paramServer, sizeof(merai::ParameterServer));
 
         std::cout << "Launcher: ParameterServer shared memory created.\n"
-                  << "          (name=\"/ParameterServerShm\", size=" << configShmSize << ")\n";
+                  << "          (name=\"/ParameterServerShm\", size="
+                  << configShmSize << ")\n";
 
         // -----------------------------------------------------------
-        // 2) Create SHM for RTMemoryLayout (real-time data)
+        // 2) RTMemoryLayout SHM (real-time data)
         // -----------------------------------------------------------
-        const size_t rtShmSize = sizeof(merai::RTMemoryLayout);
+        const std::size_t rtShmSize = sizeof(merai::RTMemoryLayout);
         merai::RAII_SharedMemory rtShm("/RTDataShm", rtShmSize);
 
-        auto *rtLayout =
-            reinterpret_cast<merai::RTMemoryLayout *>(rtShm.getPtr());
+        auto* rtLayout =
+            static_cast<merai::RTMemoryLayout*>(rtShm.getPtr());
 
-        // Zero-initialize the real-time buffer region
         std::memset(rtLayout, 0, rtShmSize);
-        rtLayout->magic = merai::RT_MEMORY_MAGIC;
+        rtLayout->magic   = merai::RT_MEMORY_MAGIC;
         rtLayout->version = merai::RT_MEMORY_VERSION;
 
         std::cout << "Launcher: RTMemoryLayout shared memory created.\n"
-                  << "          (name=\"/RTDataShm\", size=" << rtShmSize << ")\n\n";
+                  << "          (name=\"/RTDataShm\", size="
+                  << rtShmSize << ")\n\n";
 
         // -----------------------------------------------------------
-        // 3) Create SHM for MultiRingLoggerMemory (log messages)
+        // 3) Logger SHM (multi-ring shared logger)
         // -----------------------------------------------------------
-        const size_t loggerShmSize = sizeof(merai::multi_ring_logger_memory);
+        const std::size_t loggerShmSize =
+            sizeof(merai::multi_ring_logger_memory);
         merai::RAII_SharedMemory loggerShm("/LoggerShm", loggerShmSize);
 
-        auto *multiLoggerPtr =
-            reinterpret_cast<merai::multi_ring_logger_memory *>(loggerShm.getPtr());
+        auto* multiLoggerPtr =
+            static_cast<merai::multi_ring_logger_memory*>(loggerShm.getPtr());
 
-        // Clear all ring buffers
         std::memset(multiLoggerPtr, 0, loggerShmSize);
-        multiLoggerPtr->magic = merai::multi_ring_logger_memory::MAGIC;
+        multiLoggerPtr->magic   = merai::multi_ring_logger_memory::MAGIC;
         multiLoggerPtr->version = merai::multi_ring_logger_memory::VERSION;
 
         std::cout << "Launcher: Logger shared memory created.\n"
-                  << "          (name=\"/LoggerShm\", size=" << loggerShmSize << ")\n\n";
+                  << "          (name=\"/LoggerShm\", size="
+                  << loggerShmSize << ")\n\n";
 
-        // -----------------------------------------------------------
-        // 4) (Optional) Let systemd manage other processes
-        // -----------------------------------------------------------
         std::cout << "Launcher: Setup complete. Exiting.\n";
     }
-    catch (const std::exception &e)
+    catch (const std::exception& e)
     {
-        std::cerr << "Launcher Error: " << e.what() << std::endl;
+        std::cerr << "Launcher Error: " << e.what() << '\n';
         return 1;
     }
 

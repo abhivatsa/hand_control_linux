@@ -5,7 +5,7 @@ Requires=fieldbus.service
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/control
+ExecStart=/usr/bin/control
 User=abhishek
 Group=abhishek
 Restart=on-failure

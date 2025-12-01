@@ -2,21 +2,13 @@
 
 #include <array>
 #include <cstddef>
-#include <cmath> // For sqrt, etc.
+#include <cmath> // For sqrt, etc. if needed later
 
 namespace robot
 {
     namespace math
     {
 
-        /**
-         * @brief Stack-based matrix class of size ROWS × COLS, real-time friendly.
-         *
-         * - No dynamic memory
-         * - No exceptions
-         * - Inline and noexcept where feasible
-         * - C++20 recommended for constexpr math
-         */
         template <std::size_t ROWS, std::size_t COLS>
         class Matrix
         {
@@ -26,18 +18,11 @@ namespace robot
             // ------------------------------------------------------------------
             // Constructors
             // ------------------------------------------------------------------
-            constexpr Matrix() noexcept : data{}
+            constexpr Matrix() noexcept : data{}  // value-initialized -> all zeros
             {
-                for (std::size_t i = 0; i < ROWS; ++i)
-                {
-                    for (std::size_t j = 0; j < COLS; ++j)
-                    {
-                        data[i][j] = 0.0;
-                    }
-                }
             }
 
-            constexpr Matrix(const std::array<std::array<double, COLS>, ROWS> &arr) noexcept
+            constexpr Matrix(const std::array<std::array<double, COLS>, ROWS>& arr) noexcept
                 : data(arr)
             {
             }
@@ -45,7 +30,7 @@ namespace robot
             // ------------------------------------------------------------------
             // Element Access
             // ------------------------------------------------------------------
-            constexpr double &operator()(std::size_t row, std::size_t col) noexcept
+            constexpr double& operator()(std::size_t row, std::size_t col) noexcept
             {
                 return data[row][col];
             }
@@ -58,7 +43,7 @@ namespace robot
             // ------------------------------------------------------------------
             // Basic Arithmetic
             // ------------------------------------------------------------------
-            constexpr Matrix<ROWS, COLS> operator+(const Matrix<ROWS, COLS> &other) const noexcept
+            constexpr Matrix<ROWS, COLS> operator+(const Matrix<ROWS, COLS>& other) const noexcept
             {
                 Matrix<ROWS, COLS> result;
                 for (std::size_t i = 0; i < ROWS; ++i)
@@ -71,7 +56,7 @@ namespace robot
                 return result;
             }
 
-            constexpr Matrix<ROWS, COLS> operator-(const Matrix<ROWS, COLS> &other) const noexcept
+            constexpr Matrix<ROWS, COLS> operator-(const Matrix<ROWS, COLS>& other) const noexcept
             {
                 Matrix<ROWS, COLS> result;
                 for (std::size_t i = 0; i < ROWS; ++i)
@@ -99,28 +84,26 @@ namespace robot
 
             constexpr Matrix<ROWS, COLS> operator/(double scalar) const noexcept
             {
-                Matrix<ROWS, COLS> result;
-                if (scalar != 0.0)
+                if (scalar == 0.0)
                 {
-                    double inv = 1.0 / scalar;
-                    for (std::size_t i = 0; i < ROWS; ++i)
-                    {
-                        for (std::size_t j = 0; j < COLS; ++j)
-                        {
-                            result(i, j) = data[i][j] * inv;
-                        }
-                    }
-                }
-                else
-                {
-                    // If scalar is zero, user must handle it (we do no exception).
+                    // Caller must handle division-by-zero; we just return original.
                     return *this;
+                }
+
+                Matrix<ROWS, COLS> result;
+                double inv = 1.0 / scalar;
+                for (std::size_t i = 0; i < ROWS; ++i)
+                {
+                    for (std::size_t j = 0; j < COLS; ++j)
+                    {
+                        result(i, j) = data[i][j] * inv;
+                    }
                 }
                 return result;
             }
 
             template <std::size_t OTHER_COLS>
-            constexpr Matrix<ROWS, OTHER_COLS> operator*(const Matrix<COLS, OTHER_COLS> &other) const noexcept
+            constexpr Matrix<ROWS, OTHER_COLS> operator*(const Matrix<COLS, OTHER_COLS>& other) const noexcept
             {
                 Matrix<ROWS, OTHER_COLS> result;
                 for (std::size_t i = 0; i < ROWS; ++i)
@@ -141,7 +124,7 @@ namespace robot
             // ------------------------------------------------------------------
             // In-Place Operators
             // ------------------------------------------------------------------
-            constexpr Matrix<ROWS, COLS> &operator+=(const Matrix<ROWS, COLS> &other) noexcept
+            constexpr Matrix<ROWS, COLS>& operator+=(const Matrix<ROWS, COLS>& other) noexcept
             {
                 for (std::size_t i = 0; i < ROWS; ++i)
                 {
@@ -153,7 +136,7 @@ namespace robot
                 return *this;
             }
 
-            constexpr Matrix<ROWS, COLS> &operator-=(const Matrix<ROWS, COLS> &other) noexcept
+            constexpr Matrix<ROWS, COLS>& operator-=(const Matrix<ROWS, COLS>& other) noexcept
             {
                 for (std::size_t i = 0; i < ROWS; ++i)
                 {
@@ -165,7 +148,7 @@ namespace robot
                 return *this;
             }
 
-            constexpr Matrix<ROWS, COLS> &operator*=(double scalar) noexcept
+            constexpr Matrix<ROWS, COLS>& operator*=(double scalar) noexcept
             {
                 for (std::size_t i = 0; i < ROWS; ++i)
                 {
@@ -177,7 +160,7 @@ namespace robot
                 return *this;
             }
 
-            constexpr Matrix<ROWS, COLS> &operator/=(double scalar) noexcept
+            constexpr Matrix<ROWS, COLS>& operator/=(double scalar) noexcept
             {
                 if (scalar != 0.0)
                 {
@@ -244,16 +227,16 @@ namespace robot
                 }
             }
 
-            constexpr double *dataPtr() noexcept
+            constexpr double* dataPtr() noexcept
             {
                 return &data[0][0];
             }
 
-            constexpr const double *dataPtr() const noexcept
+            constexpr const double* dataPtr() const noexcept
             {
                 return &data[0][0];
             }
         };
 
     } // namespace math
-} // namespace  robot
+} // namespace robot

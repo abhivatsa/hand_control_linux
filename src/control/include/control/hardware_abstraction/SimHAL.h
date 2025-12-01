@@ -1,148 +1,158 @@
 #pragma once
 
 #include <array>
-#include <cmath>
+#include <cstddef>
 #include <span>
 
-#include "merai/RTMemoryLayout.h"          // for merai::RTMemoryLayout, etc.
-#include "merai/ParameterServer.h"         // for merai::ParameterServer
-#include "merai/SharedLogger.h"            // for merai::multi_ring_logger_memory
-#include "control/hardware_abstraction/BaseHAL.h"  // for BaseHAL interface
+#include "merai/RTMemoryLayout.h"
+#include "merai/ParameterServer.h"
+#include "merai/SharedLogger.h"
 
-    namespace control
+#include "control/hardware_abstraction/BaseHAL.h"
+
+namespace control
+{
+    /**
+     * @brief Simple simulation HAL.
+     *
+     * - Keeps local joint command/feedback arrays in SI units.
+     * - Does NOT use fieldbus / servo PDOs.
+     * - Can optionally publish joint feedback into RT shared memory so other
+     *   processes can observe simulated motion/IO.
+     *
+     * It implements the same interface as RealHAL so Control.cpp doesn’t care
+     * whether we’re in sim or real mode.
+     */
+    class SimHAL : public BaseHAL
     {
-        /**
-         * @brief A simulation-based Hardware Abstraction Layer (HAL)
-         *        that mimics RealHAL but doesn't interact with real EtherCAT hardware.
-         */
-        class SimHAL : public BaseHAL
+    public:
+        SimHAL(merai::RTMemoryLayout           *rtLayout,
+               const merai::ParameterServer    *paramServerPtr,
+               merai::multi_ring_logger_memory *loggerMem);
+
+        ~SimHAL() override = default;
+
+        // --------------------------------------------------
+        // BaseHAL: lifecycle
+        // --------------------------------------------------
+        bool init()  override;
+        bool read()  override;
+        bool write() override;
+
+        // --------------------------------------------------
+        // BaseHAL: pointer access
+        // --------------------------------------------------
+        merai::JointControlCommand *getJointControlCommandPtr() override
         {
-        public:
-            SimHAL(merai::RTMemoryLayout* rtLayout,
-                   const merai::ParameterServer* paramServerPtr,
-                   merai::multi_ring_logger_memory* loggerMem);
+            return localJointControlCommand_.data();
+        }
 
-            ~SimHAL() override = default;
+        merai::JointControlFeedback *getJointControlFeedbackPtr() override
+        {
+            return localJointControlFeedback_.data();
+        }
 
-            // --------------------------------------------------------------------
-            // BaseHAL interface
-            // --------------------------------------------------------------------
-            bool init() override;
-            bool read() override;
-            bool write() override;
+        merai::JointMotionCommand *getJointMotionCommandPtr() override
+        {
+            return localJointMotionCommand_.data();
+        }
 
-            // ---------------------------
-            // Control-level data access
-            // ---------------------------
-            merai::JointControlCommand* getJointControlCommandPtr() override
-            {
-                return localJointControlCommand_.data();
-            }
+        merai::JointMotionFeedback *getJointMotionFeedbackPtr() override
+        {
+            return localJointMotionFeedback_.data();
+        }
 
-            merai::JointControlFeedback* getJointControlFeedbackPtr() override
-            {
-                return localJointControlFeedback_.data();
-            }
+        merai::JointFeedbackIO *getJointFeedbackIOPtr() override
+        {
+            return localJointFeedbackIO_.data();
+        }
 
-            // ---------------------------
-            // Motion-level data access
-            // ---------------------------
-            merai::JointMotionCommand* getJointMotionCommandPtr() override
-            {
-                return localJointMotionCommand_.data();
-            }
+        merai::JointCommandIO *getJointCommandIOPtr() override
+        {
+            return localJointCommandIO_.data();
+        }
 
-            merai::JointMotionFeedback* getJointMotionFeedbackPtr() override
-            {
-                return localJointMotionFeedback_.data();
-            }
+        // --------------------------------------------------
+        // BaseHAL: metadata
+        // --------------------------------------------------
+        std::size_t getDriveCount() const override
+        {
+            return static_cast<std::size_t>(driveCount_);
+        }
 
-            // ---------------------------
-            // IO data access
-            // ---------------------------
-            merai::JointFeedbackIO* getJointFeedbackIOPtr() override
-            {
-                return localJointFeedbackIO_.data();
-            }
+        // --------------------------------------------------
+        // BaseHAL: span-based access (used by Control.cpp)
+        // --------------------------------------------------
+        std::span<const merai::JointControlFeedback> jointControlFeedback() const override
+        {
+            return {
+                localJointControlFeedback_.data(),
+                static_cast<std::size_t>(driveCount_)
+            };
+        }
 
-            merai::JointCommandIO* getJointCommandIOPtr() override
-            {
-                return localJointCommandIO_.data();
-            }
+        std::span<const merai::JointMotionFeedback> jointMotionFeedback() const override
+        {
+            return {
+                localJointMotionFeedback_.data(),
+                static_cast<std::size_t>(driveCount_)
+            };
+        }
 
-            // --------------------------------------------------------------------
-            // Misc
-            // --------------------------------------------------------------------
-            size_t getDriveCount() const override
-            {
-                return driveCount_;
-            }
+        std::span<const merai::JointFeedbackIO> jointIOFeedback() const override
+        {
+            return {
+                localJointFeedbackIO_.data(),
+                static_cast<std::size_t>(driveCount_)
+            };
+        }
 
-            std::span<const merai::JointControlFeedback> jointControlFeedback() const override
-            {
-                return std::span<const merai::JointControlFeedback>(localJointControlFeedback_.data(), static_cast<std::size_t>(driveCount_));
-            }
+        std::span<merai::JointControlCommand> jointControlCommand() override
+        {
+            return {
+                localJointControlCommand_.data(),
+                static_cast<std::size_t>(driveCount_)
+            };
+        }
 
-            std::span<const merai::JointMotionFeedback> jointMotionFeedback() const override
-            {
-                return std::span<const merai::JointMotionFeedback>(localJointMotionFeedback_.data(), static_cast<std::size_t>(driveCount_));
-            }
+        std::span<merai::JointMotionCommand> jointMotionCommand() override
+        {
+            return {
+                localJointMotionCommand_.data(),
+                static_cast<std::size_t>(driveCount_)
+            };
+        }
 
-            std::span<const merai::JointFeedbackIO> jointIOFeedback() const override
-            {
-                return std::span<const merai::JointFeedbackIO>(localJointFeedbackIO_.data(), static_cast<std::size_t>(driveCount_));
-            }
+        // Publish feedback into RT SHM (optional but nice for tooling)
+        bool publishJointFeedbackToShm() override;
 
-            std::span<merai::JointControlCommand> jointControlCommand() override
-            {
-                return std::span<merai::JointControlCommand>(localJointControlCommand_.data(), static_cast<std::size_t>(driveCount_));
-            }
+    private:
+        void simulateDriveStateTransitions();
+        void simulateJointIOChanges();
 
-            std::span<merai::JointMotionCommand> jointMotionCommand() override
-            {
-                return std::span<merai::JointMotionCommand>(localJointMotionCommand_.data(), static_cast<std::size_t>(driveCount_));
-            }
+    private:
+        // References
+        merai::RTMemoryLayout           *rtLayout_       = nullptr;
+        const merai::ParameterServer    *paramServerPtr_ = nullptr;
+        merai::multi_ring_logger_memory *loggerMem_      = nullptr;
 
-            bool publishJointFeedbackToShm() override;
+        int driveCount_ = 0; // 0..7 for your arm
 
-        private:
-            // --------------------------------------------------------------------
-            // References to shared memory, config, logger (as needed)
-            // --------------------------------------------------------------------
-            merai::RTMemoryLayout*            rtLayout_       = nullptr;
-            const merai::ParameterServer*     paramServerPtr_ = nullptr;
-            merai::multi_ring_logger_memory*  loggerMem_      = nullptr;
+        // Local joint-level state
+        std::array<merai::JointControlCommand,
+                   merai::MAX_SERVO_DRIVES>   localJointControlCommand_{};
+        std::array<merai::JointControlFeedback,
+                   merai::MAX_SERVO_DRIVES>   localJointControlFeedback_{};
 
-            // Number of simulated drives/joints
-            int driveCount_ = 0;
+        std::array<merai::JointMotionCommand,
+                   merai::MAX_SERVO_DRIVES>   localJointMotionCommand_{};
+        std::array<merai::JointMotionFeedback,
+                   merai::MAX_SERVO_DRIVES>   localJointMotionFeedback_{};
 
-            // --------------------------------------------------------------------
-            // Joint-level arrays (simulation data)
-            // --------------------------------------------------------------------
+        std::array<merai::JointFeedbackIO,
+                   merai::MAX_SERVO_DRIVES>   localJointFeedbackIO_{};
+        std::array<merai::JointCommandIO,
+                   merai::MAX_SERVO_DRIVES>   localJointCommandIO_{};
+    };
 
-            // Control commands / feedback
-            std::array<merai::JointControlCommand,
-                       merai::MAX_SERVO_DRIVES>   localJointControlCommand_{};
-            std::array<merai::JointControlFeedback,
-                       merai::MAX_SERVO_DRIVES>   localJointControlFeedback_{};
-
-            // Motion commands / feedback (in SI units)
-            std::array<merai::JointMotionCommand,
-                       merai::MAX_SERVO_DRIVES>   localJointMotionCommand_{};
-            std::array<merai::JointMotionFeedback,
-                       merai::MAX_SERVO_DRIVES>   localJointMotionFeedback_{};
-
-            // Joint I/O (digital, analog, etc.)
-            std::array<merai::JointFeedbackIO,
-                       merai::MAX_SERVO_DRIVES>   localJointFeedbackIO_{};
-            std::array<merai::JointCommandIO,
-                       merai::MAX_SERVO_DRIVES>   localJointCommandIO_{};
-
-        private:
-            // --------------------------------------------------------------------
-            // Helpers for simulating behavior
-            // --------------------------------------------------------------------
-            void simulateDriveStateTransitions();
-            void simulateJointIOChanges();
-        };
-    } // namespace control
+} // namespace control

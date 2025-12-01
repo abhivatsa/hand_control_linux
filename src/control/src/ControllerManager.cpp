@@ -1,41 +1,27 @@
-#include <stdexcept> // for std::runtime_error
-#include <utility>
+#include <stdexcept>
+
 #include "control/ControllerManager.h"
-#include "control/controllers/BaseController.h"
 
 namespace control
 {
-
-    ControllerManager::ControllerManager(
-        const merai::ParameterServer *paramServerPtr,
-        std::size_t jointCount,
-        merai::multi_ring_logger_memory *loggerMem,
-        double loopPeriodSec)
-        : paramServerPtr_(paramServerPtr),
-          jointCount_(jointCount),
-          loggerMem_(loggerMem),
-          defaultDtSec_(loopPeriodSec)
+    ControllerManager::ControllerManager(std::size_t jointCount,
+                                         merai::multi_ring_logger_memory *loggerMem)
+        : jointCount_(jointCount),
+          loggerMem_(loggerMem)
     {
-        if (!paramServerPtr_)
-        {
-            throw std::runtime_error("ControllerManager: Null paramServer pointer.");
-        }
-
-        merai::log_info(loggerMem_, "Control", 2100, "[ControllerManager] jointcount initialized");
-
         if (jointCount_ == 0)
         {
             throw std::runtime_error("ControllerManager: Invalid jointCount.");
         }
 
-        // Default compatibility and fallback policies
-        modePolicy_.allowedModes = {8, 10, -3};
+        if (loggerMem_)
+        {
+            merai::log_info(loggerMem_, "Control", 2100,
+                            "[ControllerManager] jointCount initialized");
+        }
     }
 
-    ControllerManager::~ControllerManager()
-    {
-        // Cleanup if needed
-    }
+    ControllerManager::~ControllerManager() = default;
 
     bool ControllerManager::registerController(merai::ControllerID id,
                                                std::shared_ptr<BaseController> controller,
@@ -48,7 +34,7 @@ namespace control
 
         ControllerRegistration registration{};
         registration.controller = std::move(controller);
-        registration.modeHint = modeHint;
+        registration.modeHint   = modeHint;
 
         auto result = registry_.emplace(id, std::move(registration));
         return result.second;
@@ -59,22 +45,15 @@ namespace control
         fallbackPolicy_ = policy;
     }
 
-    void ControllerManager::setModeCompatibilityPolicy(const ModeCompatibilityPolicy &policy)
-    {
-        modePolicy_ = policy;
-    }
-
     bool ControllerManager::init()
     {
-        // Validate pointers
-        if (!paramServerPtr_ || jointCount_ == 0)
+        if (jointCount_ == 0)
         {
             return false;
         }
 
         bool success = true;
 
-        // Initialize all registered controllers
         for (auto &entry : registry_)
         {
             if (entry.second.controller && !entry.second.controller->init())
@@ -83,95 +62,33 @@ namespace control
             }
         }
 
-        // By default, we can stay with no active controller => fallback
-        active_controller_ = nullptr;
-        activeControllerId_ = merai::ControllerID::NONE;
-        switchResult_ = merai::ControllerSwitchResult::IDLE;
+        active_controller_    = nullptr;
+        activeControllerId_   = merai::ControllerID::NONE;
+        switchResult_         = merai::ControllerSwitchResult::IDLE;
+        switchPhase_          = SwitchPhase::NONE;
+        pendingController_    = nullptr;
+        pendingControllerId_  = merai::ControllerID::NONE;
 
         return success;
     }
 
     void ControllerManager::update(const ControlCycleInputs &in,
-                                   ControlCycleOutputs &out)
+                                   ControlCycleOutputs       &out)
     {
-        double dt = defaultDtSec_;
-        if (hasLastTimestamp_)
-        {
-            dt = std::chrono::duration<double>(in.timestamp - lastTimestamp_).count();
-        }
-        lastTimestamp_ = in.timestamp;
-        hasLastTimestamp_ = true;
+        constexpr double dt = 1.0 / 1000.0; // fixed 1 kHz
 
         if (in.ctrlCmd.requestSwitch)
         {
-            target_controller_id_ = in.ctrlCmd.controllerId;
-            switch_pending_.store(true);
+            handleSwitchCommand(in.ctrlCmd);
         }
 
-        if (switch_pending_.exchange(false))
-        {
-            switchResult_ = merai::ControllerSwitchResult::IN_PROGRESS;
-            auto registration = findControllerById(target_controller_id_);
-            if (!registration || !registration->controller)
-            {
-                switchResult_ = merai::ControllerSwitchResult::FAILED;
-            }
-            else if (!isModeCompatible(registration->modeHint))
-            {
-                switchResult_ = merai::ControllerSwitchResult::FAILED;
-            }
-            else if (registration->controller == active_controller_)
-            {
-                activeControllerId_ = target_controller_id_;
-                switchResult_ = merai::ControllerSwitchResult::SUCCEEDED;
-            }
-            else
-            {
-                if (active_controller_)
-                {
-                    active_controller_->stop();
-                }
-                applySafeFallback(in.jointMotionFbk, out.jointMotionCmd);
-
-                if (!registration->controller->start(in.jointMotionFbk, out.jointMotionCmd))
-                {
-                    active_controller_ = nullptr;
-                    activeControllerId_ = merai::ControllerID::NONE;
-                    switchResult_ = merai::ControllerSwitchResult::FAILED;
-                }
-                else
-                {
-                    active_controller_ = registration->controller;
-                    activeControllerId_ = target_controller_id_;
-                    switchResult_ = merai::ControllerSwitchResult::SUCCEEDED;
-                }
-            }
-        }
-
-        if (active_controller_)
-        {
-            active_controller_->update(in.jointMotionFbk, out.jointMotionCmd, dt);
-        }
-        else
-        {
-            applySafeFallback(in.jointMotionFbk, out.jointMotionCmd);
-            activeControllerId_ = merai::ControllerID::NONE;
-        }
-
-        if (active_controller_ && switchResult_ == merai::ControllerSwitchResult::IDLE)
-        {
-            switchResult_ = merai::ControllerSwitchResult::SUCCEEDED;
-        }
-        if (!active_controller_ && switchResult_ == merai::ControllerSwitchResult::SUCCEEDED)
-        {
-            switchResult_ = merai::ControllerSwitchResult::IDLE;
-        }
-
+        advanceSwitchStateMachine(in, out);
+        runActiveController(in, out, dt);
         populateFeedback(out.ctrlFbk);
     }
 
     void ControllerManager::applySafeFallback(std::span<const merai::JointMotionFeedback> motionFbk,
-                                              std::span<merai::JointMotionCommand> motionCmd)
+                                              std::span<merai::JointMotionCommand>       motionCmd)
     {
         for (std::size_t i = 0; i < jointCount_; ++i)
         {
@@ -179,12 +96,13 @@ namespace control
             {
                 continue;
             }
-            auto &cmd = motionCmd[i];
+
+            auto       &cmd = motionCmd[i];
             const auto &fbk = motionFbk[i];
 
-            cmd.modeOfOperation = static_cast<uint8_t>(fallbackPolicy_.modeOfOperation);
-            cmd.targetPosition = fbk.positionActual;
-            cmd.targetTorque = 0.0;
+            cmd.modeOfOperation = static_cast<std::uint8_t>(fallbackPolicy_.modeOfOperation);
+            cmd.targetPosition  = fbk.positionActual;
+            cmd.targetTorque    = 0.0;
 
             if (fallbackPolicy_.behavior == FallbackPolicy::Behavior::ZeroTorque)
             {
@@ -201,7 +119,8 @@ namespace control
         }
     }
 
-    ControllerManager::ControllerRegistration *ControllerManager::findControllerById(merai::ControllerID id)
+    ControllerManager::ControllerRegistration *
+    ControllerManager::findControllerById(merai::ControllerID id)
     {
         auto it = registry_.find(id);
         if (it == registry_.end())
@@ -211,20 +130,179 @@ namespace control
         return &it->second;
     }
 
-    bool ControllerManager::isModeCompatible(int candidateMode) const
+    void ControllerManager::handleSwitchCommand(const merai::ControllerCommand &cmd)
     {
-        return modePolicy_.isCompatible(candidateMode);
+        if (switchPhase_ != SwitchPhase::NONE)
+        {
+            return;
+        }
+
+        if (cmd.controllerId == activeControllerId_)
+        {
+            switchResult_ = merai::ControllerSwitchResult::SUCCEEDED;
+            return;
+        }
+
+        auto registration = findControllerById(cmd.controllerId);
+        if (!registration || !registration->controller)
+        {
+            switchResult_       = merai::ControllerSwitchResult::FAILED;
+            pendingController_  = nullptr;
+            pendingControllerId_ = merai::ControllerID::NONE;
+            return;
+        }
+
+        pendingController_   = registration->controller.get();
+        pendingControllerId_ = cmd.controllerId;
+        switchResult_        = merai::ControllerSwitchResult::IN_PROGRESS;
+
+        if (active_controller_)
+        {
+            active_controller_->requestStop();
+            switchPhase_ = SwitchPhase::STOPPING_OLD;
+        }
+        else
+        {
+            switchPhase_ = SwitchPhase::STARTING_NEW;
+        }
+    }
+
+    void ControllerManager::advanceSwitchStateMachine(const ControlCycleInputs &in,
+                                                      ControlCycleOutputs       &out)
+    {
+        switch (switchPhase_)
+        {
+        case SwitchPhase::NONE:
+            if (switchResult_ == merai::ControllerSwitchResult::SUCCEEDED)
+            {
+                switchResult_ = merai::ControllerSwitchResult::IDLE;
+            }
+            return;
+
+        case SwitchPhase::STOPPING_OLD:
+            if (!active_controller_)
+            {
+                switchPhase_ = SwitchPhase::STARTING_NEW;
+                break;
+            }
+            else
+            {
+                const auto state = active_controller_->state();
+                if (state == ControllerState::STOPPED ||
+                    state == ControllerState::ERROR)
+                {
+                    active_controller_  = nullptr;
+                    activeControllerId_ = merai::ControllerID::NONE;
+                    switchPhase_        = SwitchPhase::STARTING_NEW;
+                }
+            }
+            break;
+
+        case SwitchPhase::STARTING_NEW:
+            startPendingController(in, out);
+
+            if (switchPhase_ != SwitchPhase::STARTING_NEW)
+            {
+                break;
+            }
+
+            if (active_controller_)
+            {
+                const auto state = active_controller_->state();
+
+                if (state == ControllerState::RUNNING)
+                {
+                    switchPhase_        = SwitchPhase::NONE;
+                    switchResult_       = merai::ControllerSwitchResult::SUCCEEDED;
+                    pendingController_  = nullptr;
+                    pendingControllerId_ = merai::ControllerID::NONE;
+                }
+                else if (state == ControllerState::ERROR)
+                {
+                    switchPhase_        = SwitchPhase::NONE;
+                    switchResult_       = merai::ControllerSwitchResult::FAILED;
+
+                    pendingController_   = nullptr;
+                    pendingControllerId_ = merai::ControllerID::NONE;
+                    active_controller_   = nullptr;
+                    activeControllerId_  = merai::ControllerID::NONE;
+
+                    applySafeFallback(in.jointMotionFbk, out.jointMotionCmd);
+                }
+            }
+            break;
+        }
+    }
+
+    void ControllerManager::startPendingController(const ControlCycleInputs &in,
+                                                   ControlCycleOutputs       &out)
+    {
+        if (!pendingController_)
+        {
+            switchResult_        = merai::ControllerSwitchResult::FAILED;
+            switchPhase_         = SwitchPhase::NONE;
+            pendingControllerId_ = merai::ControllerID::NONE;
+            return;
+        }
+
+        if (active_controller_ == pendingController_)
+        {
+            return;
+        }
+
+        if (!pendingController_->start(in.jointMotionFbk, out.jointMotionCmd))
+        {
+            switchResult_        = merai::ControllerSwitchResult::FAILED;
+            switchPhase_         = SwitchPhase::NONE;
+
+            pendingController_   = nullptr;
+            pendingControllerId_ = merai::ControllerID::NONE;
+
+            active_controller_   = nullptr;
+            activeControllerId_  = merai::ControllerID::NONE;
+
+            applySafeFallback(in.jointMotionFbk, out.jointMotionCmd);
+            return;
+        }
+
+        active_controller_   = pendingController_;
+        activeControllerId_  = pendingControllerId_;
+    }
+
+    void ControllerManager::runActiveController(const ControlCycleInputs &in,
+                                                ControlCycleOutputs       &out,
+                                                double                    dt)
+    {
+        if (!active_controller_)
+        {
+            applySafeFallback(in.jointMotionFbk, out.jointMotionCmd);
+            activeControllerId_ = merai::ControllerID::NONE;
+            return;
+        }
+
+        const auto state = active_controller_->state();
+
+        if (state == ControllerState::STOPPED ||
+            state == ControllerState::ERROR)
+        {
+            applySafeFallback(in.jointMotionFbk, out.jointMotionCmd);
+            active_controller_   = nullptr;
+            activeControllerId_  = merai::ControllerID::NONE;
+            return;
+        }
+
+        active_controller_->update(in.jointMotionFbk, out.jointMotionCmd, dt);
     }
 
     void ControllerManager::populateFeedback(merai::ControllerFeedback &feedback) const
     {
         feedback.activeControllerId = activeControllerId_;
-        feedback.switchResult = switchResult_;
-        feedback.feedbackState = toLegacyFeedbackState(switchResult_);
+        feedback.switchResult       = switchResult_;
+        feedback.feedbackState      = toLegacyFeedbackState(switchResult_);
     }
 
-    merai::ControllerFeedbackState ControllerManager::toLegacyFeedbackState(
-        merai::ControllerSwitchResult result) const
+    merai::ControllerFeedbackState
+    ControllerManager::toLegacyFeedbackState(merai::ControllerSwitchResult result) const
     {
         using merai::ControllerFeedbackState;
         using merai::ControllerSwitchResult;

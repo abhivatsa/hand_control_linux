@@ -4,109 +4,124 @@
 
 namespace control
 {
+    namespace
+    {
+        // CiA‑402 modes (as used by RealHAL)
+        constexpr std::uint8_t MODE_CSP = 8;   // Cyclic Synchronous Position
+        constexpr std::uint8_t MODE_CST = 10;  // Cyclic Synchronous Torque
+    }
+
     GravityCompController::GravityCompController(const robot_lib::RobotModel &model,
                                                  std::size_t numJoints)
         : numJoints_(numJoints),
           model_(model),
           dynamics_(model)
     {
-        // Constructor only stores references and parameters. No heavy logic here.
+        // Constructor: just store references, no heavy work.
     }
 
     bool GravityCompController::init()
     {
-        // Validate parameters
         if (numJoints_ == 0)
         {
-            return false; // or handle error
+            // Nothing to control -> fail init so Manager won't use us.
+            return false;
         }
 
-        state_ = ControllerState::INIT;
+        state_ = ControllerState::STOPPED;
         return true;
     }
 
     bool GravityCompController::start(std::span<const merai::JointMotionFeedback> /*motionFbk*/,
                                       std::span<merai::JointMotionCommand> motionCmd)
     {
-        // Transition to RUNNING if allowed
-        if (state_ == ControllerState::INIT || state_ == ControllerState::STOPPED)
-        {
-            state_ = ControllerState::RUNNING;
-        }
-        else
+        // Only allow start from INACTIVE/STOPPED for now.
+        if (state_ != ControllerState::STOPPED &&
+            state_ != ControllerState::INACTIVE)
         {
             return false;
         }
 
-        for (int i = 0; i < static_cast<int>(numJoints_) && i < static_cast<int>(motionCmd.size()); ++i)
+        const std::size_t n = std::min(numJoints_, motionCmd.size());
+        for (std::size_t i = 0; i < n; ++i)
         {
-            motionCmd[static_cast<std::size_t>(i)].modeOfOperation = -3;
+            // Put drives into torque mode with zero torque at start.
+            motionCmd[i].modeOfOperation = MODE_CST;
+            motionCmd[i].targetTorque    = 0.0;
+            // targetPosition left at whatever zeroJointCommands() set (typically 0).
         }
+
+        state_ = ControllerState::RUNNING;
         return true;
     }
 
     void GravityCompController::update(std::span<const merai::JointMotionFeedback> motionFbk,
                                        std::span<merai::JointMotionCommand> motionCmd,
-                                       double dt)
+                                       double /*dt*/)
     {
-        // Only compute torques if RUNNING
         if (state_ != ControllerState::RUNNING)
         {
             return;
         }
 
-        // Use the robot dynamics model for gravity compensation.
         using robot::math::Vector;
 
-        const int maxDof = static_cast<int>(robot_lib::RobotModel::NUM_JOINTS);
-        int dof = static_cast<int>(std::min<std::size_t>(numJoints_, motionFbk.size()));
-        dof = std::min(dof, maxDof);
+        constexpr int MAX_DOF = static_cast<int>(robot_lib::RobotModel::NUM_JOINTS);
+
+        // Effective DOF for this cycle: limited by controller config, spans, and model.
+        int dof = static_cast<int>(std::min(numJoints_, motionFbk.size()));
+        dof     = std::min(dof, static_cast<int>(motionCmd.size()));
+        dof     = std::min(dof, MAX_DOF);
+
+        if (dof <= 0)
+        {
+            return;
+        }
 
         Vector<7> jointAngles;
         Vector<7> jointVel;
         Vector<7> jointAcc;
         jointAngles.setZero();
         jointVel.setZero();
-        jointAcc.setZero(); // for pure gravity comp, assume zero acceleration
+        jointAcc.setZero(); // pure gravity comp: assume zero acceleration
 
-        // 1) Read joint positions & velocities into your math vectors
+        // 1) Copy feedback into math vectors
         for (int i = 0; i < dof; ++i)
         {
-            jointAngles[i] = motionFbk[static_cast<std::size_t>(i)].positionActual;
-            jointVel[i] = motionFbk[static_cast<std::size_t>(i)].velocityActual;
+            const auto &fbk = motionFbk[static_cast<std::size_t>(i)];
+            jointAngles[i] = fbk.positionActual;
+            jointVel[i]    = fbk.velocityActual;
         }
 
-        // 2) Compute inverse dynamics
+        // 2) Inverse dynamics (gravity term)
         Vector<7> outTorques;
         outTorques.setZero();
 
         int ret = dynamics_.computeInverseDynamics(jointAngles, jointVel, jointAcc, outTorques);
         if (ret != 0)
         {
-            // fallback: zero torques if there's an error code
+            // On failure: keep drives in torque mode but command zero torque.
             for (int i = 0; i < dof; ++i)
             {
-                if (i < static_cast<int>(motionCmd.size()))
-                {
-                    motionCmd[static_cast<std::size_t>(i)].targetTorque = 0.0;
-                }
+                auto &cmd = motionCmd[static_cast<std::size_t>(i)];
+                cmd.modeOfOperation = MODE_CST;
+                cmd.targetTorque    = 0.0;
             }
             return;
         }
 
-        // 3) Write torques to the command array
+        // 3) Write torque commands back into motionCmd
         for (int i = 0; i < dof; ++i)
         {
-            if (i < static_cast<int>(motionCmd.size()))
-            {
-                motionCmd[static_cast<std::size_t>(i)].targetTorque = gravityScale_ * outTorques[i];
-            }
+            auto &cmd = motionCmd[static_cast<std::size_t>(i)];
+            cmd.modeOfOperation = MODE_CST;
+            cmd.targetTorque    = gravityScale_ * outTorques[i];
+            // targetPosition remains unused in CST (RealHAL sets servo targetPosition=0 for mode 10).
         }
     }
 
     void GravityCompController::stop()
     {
-        // Transition to STOPPED if running
         if (state_ == ControllerState::RUNNING)
         {
             state_ = ControllerState::STOPPED;
@@ -115,8 +130,8 @@ namespace control
 
     void GravityCompController::teardown()
     {
-        // Cleanup if needed
-        state_ = ControllerState::UNINIT;
+        // Any final cleanup can go here if needed later.
+        state_ = ControllerState::INACTIVE;
     }
 
 } // namespace control

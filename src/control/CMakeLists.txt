@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(seven_axis_robot_control VERSION 1.0.0 LANGUAGES CXX)
+project(control VERSION 1.0.0 LANGUAGES CXX)
 
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
@@ -20,7 +20,7 @@ endif()
 # 2) Build the control library
 #    The sources below come from "control/src/..."
 #
-add_library(seven_axis_robot_control_lib STATIC
+add_library(control_lib STATIC
     src/Control.cpp
     src/ControllerManager.cpp
     src/DriveStateManager.cpp
@@ -37,25 +37,25 @@ add_library(seven_axis_robot_control_lib STATIC
 #
 # 3) Require C++20 (for std::span, etc.)
 #
-target_compile_features(seven_axis_robot_control_lib PUBLIC cxx_std_20)
+target_compile_features(control_lib PUBLIC cxx_std_20)
 
 #
 #
 # 4) Include paths for local headers
 #    (Installs to a unique directory to avoid collisions)
 #    Build interface: control/include
-#    Install interface: ${CMAKE_INSTALL_INCLUDEDIR}/seven_axis_robot_control
+#    Install interface: ${CMAKE_INSTALL_INCLUDEDIR}/control
 #
-target_include_directories(seven_axis_robot_control_lib
+target_include_directories(control_lib
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/seven_axis_robot_control>
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/control>
 )
 
 #
 # 5) Link with core (single library) and merai
 #
-target_link_libraries(seven_axis_robot_control_lib
+target_link_libraries(control_lib
     PUBLIC
         robot_core::core
         merai::merai
@@ -64,12 +64,12 @@ target_link_libraries(seven_axis_robot_control_lib
 #
 # 6) Optional main executable from "control/src/main.cpp"
 #
-add_executable(seven_axis_robot_control_exe
+add_executable(control
     src/main.cpp
 )
-target_link_libraries(seven_axis_robot_control_exe
+target_link_libraries(control
     PRIVATE
-        seven_axis_robot_control_lib
+        control_lib
 )
 
 include(CTest)
@@ -77,14 +77,14 @@ if(BUILD_TESTING)
     add_executable(controller_manager_tests
         tests/ControllerManagerTests.cpp
     )
-    target_link_libraries(controller_manager_tests PRIVATE seven_axis_robot_control_lib)
+    target_link_libraries(controller_manager_tests PRIVATE control_lib)
     add_test(NAME controller_manager_tests COMMAND controller_manager_tests)
 endif()
 
 #
 # 7) Install the library & executable
 #
-install(TARGETS seven_axis_robot_control_lib seven_axis_robot_control_exe
+install(TARGETS control_lib control
     EXPORT ControlTargets
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
@@ -92,44 +92,44 @@ install(TARGETS seven_axis_robot_control_lib seven_axis_robot_control_exe
 )
 
 #
-# 8) Install the headers under /usr/include/seven_axis_robot_control
+# 8) Install the headers under /usr/include/control
 #
 install(
     DIRECTORY include/
-    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/seven_axis_robot_control
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/control
 )
 
 #
-# 9) CMake package export (supports find_package(seven_axis_robot_control))
+# 9) CMake package export (supports find_package(control))
 #    and a version file similar to other modules.
 #
-set(CONTROL_CMAKE_CONFIG_DIR "${CMAKE_INSTALL_LIBDIR}/cmake/seven_axis_robot_control")
+set(CONTROL_CMAKE_CONFIG_DIR "${CMAKE_INSTALL_LIBDIR}/cmake/control")
 
 install(
     EXPORT ControlTargets
-    FILE seven_axis_robot_controlTargets.cmake
-    NAMESPACE seven_axis_robot_control::
+    FILE controlTargets.cmake
+    NAMESPACE control::
     DESTINATION ${CONTROL_CMAKE_CONFIG_DIR}
 )
 
 configure_package_config_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/cmake/seven_axis_robot_controlConfig.cmake.in
-    ${CMAKE_CURRENT_BINARY_DIR}/seven_axis_robot_controlConfig.cmake
+    ${CMAKE_CURRENT_SOURCE_DIR}/cmake/controlConfig.cmake.in
+    ${CMAKE_CURRENT_BINARY_DIR}/controlConfig.cmake
     INSTALL_DESTINATION ${CONTROL_CMAKE_CONFIG_DIR}
     NO_SET_AND_CHECK_MACRO
     NO_CHECK_REQUIRED_COMPONENTS_MACRO
 )
 
 write_basic_package_version_file(
-    ${CMAKE_CURRENT_BINARY_DIR}/seven_axis_robot_controlConfigVersion.cmake
+    ${CMAKE_CURRENT_BINARY_DIR}/controlConfigVersion.cmake
     VERSION ${PROJECT_VERSION}
     COMPATIBILITY SameMajorVersion
 )
 
 install(
     FILES
-        ${CMAKE_CURRENT_BINARY_DIR}/seven_axis_robot_controlConfig.cmake
-        ${CMAKE_CURRENT_BINARY_DIR}/seven_axis_robot_controlConfigVersion.cmake
+        ${CMAKE_CURRENT_BINARY_DIR}/controlConfig.cmake
+        ${CMAKE_CURRENT_BINARY_DIR}/controlConfigVersion.cmake
     DESTINATION ${CONTROL_CMAKE_CONFIG_DIR}
 )
 

@@ -1,48 +1,55 @@
-#include <iostream>
-#include <stdexcept>
-#include <thread>
-#include <chrono>
-#include <sched.h>
-#include <sys/mman.h>
+#include "fieldbus/EthercatMaster.h"
+
 #include <algorithm>
 #include <cassert>
+#include <chrono>
+#include <iostream>
+#include <sched.h>
+#include <stdexcept>
+#include <sys/mman.h>
+#include <thread>
+#include <time.h>
 
-#include "fieldbus/EthercatMaster.h"
 #include "fieldbus/drives/ServoDrive.h"
 #include "fieldbus/drives/IODrive.h"
 #include "merai/RTIpc.h"
 
 namespace fieldbus
 {
-    EthercatMaster::EthercatMaster(const std::string &paramServerShmName,
-                                   size_t paramServerShmSize,
-                                   const std::string &rtDataShmName,
-                                   size_t rtDataShmSize,
-                                   const std::string &loggerShmName,
-                                   size_t loggerShmSize)
-        // We open ParameterServer in read-only mode (true), RTMemory read/write (false), etc.
-        : configShm_(paramServerShmName, paramServerShmSize, true),
-          rtDataShm_(rtDataShmName, rtDataShmSize, false),
-          loggerShm_(loggerShmName, loggerShmSize, false)
+
+    EthercatMaster::EthercatMaster(const std::string& paramServerShmName,
+                                   std::size_t        paramServerShmSize,
+                                   const std::string& rtDataShmName,
+                                   std::size_t        rtDataShmSize,
+                                   const std::string& loggerShmName,
+                                   std::size_t        loggerShmSize)
+        // ParameterServer read-only; RT + Logger read/write
+        : configShm_(paramServerShmName, paramServerShmSize, /*readOnly=*/true),
+          rtDataShm_(rtDataShmName,      rtDataShmSize,      /*readOnly=*/false),
+          loggerShm_(loggerShmName,      loggerShmSize,      /*readOnly=*/false)
     {
-        configPtr_ = reinterpret_cast<const merai::ParameterServer *>(configShm_.getPtr());
+        configPtr_ = static_cast<const merai::ParameterServer*>(configShm_.getPtr());
         if (!configPtr_)
         {
             throw std::runtime_error("EthercatMaster: failed to map ParameterServer memory.");
         }
+        if (configPtr_->magic != merai::PARAM_SERVER_MAGIC ||
+            configPtr_->version != merai::PARAM_SERVER_VERSION)
+        {
+            throw std::runtime_error("EthercatMaster: ParameterServer magic/version mismatch.");
+        }
 
-        rtLayout_ = reinterpret_cast<merai::RTMemoryLayout *>(rtDataShm_.getPtr());
+        rtLayout_ = static_cast<merai::RTMemoryLayout*>(rtDataShm_.getPtr());
         if (!rtLayout_)
         {
             throw std::runtime_error("EthercatMaster: failed to map RTMemoryLayout memory.");
         }
-        if (rtLayout_->magic != merai::RT_MEMORY_MAGIC ||
-            rtLayout_->version != merai::RT_MEMORY_VERSION)
+        if (!merai::validate_rt_layout(rtLayout_))
         {
-            throw std::runtime_error("EthercatMaster: RTMemoryLayout integrity check failed (magic/version mismatch).");
+            throw std::runtime_error("EthercatMaster: RTMemoryLayout integrity check failed.");
         }
 
-        loggerMem_ = reinterpret_cast<merai::multi_ring_logger_memory *>(loggerShm_.getPtr());
+        loggerMem_ = static_cast<merai::multi_ring_logger_memory*>(loggerShm_.getPtr());
         if (!loggerMem_)
         {
             throw std::runtime_error("EthercatMaster: failed to map Logger shared memory.");
@@ -60,7 +67,10 @@ namespace fieldbus
             master_ = nullptr;
         }
 
-        log_info(loggerMem_, "Fieldbus", 999, "EthercatMaster destructor called");
+        if (loggerMem_)
+        {
+            merai::log_info(loggerMem_, "Fieldbus", 999, "EthercatMaster destructor called");
+        }
     }
 
     bool EthercatMaster::initializeMaster()
@@ -71,7 +81,21 @@ namespace fieldbus
             return false;
         }
 
-        // loopPeriodNs defaults to 1 ms (configurable in future if needed).
+        if (configPtr_->driveCount <= 0)
+        {
+            merai::log_error(loggerMem_, "Fieldbus", 104, "No drives found in ParameterServer");
+            return false;
+        }
+
+        // Clamp to what RT layout supports, just in case.
+        const int driveCount =
+            std::min<int>(configPtr_->driveCount, static_cast<int>(merai::MAX_SERVO_DRIVES));
+
+        if (driveCount != configPtr_->driveCount)
+        {
+            merai::log_warn(loggerMem_, "Fieldbus", 105,
+                            "driveCount exceeds MAX_SERVO_DRIVES; some drives will be ignored");
+        }
 
         master_ = ecrt_request_master(0);
         if (!master_)
@@ -87,29 +111,23 @@ namespace fieldbus
             return false;
         }
 
-        if (configPtr_->driveCount <= 0)
-        {
-            merai::log_error(loggerMem_, "Fieldbus", 104, "No drives found in ParameterServer");
-            return false;
-        }
-
-        int driveCount = configPtr_->driveCount;
-
-        // Create and configure each drive
+        // Create and configure each supported drive
         for (int i = 0; i < driveCount; ++i)
         {
-            const merai::DriveConfig &driveCfg = configPtr_->drives[i];
+            const merai::DriveConfig& driveCfg = configPtr_->drives[i];
 
-            uint16_t alias = static_cast<uint16_t>(driveCfg.alias);
-            uint16_t position = static_cast<uint16_t>(driveCfg.position);
-            uint32_t vendor_id = driveCfg.vendor_id;
-            uint32_t product_code = driveCfg.product_code;
+            const std::uint16_t alias        = driveCfg.alias;
+            const std::uint16_t position     = driveCfg.position;
+            const std::uint32_t vendor_id    = driveCfg.vendor_id;
+            const std::uint32_t product_code = driveCfg.product_code;
 
-            ec_slave_config_t *sc = ecrt_master_slave_config(
+            ec_slave_config_t* sc = ecrt_master_slave_config(
                 master_, alias, position, vendor_id, product_code);
+
             if (!sc)
             {
-                merai::log_error(loggerMem_, "Fieldbus", 106, "Failed to get slave config for a drive");
+                merai::log_error(loggerMem_, "Fieldbus", 106,
+                                 "Failed to get slave config for a drive");
                 return false;
             }
 
@@ -122,6 +140,7 @@ namespace fieldbus
                     domain_,
                     loggerMem_);
                 break;
+
             case merai::DriveType::Io:
                 drives_[i] = std::make_unique<IoDrive>(
                     driveCfg,
@@ -129,15 +148,17 @@ namespace fieldbus
                     domain_,
                     loggerMem_);
                 break;
+
             default:
                 merai::log_error(loggerMem_, "Fieldbus", 107, "Unknown drive type in config");
                 return false;
             }
         }
 
-        // Configure PDOs for all drives
-        for (auto &drive : drives_)
+        // Configure PDOs for all valid drives
+        for (int i = 0; i < driveCount; ++i)
         {
+            auto& drive = drives_[i];
             if (drive)
             {
                 drive->initialize();
@@ -156,6 +177,13 @@ namespace fieldbus
 
     void EthercatMaster::run()
     {
+        if (!master_ || !domain_)
+        {
+            merai::log_error(loggerMem_, "Fieldbus", 114,
+                             "run() called before initializeMaster()");
+            return;
+        }
+
         if (ecrt_master_activate(master_))
         {
             merai::log_error(loggerMem_, "Fieldbus", 110, "Failed to activate EtherCAT master");
@@ -165,34 +193,42 @@ namespace fieldbus
         domainPd_ = ecrt_domain_data(domain_);
         if (!domainPd_)
         {
-            merai::log_error(loggerMem_, "Fieldbus", 111, "Failed to get domain data pointer");
+            merai::log_error(loggerMem_, "Fieldbus", 111,
+                             "Failed to get domain data pointer");
             return;
         }
 
         running_ = true;
-        merai::log_info(loggerMem_, "Fieldbus", 112, "Entering EthercatMaster cyclicTask");
+        merai::log_info(loggerMem_, "Fieldbus", 112,
+                        "Entering EthercatMaster cyclicTask");
         cyclicTask();
-        merai::log_info(loggerMem_, "Fieldbus", 113, "Exiting EthercatMaster cyclicTask");
+        merai::log_info(loggerMem_, "Fieldbus", 113,
+                        "Exiting EthercatMaster cyclicTask");
     }
 
     void EthercatMaster::stop()
     {
         running_ = false;
-        merai::log_warn(loggerMem_, "Fieldbus", 200, "EthercatMaster stop() called, stopping RT loop");
+        merai::log_warn(loggerMem_, "Fieldbus", 200,
+                        "EthercatMaster stop() called, stopping RT loop");
     }
 
     void EthercatMaster::cyclicTask()
     {
         assert(rtLayout_);
-        period_info pinfo;
+        period_info pinfo{};
         periodic_task_init(&pinfo, loopPeriodNs);
-        const int driveCount = configPtr_ ? std::min(configPtr_->driveCount, merai::MAX_SERVO_DRIVES) : 0;
+
+        const int driveCount =
+            (configPtr_)
+                ? std::min<int>(configPtr_->driveCount, static_cast<int>(merai::MAX_SERVO_DRIVES))
+                : 0;
 
         while (running_)
         {
-            // PHASE 1: Determine buffer indices for this cycle (Tx owned by fieldbus; Rx consumed from control)
+            // PHASE 1: Determine buffer index for this cycle (fieldbus owns servoTxBuffer)
             const int servoTxBackIdx = merai::back_index(rtLayout_->servoTxBuffer);
-            auto &txBuf = rtLayout_->servoTxBuffer.buffer[servoTxBackIdx];
+            auto&     txBuf          = rtLayout_->servoTxBuffer.buffer[servoTxBackIdx];
 
             FieldbusCycleOutputs cycleOutputs{
                 txBuf.data(),
@@ -200,7 +236,9 @@ namespace fieldbus
 
             // PHASE 2: Snapshot servoRxBuffer (commands from Control)
             merai::read_snapshot(rtLayout_->servoRxBuffer, servoRxShadow_);
-            for (int i = driveCount; i < merai::MAX_SERVO_DRIVES; ++i)
+
+            // Clear any commands beyond active driveCount
+            for (int i = driveCount; i < static_cast<int>(merai::MAX_SERVO_DRIVES); ++i)
             {
                 servoRxShadow_[i] = merai::ServoRxPdo{};
             }
@@ -209,68 +247,90 @@ namespace fieldbus
                 servoRxShadow_.data(),
                 static_cast<std::size_t>(driveCount)};
 
+            // PHASE 3: Receive latest EtherCAT data
             if (ecrt_master_receive(master_) < 0)
             {
+                merai::log_error(loggerMem_, "Fieldbus", 210,
+                                 "ecrt_master_receive failed");
                 break;
             }
+
             ecrt_domain_process(domain_);
 
             if (!domainPd_)
             {
+                merai::log_error(loggerMem_, "Fieldbus", 211,
+                                 "domainPd_ is null in cyclicTask");
                 break;
             }
 
-            // PHASE 4: Read inputs from all drives (EtherCAT -> local Tx PDOs -> shared memory frame)
+            // PHASE 4: Read inputs from all drives (EtherCAT -> local Tx PDOs -> shared memory)
             for (int i = 0; i < driveCount; ++i)
             {
-                auto &drive = drives_[i];
-                if (drive)
+                auto& drive = drives_[i];
+                if (!drive)
                 {
-                    drive->readInputs(domainPd_);
-                    if (cycleOutputs.txPdos)
-                    {
-                        cycleOutputs.txPdos[i] = static_cast<ServoDrive *>(drive.get())->txPdo();
-                    }
+                    continue;
+                }
+
+                drive->readInputs(domainPd_);
+
+                if (cycleOutputs.txPdos &&
+                    configPtr_->drives[i].type == merai::DriveType::Servo)
+                {
+                    auto* servo = static_cast<ServoDrive*>(drive.get());
+                    cycleOutputs.txPdos[i] = servo->txPdo();
                 }
             }
 
-            if (!checkDomainState())
-            {
-                break;
-            }
-            if (!checkMasterState())
-            {
-                break;
-            }
+            (void)checkDomainState();
+            (void)checkMasterState();
 
             // PHASE 5: Clear unused Tx slots to avoid stale data
-            for (int i = driveCount; i < merai::MAX_SERVO_DRIVES; ++i)
+            for (int i = driveCount; i < static_cast<int>(merai::MAX_SERVO_DRIVES); ++i)
             {
                 txBuf[i] = merai::ServoTxPdo{};
             }
 
-            // Publish the freshly written servo Tx data for the consumer
+            // Publish the freshly written servo Tx data for consumers (control, etc.)
             merai::publish(rtLayout_->servoTxBuffer, servoTxBackIdx);
 
             // PHASE 6: Write outputs for all drives (commands -> EtherCAT)
             for (int i = 0; i < driveCount; ++i)
             {
-                auto &drive = drives_[i];
-                if (drive)
+                auto& drive = drives_[i];
+                if (!drive)
                 {
-                    const auto &rxPdo = cycleInputs.rxPdos[i];
-                    static_cast<ServoDrive *>(drive.get())->writeOutputs(domainPd_, rxPdo);
+                    continue;
+                }
+
+                const auto& rxPdo = cycleInputs.rxPdos[i];
+
+                if (configPtr_->drives[i].type == merai::DriveType::Servo)
+                {
+                    auto* servo = static_cast<ServoDrive*>(drive.get());
+                    servo->writeOutputs(domainPd_, rxPdo);
+                }
+                else
+                {
+                    // IoDrive or other: uses its own writeOutputs variant
+                    drive->writeOutputs(domainPd_);
                 }
             }
 
             // Queue the domain
             if (ecrt_domain_queue(domain_) < 0)
             {
+                merai::log_error(loggerMem_, "Fieldbus", 212,
+                                 "ecrt_domain_queue failed");
                 break;
             }
+
             // Send master data
             if (ecrt_master_send(master_) < 0)
             {
+                merai::log_error(loggerMem_, "Fieldbus", 213,
+                                 "ecrt_master_send failed");
                 break;
             }
 
@@ -280,41 +340,42 @@ namespace fieldbus
 
     bool EthercatMaster::checkDomainState()
     {
-        ec_domain_state_t ds;
+        ec_domain_state_t ds{};
         ecrt_domain_state(domain_, &ds);
-
         domainState_ = ds;
-        return true; // Minimal approach
+        // You can add state-change logging later if needed.
+        return true;
     }
 
     bool EthercatMaster::checkMasterState()
     {
-        ec_master_state_t ms;
+        ec_master_state_t ms{};
         ecrt_master_state(master_, &ms);
-
         masterState_ = ms;
         return true;
     }
 
-    void EthercatMaster::inc_period(period_info *pinfo)
+    void EthercatMaster::inc_period(period_info* pinfo)
     {
         pinfo->next_period.tv_nsec += pinfo->period_ns;
-        while (pinfo->next_period.tv_nsec >= 1000000000)
+        while (pinfo->next_period.tv_nsec >= 1000000000L)
         {
             pinfo->next_period.tv_sec++;
-            pinfo->next_period.tv_nsec -= 1000000000;
+            pinfo->next_period.tv_nsec -= 1000000000L;
         }
     }
 
-    void EthercatMaster::periodic_task_init(period_info *pinfo, long period_ns)
+    void EthercatMaster::periodic_task_init(period_info* pinfo, long period_ns)
     {
         pinfo->period_ns = period_ns;
         clock_gettime(CLOCK_MONOTONIC, &pinfo->next_period);
     }
 
-    void EthercatMaster::wait_rest_of_period(period_info *pinfo)
+    void EthercatMaster::wait_rest_of_period(period_info* pinfo)
     {
         inc_period(pinfo);
-        clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &pinfo->next_period, nullptr);
+        clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME,
+                        &pinfo->next_period, nullptr);
     }
+
 } // namespace fieldbus

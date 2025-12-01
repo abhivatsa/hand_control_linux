@@ -23,7 +23,7 @@ namespace
         bool init() override
         {
             initCount++;
-            state_ = control::ControllerState::INIT;
+            state_ = control::ControllerState::STOPPED;
             return true;
         }
 
@@ -97,10 +97,6 @@ int main()
         return 1;
     }
 
-    control::ControllerManager::ModeCompatibilityPolicy policy{};
-    policy.allowedModes = {8};
-    mgr.setModeCompatibilityPolicy(policy);
-
     if (!mgr.init())
     {
         return 1;
@@ -145,37 +141,19 @@ int main()
         return 1;
     }
 
-    ControllerCommand incompatible{};
-    incompatible.requestSwitch = true;
-    incompatible.controllerId = ControllerID::HOMING;
-    in.ctrlCmd = incompatible;
+    ControllerCommand failingSwitch{};
+    failingSwitch.requestSwitch = true;
+    failingSwitch.controllerId = ControllerID::HOMING;
+    in.ctrlCmd = failingSwitch;
     in.timestamp = std::chrono::steady_clock::now();
     mgr.update(in, out);
     feedbackOut = out.ctrlFbk;
     if (feedbackOut.switchResult != ControllerSwitchResult::FAILED ||
-        feedbackOut.activeControllerId != ControllerID::GRAVITY_COMP)
+        feedbackOut.activeControllerId != ControllerID::NONE)
     {
         return 1;
     }
-    if (okController->stopCount != 0)
-    {
-        return 1;
-    }
-
-    control::ControllerManager::ModeCompatibilityPolicy relaxedPolicy{};
-    relaxedPolicy.allowedModes = {8, 10};
-    mgr.setModeCompatibilityPolicy(relaxedPolicy);
-
-    ControllerCommand failing{};
-    failing.requestSwitch = true;
-    failing.controllerId = ControllerID::HOMING;
-    in.ctrlCmd = failing;
-    in.timestamp = std::chrono::steady_clock::now();
-    mgr.update(in, out);
-    feedbackOut = out.ctrlFbk;
-    if (feedbackOut.switchResult != ControllerSwitchResult::FAILED ||
-        feedbackOut.activeControllerId != ControllerID::NONE ||
-        okController->stopCount != 1)
+    if (okController->stopCount == 0)
     {
         return 1;
     }

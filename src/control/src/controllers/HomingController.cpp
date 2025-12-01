@@ -37,8 +37,8 @@ namespace control
             return false;
         }
 
-        // For now, just set state to INIT
-        state_ = ControllerState::INIT;
+        // For now, just set state to STOPPED (ready to start)
+        state_ = ControllerState::STOPPED;
         return true;
     }
 
@@ -49,7 +49,7 @@ namespace control
         // Only proceed if we were INIT or STOPPED
 
         merai::log_info(loggerMem_, "Control", 2400, "[HomingController] start");
-        if (state_ == ControllerState::INIT || state_ == ControllerState::STOPPED)
+        if (state_ == ControllerState::STOPPED || state_ == ControllerState::INACTIVE)
         {
             state_ = ControllerState::RUNNING;
             segmentTime_ = 0.0;
@@ -207,7 +207,7 @@ namespace control
     void HomingController::teardown()
     {
         // Cleanup if needed
-        state_ = ControllerState::UNINIT;
+        state_ = ControllerState::INACTIVE;
     }
 
     void HomingController::planTrajectory(const double *currentPos)

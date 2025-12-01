@@ -7,41 +7,40 @@ namespace merai
     // ===========================================
     // AppState
     // ===========================================
-    enum class AppState : int
+    // int32 is explicit but maps cleanly to 'int' on x86.
+    enum class AppState : std::int32_t
     {
-        INIT = 0, ///< System is initializing
-        HOMING,   ///< System is homing or calibrating
-        ACTIVE,   ///< System is fully active / in run mode
-        FAULT     ///< System is in an unrecoverable/severe fault
+        INIT = 0,  ///< System is initializing
+        HOMING,    ///< System is homing or calibrating
+        ACTIVE,    ///< System is fully active / in run mode
+        FAULT      ///< System is in an unrecoverable/severe fault
     };
 
     // ===========================================
     // UserMode
     // ===========================================
-    enum class UserMode : int
+    enum class UserMode : std::int32_t
     {
         HOMING = 0,
         TELEOP,
         FAULT_RESET
-        // Add more if needed...
     };
 
     // ===========================================
     // Controller-Related Enums
     // ===========================================
-    enum class ControllerID : int
+    enum class ControllerID : std::int32_t
     {
         NONE = 0,
         HOMING,
         GRAVITY_COMP,
         E_STOP
-        // Extend as needed...
     };
 
     // ===========================================
     // Drive Command (one at a time)
     // ===========================================
-    enum class DriveCommand : uint8_t
+    enum class DriveCommand : std::uint8_t
     {
         NONE = 0,
         FAULT_RESET,
@@ -53,7 +52,7 @@ namespace merai
     // ===========================================
     // Drive Status (one exclusive state)
     // ===========================================
-    enum class DriveStatus : uint8_t
+    enum class DriveStatus : std::uint8_t
     {
         NOT_READY_TO_SWITCH_ON = 0,
         READY_TO_SWITCH_ON,
@@ -67,7 +66,7 @@ namespace merai
     // ===========================================
     // Controller Feedback State
     // ===========================================
-    enum class ControllerFeedbackState : uint8_t
+    enum class ControllerFeedbackState : std::uint8_t
     {
         IDLE = 0,
         SWITCH_IN_PROGRESS,
@@ -75,7 +74,7 @@ namespace merai
         SWITCH_FAILED
     };
 
-    enum class ControllerSwitchResult : uint8_t
+    enum class ControllerSwitchResult : std::uint8_t
     {
         IDLE = 0,
         IN_PROGRESS,
@@ -83,21 +82,21 @@ namespace merai
         FAILED
     };
 
-    enum class DriveType : uint8_t
+    enum class DriveType : std::uint8_t
     {
         Unknown = 0,
         Servo,
         Io
     };
 
-    enum class SyncType : uint8_t
+    enum class SyncType : std::uint8_t
     {
         Unknown = 0,
         RxPdo,
         TxPdo
     };
 
-    enum class PdoDataType : uint8_t
+    enum class PdoDataType : std::uint8_t
     {
         Unknown = 0,
         Int8,

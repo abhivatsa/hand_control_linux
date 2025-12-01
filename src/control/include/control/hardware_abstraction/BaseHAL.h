@@ -1,119 +1,54 @@
 #pragma once
 
-#include <cstddef>  // for size_t
+#include <cstddef>
 #include <span>
-#include "merai/RTMemoryLayout.h" // For definitions like JointControlCommand, JointMotionCommand, etc.
 
-    namespace control
+#include "merai/RTMemoryLayout.h"
+
+namespace control
+{
+    /**
+     * @brief The BaseHAL interface defines the contract for
+     *        initializing, reading, and writing hardware (or simulation).
+     *
+     * Provides pointer-based and span-based accessors for:
+     *   - JointControlCommand / JointControlFeedback
+     *   - JointMotionCommand  / JointMotionFeedback
+     *   - JointCommandIO      / JointFeedbackIO
+     */
+    class BaseHAL
     {
-        /**
-         * @brief The BaseHAL interface defines the essential contract
-         *        for initializing, reading from, and writing commands to hardware (or simulated hardware).
-         *
-         * In the new architecture, we have separate data structures for:
-         *   - Control-level commands/feedback: JointControlCommand / JointControlFeedback
-         *   - Motion-level commands/feedback:  JointMotionCommand / JointMotionFeedback
-         *   - IO-level commands/feedback:      JointCommandIO / JointFeedbackIO
-         *
-         * Each derived HAL (RealHAL, SimHAL) will provide pointers to these arrays,
-         * which the rest of the system can use for reading/writing data in real-time.
-         */
-        class BaseHAL
-        {
-        public:
-            virtual ~BaseHAL() = default;
+    public:
+        virtual ~BaseHAL() = default;
 
-            // --------------------------------------------------
-            // Lifecycle
-            // --------------------------------------------------
+        // Lifecycle
+        virtual bool init()  = 0;
+        virtual bool read()  = 0;
+        virtual bool write() = 0;
 
-            /**
-             * @brief Initialize the hardware or simulation layer.
-             * @return True on success, false on error.
-             */
-            virtual bool init() = 0;
+        // Pointer accessors (legacy / direct access)
+        virtual merai::JointControlCommand  *getJointControlCommandPtr()   = 0;
+        virtual merai::JointControlFeedback *getJointControlFeedbackPtr()  = 0;
 
-            /**
-             * @brief Read fresh data from hardware or simulation into local buffers.
-             * @return True on success, false on error.
-             */
-            virtual bool read() = 0;
+        virtual merai::JointMotionCommand   *getJointMotionCommandPtr()    = 0;
+        virtual merai::JointMotionFeedback  *getJointMotionFeedbackPtr()   = 0;
 
-            /**
-             * @brief Write the current joint commands (control or motion) out to hardware or simulation.
-             * @return True on success, false on error.
-             */
-            virtual bool write() = 0;
+        virtual merai::JointFeedbackIO      *getJointFeedbackIOPtr()       = 0;
+        virtual merai::JointCommandIO       *getJointCommandIOPtr()        = 0;
 
-            // --------------------------------------------------
-            // Joint Control (CiA-402) Access
-            // --------------------------------------------------
+        // Metadata
+        virtual std::size_t getDriveCount() const = 0;
 
-            /**
-             * @brief Provides access to the array of JointControlCommand (controlWord, etc.)
-             * @return Pointer to the first element of an array sized getDriveCount().
-             */
-            virtual merai::JointControlCommand* getJointControlCommandPtr() = 0;
+        // Span-based accessors for pipeline
+        virtual std::span<const merai::JointControlFeedback> jointControlFeedback() const = 0;
+        virtual std::span<const merai::JointMotionFeedback>  jointMotionFeedback()  const = 0;
+        virtual std::span<const merai::JointFeedbackIO>      jointIOFeedback()      const = 0;
 
-            /**
-             * @brief Provides access to the array of JointControlFeedback (statusWord, etc.)
-             * @return Pointer to the first element of an array sized getDriveCount().
-             */
-            virtual merai::JointControlFeedback* getJointControlFeedbackPtr() = 0;
+        virtual std::span<merai::JointControlCommand> jointControlCommand() = 0;
+        virtual std::span<merai::JointMotionCommand>  jointMotionCommand()  = 0;
 
-            // --------------------------------------------------
-            // Joint Motion Access
-            // --------------------------------------------------
+        // Publish joint feedback into RT SHM
+        virtual bool publishJointFeedbackToShm() = 0;
+    };
 
-            /**
-             * @brief Provides access to the array of JointMotionCommand (position, torque, mode).
-             * @return Pointer to the first element of an array sized getDriveCount().
-             */
-            virtual merai::JointMotionCommand* getJointMotionCommandPtr() = 0;
-
-            /**
-             * @brief Provides access to the array of JointMotionFeedback (positionActual, velocityActual, torqueActual).
-             * @return Pointer to the first element of an array sized getDriveCount().
-             */
-            virtual merai::JointMotionFeedback* getJointMotionFeedbackPtr() = 0;
-
-            // --------------------------------------------------
-            // Joint IO Access (optional)
-            // --------------------------------------------------
-
-            /**
-             * @brief Accessor for the array of JointFeedbackIO (digital/analog inputs, etc.).
-             * @return Pointer to an array sized getDriveCount(), or nullptr if not used.
-             */
-            virtual merai::JointFeedbackIO* getJointFeedbackIOPtr() = 0;
-
-            /**
-             * @brief Accessor for the array of JointCommandIO (digital/analog outputs, etc.).
-             * @return Pointer to an array sized getDriveCount(), or nullptr if not used.
-             */
-            virtual merai::JointCommandIO* getJointCommandIOPtr() = 0;
-
-            // --------------------------------------------------
-            // Metadata
-            // --------------------------------------------------
-
-            /**
-             * @brief Returns the number of drives (or joints) this hardware layer manages.
-             * @return The drive/joint count.
-             */
-            virtual size_t getDriveCount() const = 0;
-
-            // --------------------------------------------------
-            // Span-based accessors for pipeline
-            // --------------------------------------------------
-            virtual std::span<const merai::JointControlFeedback> jointControlFeedback() const = 0;
-            virtual std::span<const merai::JointMotionFeedback> jointMotionFeedback() const = 0;
-            virtual std::span<const merai::JointFeedbackIO> jointIOFeedback() const = 0;
-
-            virtual std::span<merai::JointControlCommand> jointControlCommand() = 0;
-            virtual std::span<merai::JointMotionCommand> jointMotionCommand() = 0;
-
-            virtual bool publishJointFeedbackToShm() = 0;
-        };
-
-    } // namespace control
+} // namespace control
