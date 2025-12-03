@@ -1,196 +1,148 @@
 #include "logic/SafetyManager.h"
-#include <cmath> // for std::fabs
+
+#include <array>
+#include <cmath> // std::fabs
 #include "merai/RTIpc.h"
 
-    namespace logic
+namespace logic
+{
+    SafetyManager::SafetyManager(const merai::ParameterServer *paramServerPtr,
+                                 merai::RTMemoryLayout *rtLayout,
+                                 const robot_lib::RobotModel &model)
+        : paramServerPtr_(paramServerPtr), rtLayout_(rtLayout), model_(model)
     {
-        SafetyManager::SafetyManager(const merai::ParameterServer* paramServerPtr,
-                                     merai::RTMemoryLayout*        rtLayout,
-                                     const robot_lib::RobotModel&  model)
-            : paramServerPtr_(paramServerPtr),
-              rtLayout_(rtLayout),
-              model_(model)
+        // No dynamic allocations, no strings.
+    }
+
+    bool SafetyManager::init()
+    {
+        if (!paramServerPtr_)
         {
-            // No dynamic memory or std::string usage in RT
+            return false;
         }
 
-        bool SafetyManager::init()
+        // Clamp drive/joint count to MAX_JOINTS.
+        driveCount_ = paramServerPtr_->driveCount;
+        if (driveCount_ > MAX_JOINTS)
         {
-            if (!paramServerPtr_)
-            {
-                // Possibly log an error or handle differently in RT
-                return false;
-            }
-
-            // 1) read driveCount (or jointCount) from paramServer
-            driveCount_ = paramServerPtr_->driveCount;
-            if (driveCount_ > MAX_JOINTS)
-            {
-                driveCount_ = MAX_JOINTS;
-            }
-
-            // 2) read joint min/max from paramServer
-            for (std::size_t i = 0; i < driveCount_; ++i)
-            {
-                // Assume paramServer->joints[i] has fields: joint_limit_min, joint_limit_max
-                jointMin_[i] = paramServerPtr_->joints[i].limits.position.min; 
-                jointMax_[i] = paramServerPtr_->joints[i].limits.position.max;
-            }
-            // For any unused joints
-            for (std::size_t i = driveCount_; i < MAX_JOINTS; ++i)
-            {
-                jointMin_[i] = -3.14;  // or your default
-                jointMax_[i] =  3.14;  // or your default
-            }
-
-            // If needed, read torque limits or other thresholds from paramServer
-            // e.g., paramServerPtr_->joints[i].max_torque
-
-            faulted_ = false;
-            return true;
+            driveCount_ = MAX_JOINTS;
         }
 
-        bool SafetyManager::update(const merai::DriveFeedbackData& driveFdbk,
-                                   const merai::UserCommands&      userCmds,
-                                   const merai::ControllerFeedback& ctrlFdbk)
+        // Load joint limits from ParameterServer.
+        for (std::size_t i = 0; i < driveCount_; ++i)
         {
-            // If already faulted, see if user wants to reset
-            if (faulted_)
-            {
-                if (userCmds.resetFault)
-                {
-                    clearFault(); 
-                }
-            }
+            jointMin_[i] = paramServerPtr_->joints[i].limits.position.min;
+            jointMax_[i] = paramServerPtr_->joints[i].limits.position.max;
+        }
+        // Fill any unused entries with a sane default range.
+        for (std::size_t i = driveCount_; i < MAX_JOINTS; ++i)
+        {
+            jointMin_[i] = -3.14;
+            jointMax_[i] = 3.14;
+        }
 
-            // If still not cleared, skip new checks or continue
-            if (!faulted_)
-            {
-                // (1) Check if eStop is active => immediate fault
-                if (userCmds.eStop)
-                {
-                    forceFault();
-                }
+        faulted_ = false;
+        return true;
+    }
 
-                // (2) Check drive feedback statuses
-                //     If driveFdbk.status[i] == DriveStatus::FAULT => forceFault()
+    bool SafetyManager::update(const DriveFeedbackData &driveFdbk,
+                               const UserCommands &userCmds,
+                               const ControllerFeedback &ctrlFdbk)
+    {
+        if (faulted_)
+        {
+            if (userCmds.resetFault && !userCmds.eStop)
+            {
+                bool anyFault = false;
                 for (std::size_t i = 0; i < driveCount_; ++i)
                 {
-                    if (driveFdbk.status[i] == merai::DriveStatus::FAULT)
+                    if (driveFdbk.status[i] == DriveStatus::FAULT)
                     {
-                        forceFault();
+                        anyFault = true;
                         break;
                     }
                 }
 
-                // // (3) Possibly check if ctrlFdbk indicates an error
-                // // If you have an enum like ControllerFeedbackState::ERROR or FAILED
-                // if (ctrlFdbk.feedbackState == merai::ControllerFeedbackState::ERROR)
-                // {
-                //     forceFault();
-                // }
-
-                // // (4) Check joint limits
-                // checkJointLimits();
-
-                // // (5) Check torque or advanced kinematics if needed
-                // checkTorqueOrKinematicLimits();
-            }
-
-            return faulted_;
-        }
-
-        bool SafetyManager::isFaulted() const
-        {
-            return faulted_;
-        }
-
-        bool SafetyManager::isHomingCompleted(){
-            if (!rtLayout_)
-            {
-                return false;
-            }
-            double homing_pos[7] = {0, 0, 0, 0, 0, 0, 0};
-
-            std::array<merai::JointFeedbackData,
-                       merai::MAX_SERVO_DRIVES> jointFeedback{};
-            merai::read_snapshot(rtLayout_->jointFeedbackBuffer, jointFeedback);
-
-            for (std::size_t i = 0; i < driveCount_; ++i)
-            {
-                double pos = jointFeedback[i].motion.positionActual;
-                if (fabs(homing_pos[i] - pos) > 0.001){
-                    return false;
+                if (!anyFault)
+                {
+                    clearFault();
                 }
             }
-
-            return true;
         }
 
-        void SafetyManager::forceFault()
+        if (!faulted_)
         {
-            faulted_ = true;
-        }
-
-        void SafetyManager::clearFault()
-        {
-            // Optionally ensure we are safe to re-enable
-            faulted_ = false;
-        }
-
-        void SafetyManager::checkJointLimits()
-        {
-            if (!rtLayout_)
+            if (userCmds.eStop)
             {
-                return;
+                forceFault();
             }
-            std::array<merai::JointFeedbackData,
-                       merai::MAX_SERVO_DRIVES> jointFeedback{};
-            merai::read_snapshot(rtLayout_->jointFeedbackBuffer,
-                                 jointFeedback);
 
             for (std::size_t i = 0; i < driveCount_; ++i)
             {
-                double pos = jointFeedback[i].motion.positionActual;
-                if (pos < jointMin_[i] || pos > jointMax_[i])
+                if (driveFdbk.status[i] == DriveStatus::FAULT)
                 {
                     forceFault();
                     break;
                 }
             }
+
+            // optional: checkJointLimits(); checkTorqueOrKinematicLimits();
         }
 
-        void SafetyManager::checkTorqueOrKinematicLimits()
+        return faulted_;
+    }
+    s
+
+        void
+        SafetyManager::checkJointLimits()
+    {
+        if (!rtLayout_)
         {
-            if (!rtLayout_)
-            {
-                return;
-            }
-
-            // For example, read joint states to see if torque > threshold
-            int activeIdx = rtLayout_->jointFeedbackBuffer.activeIndex.load(std::memory_order_acquire);
-            auto &jointFeedback = rtLayout_->jointFeedbackBuffer.buffer[activeIdx];
-
-            for (int i = 0; i < driveCount_; i++)
-            {
-                
-            }
-
-            // Example torque check if paramServer has max torque
-            /*
-            for (std::size_t i = 0; i < driveCount_; ++i)
-            {
-                double actualTorque = jointStates[i].torque;
-                double maxTorque    = paramServerPtr_->joints[i].max_torque;
-                if (std::fabs(actualTorque) > maxTorque)
-                {
-                    forceFault();
-                    break;
-                }
-            }
-            */
-
-            // Or do advanced kinematic checks with kinematics_ or dynamics_, etc.
+            return;
         }
 
-    } // namespace logic
+        std::array<merai::JointFeedbackData, merai::MAX_SERVO_DRIVES> jointFeedback{};
+        merai::read_snapshot(rtLayout_->jointFeedbackBuffer, jointFeedback);
+
+        for (std::size_t i = 0; i < driveCount_; ++i)
+        {
+            double pos = jointFeedback[i].motion.positionActual;
+            if (pos < jointMin_[i] || pos > jointMax_[i])
+            {
+                forceFault();
+                break;
+            }
+        }
+    }
+
+    void SafetyManager::checkTorqueOrKinematicLimits()
+    {
+        if (!rtLayout_)
+        {
+            return;
+        }
+
+        // Placeholder for future advanced checks:
+        //  - torque > limit
+        //  - kinematic singularities
+        //  - dynamics-based checks using `model_`
+        //
+        // Example skeleton:
+        //
+        // int activeIdx =
+        //     rtLayout_->jointFeedbackBuffer.activeIndex.load(std::memory_order_acquire);
+        // const auto& jointFeedback = rtLayout_->jointFeedbackBuffer.buffer[activeIdx];
+        //
+        // for (std::size_t i = 0; i < driveCount_; ++i)
+        // {
+        //     double tau = jointFeedback[i].motion.torqueActual;
+        //     double maxTau = paramServerPtr_->joints[i].limits.torque.max; // if available
+        //     if (std::fabs(tau) > maxTau)
+        //     {
+        //         forceFault();
+        //         break;
+        //     }
+        // }
+    }
+
+} // namespace logic

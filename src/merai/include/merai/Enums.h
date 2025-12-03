@@ -5,36 +5,38 @@
 namespace merai
 {
     // ===========================================
-    // AppState
+    // AppState (high-level robot state)
     // ===========================================
-    // int32 is explicit but maps cleanly to 'int' on x86.
-    enum class AppState : std::int32_t
+    enum class AppState : int
     {
-        INIT = 0,  ///< System is initializing
-        HOMING,    ///< System is homing or calibrating
-        ACTIVE,    ///< System is fully active / in run mode
-        FAULT      ///< System is in an unrecoverable/severe fault
+        INIT = 0,   ///< Starting up: SHM OK, drives/controllers not ready
+        READY,      ///< Drives OK, no motion running (gravity comp / jog allowed)
+        ACTIVE,     ///< Some motion is running (trajectory or jog)
+        FAULT,      ///< Fault latched (drive or controller)
+        ESTOP       ///< Hardware or software e-stop asserted
     };
 
     // ===========================================
-    // UserMode
+    // UserMode (GUI / user intent, optional)
     // ===========================================
-    enum class UserMode : std::int32_t
+    enum class UserMode : int
     {
         HOMING = 0,
         TELEOP,
         FAULT_RESET
+        // Extend / rename as needed when we finalize GUI commands…
     };
 
     // ===========================================
     // Controller-Related Enums
     // ===========================================
-    enum class ControllerID : std::int32_t
+    enum class ControllerID : int
     {
         NONE = 0,
-        HOMING,
         GRAVITY_COMP,
-        E_STOP
+        E_STOP,
+        JOINT_TRAJECTORY,  ///< Plays a pre-planned joint trajectory
+        JOINT_JOG          ///< Joint jog controller
     };
 
     // ===========================================
@@ -82,6 +84,9 @@ namespace merai
         FAILED
     };
 
+    // ===========================================
+    // Drive / EtherCAT config enums
+    // ===========================================
     enum class DriveType : std::uint8_t
     {
         Unknown = 0,
@@ -104,6 +109,30 @@ namespace merai
         Int32,
         UInt16,
         UInt32
+    };
+
+    // ===========================================
+    // Planner-related enums
+    // ===========================================
+
+    /// What kind of job the planner should run.
+    enum class PlannerJobType : std::uint32_t
+    {
+        NONE = 0,
+        JOINT_TRAJECTORY = 1,
+        // CARTESIAN_TRAJECTORY = 2, // future
+        // IK_SOLVE            = 3, // future
+    };
+
+    /// Lifecycle of a planner job.
+    enum class PlannerJobStatus : std::uint32_t
+    {
+        IDLE = 0,
+        PENDING = 1,
+        RUNNING = 2,
+        DONE = 3,
+        FAILED = 4,
+        REJECTED = 5,
     };
 
 } // namespace merai

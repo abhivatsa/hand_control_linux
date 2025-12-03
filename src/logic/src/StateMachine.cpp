@@ -1,200 +1,277 @@
 #include "logic/StateMachine.h"
 
-    namespace logic
+namespace logic
+{
+    using merai::AppState;
+    using merai::ControllerID;
+    using merai::DriveCommand;
+    using merai::DriveStatus;
+
+    StateMachine::StateMachine(const merai::ParameterServer*    paramServerPtr,
+                               merai::multi_ring_logger_memory* loggerMem)
+        : paramServerPtr_(paramServerPtr),
+          loggerMem_(loggerMem)
     {
-        StateMachine::StateMachine(const merai::ParameterServer *paramServerPtr,
-                                   merai::multi_ring_logger_memory* loggerMem)
-            : paramServerPtr_(paramServerPtr),
-              loggerMem_(loggerMem)
+    }
+
+    bool StateMachine::init()
+    {
+        if (!paramServerPtr_)
         {
+            return false;
         }
 
-        bool StateMachine::init()
+        // Number of drives from config, capped by MAX_JOINTS (7-DOF arm)
+        driveCount_ = static_cast<std::size_t>(paramServerPtr_->driveCount);
+        if (driveCount_ > MAX_JOINTS)
         {
-            if (!paramServerPtr_)
-            {
-                // Possibly log an error or handle differently in RT
-                return false;
-            }
-
-            // 1) read driveCount (or jointCount) from paramServer
-            driveCount_ = paramServerPtr_->driveCount;
-            if (driveCount_ > MAX_JOINTS)
-            {
-                driveCount_ = MAX_JOINTS;
-            }
-
-            currentState_ = merai::AppState::INIT;
-            return true;
+            driveCount_ = MAX_JOINTS;
         }
 
-        StateManagerOutput StateMachine::update(bool faultActive, bool isHomingCompleted,
-                                                const merai::DriveFeedbackData &driveFdbk,
-                                                const merai::UserCommands &userCmds,
-                                                const merai::ControllerFeedback &ctrlFdbk)
+        currentState_ = AppState::INIT;
+        driveCmd_.commands.fill(DriveCommand::NONE);
+        ctrlCmd_ = merai::ControllerCommand{};
+
+        return true;
+    }
+
+    StateManagerOutput StateMachine::update(bool                            faultActive,
+                                            bool                            trajectoryActive,
+                                            const merai::DriveFeedbackData& driveFdbk,
+                                            const merai::UserCommands&      userCmds,
+                                            const merai::ControllerFeedback& ctrlFdbk)
+    {
+        StateManagerOutput output{};
+
+        // Start each cycle from safe defaults.
+        driveCmd_.commands.fill(DriveCommand::NONE);
+        ctrlCmd_ = merai::ControllerCommand{};
+
+        const bool eStopRequested = userCmds.eStop;
+
+        // Keep a copy to detect state changes for logging.
+        AppState prevState = currentState_;
+
+        // --- Top-level overrides: ESTOP > FAULT > normal --------------------
+        if (eStopRequested)
         {
-            StateManagerOutput output;
-
-            // 1) Handle faults first
-            if (faultActive)
+            if (currentState_ != AppState::ESTOP)
             {
+                merai::log_error(loggerMem_, "Logic", 3001,
+                                 "[StateMachine] ESTOP requested -> entering ESTOP");
+            }
+            currentState_ = AppState::ESTOP;
+        }
+        else if (faultActive && currentState_ != AppState::ESTOP)
+        {
+            if (currentState_ != AppState::FAULT)
+            {
+                merai::log_error(loggerMem_, "Logic", 3002,
+                                 "[StateMachine] Fault detected -> entering FAULT");
+            }
+            currentState_ = AppState::FAULT;
+        }
 
-                currentState_ = merai::AppState::FAULT;
+        // --- State-specific logic -------------------------------------------
+        switch (currentState_)
+        {
+        // --------------------------------------------------------------------
+        case AppState::INIT:
+        {
+            // Bring drives from various CiA-402 states up to OPERATION_ENABLED.
+            bool allOpEnabled = true;
 
-                for (int i = 0; i < driveCount_; i++)
+            for (std::size_t i = 0; i < driveCount_; ++i)
+            {
+                const auto status = driveFdbk.status[i];
+
+                switch (status)
                 {
-                    driveCmd_.commands[i] = merai::DriveCommand::FORCE_DISABLE;
-                }
+                case DriveStatus::FAULT:
+                    // Try to clear fault first.
+                    driveCmd_.commands[i] = DriveCommand::FAULT_RESET;
+                    allOpEnabled = false;
+                    break;
 
+                case DriveStatus::NOT_READY_TO_SWITCH_ON:
+                case DriveStatus::SWITCH_ON_DISABLED:
+                case DriveStatus::READY_TO_SWITCH_ON:
+                    // Ask DriveStateManager to move up the CiA-402 ladder.
+                    driveCmd_.commands[i] = DriveCommand::SWITCH_ON;
+                    allOpEnabled = false;
+                    break;
+
+                case DriveStatus::SWITCHED_ON:
+                    // Next step toward operation enabled.
+                    driveCmd_.commands[i] = DriveCommand::ALLOW_OPERATION;
+                    allOpEnabled = false;
+                    break;
+
+                case DriveStatus::OPERATION_ENABLED:
+                    // Good, do nothing for this joint.
+                    break;
+
+                default:
+                    // Unknown / unexpected → keep disabled.
+                    driveCmd_.commands[i] = DriveCommand::FORCE_DISABLE;
+                    allOpEnabled = false;
+                    break;
+                }
+            }
+
+            // Once everything is operation enabled, move to READY
+            // and ask Control to switch to GRAVITY_COMP as the default
+            // holding controller.
+            if (allOpEnabled && !faultActive && !eStopRequested)
+            {
+                currentState_ = AppState::READY;
                 ctrlCmd_.requestSwitch = true;
-                ctrlCmd_.controllerId = merai::ControllerID::E_STOP;
-
-                state_transistion = true;
-
-                merai::log_error(loggerMem_, "Logic", 3000, "[StateMachine] Entering FAULT (unrecoverable)");
+                ctrlCmd_.controllerId  = ControllerID::GRAVITY_COMP;
             }
+            break;
+        }
 
-            // 2) State transitions based on current state and homing status
-            switch (currentState_)
+        // --------------------------------------------------------------------
+        case AppState::READY:
+        {
+            // Drives are OK and no motion is running.
+            // Default controller: GRAVITY_COMP (safe zero-motion posture).
+            if (trajectoryActive && !faultActive && !eStopRequested)
             {
-            case merai::AppState::INIT:
+                // A trajectory/jog just started -> go ACTIVE.
+                currentState_ = AppState::ACTIVE;
+                // We assume controller switch to JOINT_TRAJECTORY / JOINT_JOG
+                // is triggered elsewhere (e.g. by a planner orchestration).
+                // No extra ctrlCmd_ here.
+            }
+            else
+            {
+                // Keep or restore GRAVITY_COMP as holding controller.
+                ctrlCmd_.requestSwitch = true;
+                ctrlCmd_.controllerId  = ControllerID::GRAVITY_COMP;
+            }
+            break;
+        }
 
-                // Checking state of all Drive to Determine if any drive is not in Operation Enabled
-                all_drive_operation_enable = true;
-                all_drives_switched_on = true;
+        // --------------------------------------------------------------------
+        case AppState::ACTIVE:
+        {
+            // ACTIVE is meant for "motion running" (trajectory or jog).
+            // If trajectoryActive drops, we go back to READY and gravity comp.
+            if (!trajectoryActive || faultActive || eStopRequested)
+            {
+                // Motion finished/aborted, or we must stop due to fault/eStop.
+                currentState_ = AppState::READY;
 
-                for (int i = 0; i < driveCount_; i++)
-                {
-
-                    if ((driveFdbk.status[i] != merai::DriveStatus::SWITCHED_ON) && (driveFdbk.status[i] != merai::DriveStatus::OPERATION_ENABLED))
-                    {
-
-                        if ((driveFdbk.status[i] != merai::DriveStatus::SWITCH_ON_DISABLED) && (driveFdbk.status[i] != merai::DriveStatus::READY_TO_SWITCH_ON))
-                        {
-                            driveCmd_.commands[i] = merai::DriveCommand::FORCE_DISABLE;
-                        }
-                        else
-                        {
-                            driveCmd_.commands[i] = merai::DriveCommand::SWITCH_ON;
-                        }
-
-                        all_drives_switched_on = false;
-                    }
-                }
-
-                if (all_drives_switched_on == true)
-                {                    
-                    for (int i = 0; i < driveCount_; i++)
-                    {
-                        if (driveFdbk.status[i] != merai::DriveStatus::OPERATION_ENABLED)
-                        {
-                            driveCmd_.commands[i] = merai::DriveCommand::ALLOW_OPERATION;
-                            all_drive_operation_enable = false;
-                        }
-                    }
-
-                    if (all_drive_operation_enable == true)// && ctrlFdbk.feedbackState != merai::ControllerFeedbackState::SWITCH_COMPLETED)
-                    {
-                        currentState_ = merai::AppState::HOMING;
-                        ctrlCmd_.requestSwitch = true;
-                        ctrlCmd_.controllerId = merai::ControllerID::HOMING;
-                        state_transistion = true;
-                        break;
-                    }
-                }
-
-                if (state_transistion == true)
+                if (!faultActive && !eStopRequested)
                 {
                     ctrlCmd_.requestSwitch = true;
-                    ctrlCmd_.controllerId = merai::ControllerID::NONE;
-                    state_transistion = false;
+                    ctrlCmd_.controllerId  = ControllerID::GRAVITY_COMP;
+                }
+            }
+            else
+            {
+                // Trajectory still running; leave ctrlCmd_ as default
+                // (no new controller switch).
+            }
+            break;
+        }
+
+        // --------------------------------------------------------------------
+        case AppState::FAULT:
+        {
+            // Keep drives safe. Allow exit to INIT once user resets and
+            // all drives are in SWITCH_ON_DISABLED and no faultActive / no eStop.
+            bool allSwitchOnDisabled = true;
+
+            for (std::size_t i = 0; i < driveCount_; ++i)
+            {
+                const auto status = driveFdbk.status[i];
+
+                if (status == DriveStatus::FAULT)
+                {
+                    // Try to clear drive faults when user asks for reset.
+                    if (userCmds.resetFault)
+                    {
+                        driveCmd_.commands[i] = DriveCommand::FAULT_RESET;
+                    }
+                    else
+                    {
+                        driveCmd_.commands[i] = DriveCommand::FORCE_DISABLE;
+                    }
+                    allSwitchOnDisabled = false;
+                }
+                else if (status == DriveStatus::SWITCH_ON_DISABLED)
+                {
+                    // good, leave it
                 }
                 else
                 {
-                    ctrlCmd_.requestSwitch = false;
-                    ctrlCmd_.controllerId = merai::ControllerID::NONE;
+                    // Anything else in FAULT state we force disable.
+                    driveCmd_.commands[i] = DriveCommand::FORCE_DISABLE;
+                    allSwitchOnDisabled   = false;
                 }
-
-                break;
-
-            case merai::AppState::HOMING:
-
-                if (isHomingCompleted)
-                {
-                    ctrlCmd_.requestSwitch = true;
-                    ctrlCmd_.controllerId = merai::ControllerID::GRAVITY_COMP;
-                    state_transistion = true;
-                    currentState_ = merai::AppState::ACTIVE;
-                    break;
-                }
-
-                if (state_transistion == true)
-                {
-                    ctrlCmd_.requestSwitch = true;
-                    ctrlCmd_.controllerId = merai::ControllerID::HOMING;
-                    state_transistion = false;
-                }
-                else{
-                    ctrlCmd_.requestSwitch = false;
-                    ctrlCmd_.controllerId = merai::ControllerID::HOMING;
-                }
-
-                break;
-
-            case merai::AppState::ACTIVE:
-
-                break;
-
-            case merai::AppState::FAULT:
-
-                // Remain in FAULT until the user resets the fault.
-                // if (state_transistion == true)
-                // {
-                //     ctrlCmd_.requestSwitch = true;
-                //     ctrlCmd_.controllerId = merai::ControllerID::E_STOP;
-                //     state_transistion = false;
-
-                //     for (int i = 0; i < driveCount_; i++)
-                //     {
-                //         driveCmd_.commands[i] = merai::DriveCommand::FORCE_DISABLE;
-                //     }
-                // }
-
-                all_drives_switch_on_disabled = true;
-
-                for (int i = 0; i < driveCount_; i++)
-                {
-                    if (driveFdbk.status[i] == merai::DriveStatus::FAULT){
-                        driveCmd_.commands[i] = merai::DriveCommand::FAULT_RESET;
-                        all_drives_switch_on_disabled = false;
-                    }
-                    else if (driveFdbk.status[i] != merai::DriveStatus::SWITCH_ON_DISABLED)
-                    {
-                        driveCmd_.commands[i] = merai::DriveCommand::FORCE_DISABLE;
-                        all_drives_switch_on_disabled = false;
-                    }
-
-                }
-
-                if (all_drives_switch_on_disabled)
-                {
-                    ctrlCmd_.requestSwitch = true;
-                    ctrlCmd_.controllerId = merai::ControllerID::NONE;
-                    currentState_ = merai::AppState::INIT;
-                }
-                break;
-
-            default:
-                break;
             }
 
-            // 3) Set the output app state
-            output.appState = currentState_;
-            // 4) Compute drive and controller commands.
-            //    Replace the default construction with your actual command logic as needed.
-            output.driveCmd = driveCmd_;
-            output.ctrlCmd = ctrlCmd_;
+            // While in FAULT, keep E_STOP controller as a safe fallback.
+            ctrlCmd_.requestSwitch = true;
+            ctrlCmd_.controllerId  = ControllerID::E_STOP;
 
-            return output;
+            // Exit FAULT only if:
+            //  - user requested reset,
+            //  - no faults currently reported,
+            //  - all drives are SWITCH_ON_DISABLED,
+            //  - e-stop not pressed.
+            if (userCmds.resetFault &&
+                !faultActive &&
+                allSwitchOnDisabled &&
+                !eStopRequested)
+            {
+                currentState_ = AppState::INIT;
+            }
+            break;
         }
-    } // namespace logic
+
+        // --------------------------------------------------------------------
+        case AppState::ESTOP:
+        {
+            // Hard stop: force-disable all drives every cycle.
+            for (std::size_t i = 0; i < driveCount_; ++i)
+            {
+                driveCmd_.commands[i] = DriveCommand::FORCE_DISABLE;
+            }
+
+            ctrlCmd_.requestSwitch = true;
+            ctrlCmd_.controllerId  = ControllerID::E_STOP;
+
+            // Only leave ESTOP if:
+            //  - eStop released,
+            //  - user asked to reset,
+            //  - no active fault.
+            if (!eStopRequested && userCmds.resetFault && !faultActive)
+            {
+                currentState_ = AppState::INIT;
+            }
+            break;
+        }
+
+        default:
+            break;
+        }
+
+        // Log state transitions once.
+        if (currentState_ != prevState)
+        {
+            const int code = 3000 + static_cast<int>(currentState_);
+            merai::log_info(loggerMem_, "Logic", code,
+                            "[StateMachine] AppState changed");
+        }
+
+        // Fill output
+        output.appState = currentState_;
+        output.driveCmd = driveCmd_;
+        output.ctrlCmd  = ctrlCmd_;
+        return output;
+    }
+
+} // namespace logic

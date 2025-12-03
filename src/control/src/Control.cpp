@@ -117,6 +117,27 @@ namespace control
             return false;
         }
 
+        // Gravity comp
+auto gravityComp = std::make_shared<GravityCompController>(robotModel_, driveCount_);
+if (!controllerManager_->registerController(merai::ControllerID::GRAVITY_COMP,
+                                            gravityComp,
+                                            /*modeHint*/ 10)) // torque mode
+    return false;
+
+// Joint trajectory
+auto jtCtrl = std::make_shared<JointTrajectoryController>(driveCount_, loggerMem_, rtLayout_);
+if (!controllerManager_->registerController(merai::ControllerID::JOINT_TRAJECTORY,
+                                            jtCtrl,
+                                            /*modeHint*/ 8)) // CSP
+    return false;
+
+// Joint jog
+auto jogCtrl = std::make_shared<JointJogController>(driveCount_, loggerMem_, rtLayout_);
+if (!controllerManager_->registerController(merai::ControllerID::JOINT_JOG,
+                                            jogCtrl,
+                                            /*modeHint*/ 8)) // CSP
+    return false;
+
         // 6) Register controllers (GravityComp, Homing, etc.)
         auto gravityComp = std::make_shared<GravityCompController>(
             robotModel_, driveCount_);
@@ -144,6 +165,13 @@ namespace control
                              "[Control] Failed to register HomingController");
             return false;
         }
+
+        // Fallback: hold position in CSP
+ControllerManager::FallbackPolicy fp{};
+fp.modeOfOperation = 8;
+fp.behavior        = ControllerManager::FallbackPolicy::Behavior::HoldPosition;
+fp.torqueLimit     = 0.0;
+controllerManager_->setFallbackPolicy(fp);
 
         ControllerManager::FallbackPolicy fallbackPolicy{};
         fallbackPolicy.modeOfOperation = 8;

@@ -1,0 +1,14 @@
+
+[Unit]
+Description=Merai Planner Service
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/merai_planner
+Restart=on-failure
+# This is non-RT, but you *can* pin a core if you want:
+# CPUAffinity=3
+
+[Install]
+WantedBy=multi-user.target
